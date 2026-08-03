@@ -1,0 +1,34 @@
+/* 
+  RESET CSS
+  Garante que todos os navegadores comecem do zero, sem margens indesejadas.
+*/
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 
+  VARIÁVEIS CSS (Preparação para os Temas e SaaS)
+  Aqui definimos a paleta de cores padrão do Allure. 
+  Futuramente, nosso Contexto React irá alterar essas variáveis dinamicamente 
+  conforme as configurações de cada salão no banco de dados.
+*/
+:root {
+  --cor-fundo: #fafafa; /* Off-white elegante */
+  --cor-texto: #333333; /* Cinza escuro para leitura confortável, nunca preto puro */
+  --cor-primaria: #d4a373; /* Tom nude/rosé sofisticado */
+  --cor-secundaria: #e9edc9; /* Tom pastel suave para detalhes */
+  --cor-cards: #ffffff; /* Branco puro para destacar os cards na tela */
+  --cor-borda: #e0e0e0; /* Cinza bem claro para separações sutis */
+
+  --raio-borda: 12px; /* Bordas arredondadas e suaves */
+  --sombra-leve: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+body {
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--cor-fundo);
+  color: var(--cor-texto);
+  -webkit-font-smoothing: antialiased; /* Deixa as fontes mais nítidas no Mac/iOS */
+}
