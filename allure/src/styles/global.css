@@ -15,23 +15,17 @@
   conforme as configurações de cada salão no banco de dados.
 */
 :root {
-  /* Fundo ligeiramente mais limpo e gelado para dar contraste com as cores quentes */
-  --cor-fundo: #f4f5f7;
+  /* Fundo alterado: Um tom de rosa bem claro, elegante e "quente" */
+  --cor-fundo: #fcf0f3;
 
-  /* Texto mais escuro para melhor legibilidade */
   --cor-texto: #2d3748;
-
-  /* Um Rosa/Berry vibrante, elegante e com muita presença comercial */
   --cor-primaria: #c74b67;
-
-  /* Um tom de apoio mais suave, mas com vida */
   --cor-secundaria: #fce7eb;
-
   --cor-cards: #ffffff;
   --cor-borda: #e2e8f0;
 
   --raio-borda: 10px;
-  --sombra-leve: 0 4px 12px rgba(0, 0, 0, 0.08); /* Sombra um pouco mais espalhada para dar profundidade */
+  --sombra-leve: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 body {
   font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
