@@ -1,12 +1,9 @@
 import React from "react";
+import { AppRoutes } from "./routes";
 
 function App() {
-  return (
-    <div>
-      <h1>Allure Gestão</h1>
-      <p>Sistema inteligente para salões de beleza.</p>
-    </div>
-  );
+  // A responsabilidade de mostrar conteúdo saiu daqui e foi para o AppRoutes!
+  return <AppRoutes />;
 }
 
 export default App;

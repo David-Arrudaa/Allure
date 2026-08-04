@@ -15,17 +15,24 @@
   conforme as configurações de cada salão no banco de dados.
 */
 :root {
-  --cor-fundo: #fafafa; /* Off-white elegante */
-  --cor-texto: #333333; /* Cinza escuro para leitura confortável, nunca preto puro */
-  --cor-primaria: #d4a373; /* Tom nude/rosé sofisticado */
-  --cor-secundaria: #e9edc9; /* Tom pastel suave para detalhes */
-  --cor-cards: #ffffff; /* Branco puro para destacar os cards na tela */
-  --cor-borda: #e0e0e0; /* Cinza bem claro para separações sutis */
+  /* Fundo ligeiramente mais limpo e gelado para dar contraste com as cores quentes */
+  --cor-fundo: #f4f5f7;
 
-  --raio-borda: 12px; /* Bordas arredondadas e suaves */
-  --sombra-leve: 0 4px 6px rgba(0, 0, 0, 0.05);
+  /* Texto mais escuro para melhor legibilidade */
+  --cor-texto: #2d3748;
+
+  /* Um Rosa/Berry vibrante, elegante e com muita presença comercial */
+  --cor-primaria: #c74b67;
+
+  /* Um tom de apoio mais suave, mas com vida */
+  --cor-secundaria: #fce7eb;
+
+  --cor-cards: #ffffff;
+  --cor-borda: #e2e8f0;
+
+  --raio-borda: 10px;
+  --sombra-leve: 0 4px 12px rgba(0, 0, 0, 0.08); /* Sombra um pouco mais espalhada para dar profundidade */
 }
-
 body {
   font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background-color: var(--cor-fundo);
