@@ -1,10 +1,14 @@
 import React, { useState } from "react";
 import { Plus, Search, Edit2, Trash2, ClipboardList } from "lucide-react";
+import { ModalCliente } from "../components/ModalCliente";
 import "./Clientes.css";
 
 export function Clientes() {
   // Estado para capturar o que for digitado na barra de pesquisa
   const [busca, setBusca] = useState("");
+
+  // Memória para controlar o modal de cliente
+  const [modalAberto, setModalAberto] = useState(false);
 
   // Tabela simulada de Clientes (os mesmos dados que usamos no Modal)
   const clientesMock = [
@@ -49,7 +53,8 @@ export function Clientes() {
           <p>Visualize e gerencie as clientes do salão</p>
         </div>
 
-        <button className="btn-novo">
+        {/* Botão atualizado com a ação de abrir o modal */}
+        <button className="btn-novo" onClick={() => setModalAberto(true)}>
           <Plus size={18} strokeWidth={2.5} />
           Nova Cliente
         </button>
@@ -133,6 +138,12 @@ export function Clientes() {
           </table>
         </div>
       </div>
+
+      {/* Janela Modal controlada pelo estado */}
+      <ModalCliente
+        isOpen={modalAberto}
+        onClose={() => setModalAberto(false)}
+      />
     </div>
   );
 }
