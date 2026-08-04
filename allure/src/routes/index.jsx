@@ -2,13 +2,13 @@ import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Login } from "../pages/Login";
 import { Agenda } from "../pages/Agenda";
+import { Clientes } from "../pages/Clientes"; // <-- IMPORTAÇÃO ADICIONADA AQUI
 import { PrivateRoute } from "./PrivateRoute";
 // IMPORTAÇÃO EXPLÍCITA PARA EVITAR ERROS DO VITE
 import { Layout } from "../components/Layout/index.jsx";
 
-function Clientes() {
-  return <div>Tela de Clientes em construção...</div>;
-}
+// A função Clientes falsa que ficava aqui foi removida!
+
 function Configuracoes() {
   return <div>Tela de Configurações em construção...</div>;
 }
