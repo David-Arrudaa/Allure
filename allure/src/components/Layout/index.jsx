@@ -1,6 +1,7 @@
 import React from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { CalendarDays, Users, Settings, LogOut } from "lucide-react";
+// Adicionamos o ícone Scissors aqui na importação
+import { CalendarDays, Users, Settings, LogOut, Scissors } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import "./Layout.css";
 
@@ -25,6 +26,12 @@ export function Layout() {
           <NavLink to="/clientes" className="nav-item">
             <Users size={20} />
             <span>Clientes</span>
+          </NavLink>
+
+          {/* NOVO MENU DE SERVIÇOS ADICIONADO AQUI */}
+          <NavLink to="/servicos" className="nav-item">
+            <Scissors size={20} />
+            <span>Serviços</span>
           </NavLink>
 
           {profile?.cargo === "admin" && (

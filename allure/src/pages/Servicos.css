@@ -1,0 +1,121 @@
+.servicos-container {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  padding: 1.5rem;
+  height: calc(100vh - 3rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.servicos-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.servicos-info h2 {
+  font-size: 1.5rem;
+  color: var(--cor-texto);
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.servicos-info p {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.servicos-conteudo {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- BARRA DE PESQUISA --- */
+.servicos-filtros {
+  display: flex;
+  margin-bottom: 1.5rem;
+}
+
+.busca-container {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+}
+
+.busca-container svg {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+}
+
+.busca-container input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.8rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: var(--cor-texto);
+  background-color: #f8fafc;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.busca-container input:focus {
+  border-color: var(--cor-primaria);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(199, 75, 103, 0.1);
+}
+
+/* --- TABELA DE SERVIÇOS --- */
+.tabela-container {
+  background-color: #ffffff;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tabela-servicos {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.tabela-servicos th {
+  background-color: #f8fafc;
+  padding: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.tabela-servicos td {
+  padding: 1rem;
+  font-size: 0.95rem;
+  color: var(--cor-texto);
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.tabela-servicos tr:last-child td {
+  border-bottom: none;
+}
+
+.tabela-servicos tr:hover {
+  background-color: #f8fafc;
+}
+
+/* --- BOTÕES DE AÇÃO --- */
+.acoes-tabela {
+  display: flex;
+  gap: 0.5rem;
+}
