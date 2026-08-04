@@ -1,10 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { Plus } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { ModalAgendamento } from "../components/ModalAgendamento";
 import "./Agenda.css";
 
 export function Agenda() {
   const { profile } = useAuth();
+
+  // Memória do React que guarda se o modal está aberto (começa como falso/fechado)
+  const [modalAberto, setModalAberto] = useState(false);
 
   const dataHoje = new Intl.DateTimeFormat("pt-BR", {
     weekday: "long",
@@ -12,7 +16,6 @@ export function Agenda() {
     month: "long",
   }).format(new Date());
 
-  // A nossa "régua" de horários que forçará o grid
   const horariosDoDia = [
     "09:00",
     "10:00",
@@ -28,7 +31,6 @@ export function Agenda() {
     "20:00",
     "21:00",
   ];
-
   const profissionais = [
     {
       id: 1,
@@ -84,7 +86,8 @@ export function Agenda() {
           <p style={{ textTransform: "capitalize" }}>{dataHoje}</p>
         </div>
 
-        <button className="btn-novo">
+        {/* Botão que muda o estado para true e abre o modal */}
+        <button className="btn-novo" onClick={() => setModalAberto(true)}>
           <Plus size={18} strokeWidth={2.5} />
           Novo Agendamento
         </button>
@@ -93,26 +96,21 @@ export function Agenda() {
       <div className="agenda-conteudo">
         {profissionais.map((profissional) => (
           <div key={profissional.id} className="coluna-profissional">
-            {/* O Cabeçalho com o nome fica fixo (sticky) ao rolar para baixo! */}
             <div className="profissional-header">
               <h3>{profissional.nome}</h3>
               <span>{profissional.especialidade}</span>
             </div>
 
             <div className="coluna-body">
-              {/* Aqui a mágica acontece: mapeamos a régua de horários, e não apenas os agendamentos soltos */}
               {horariosDoDia.map((horario) => {
-                // Procura se a profissional tem cliente neste horário específico
                 const agendamento = profissional.agendamentos.find(
                   (a) => a.horario === horario,
                 );
 
                 return (
                   <div key={horario} className="horario-linha">
-                    {/* O horário fixo na lateral esquerda de cada bloco */}
                     <div className="horario-label">{horario}</div>
 
-                    {/* Renderização Condicional */}
                     {agendamento ? (
                       <div className="cartao-agendamento">
                         <div className="cartao-topo">
@@ -141,6 +139,12 @@ export function Agenda() {
           </div>
         ))}
       </div>
+
+      {/* Janela Modal controlada pelo estado modalAberto */}
+      <ModalAgendamento
+        isOpen={modalAberto}
+        onClose={() => setModalAberto(false)}
+      />
     </div>
   );
 }

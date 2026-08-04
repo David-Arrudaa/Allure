@@ -1,0 +1,145 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999; /* Fica por cima de absolutamente tudo */
+}
+
+/* A caixa branca do formulário */
+.modal-box {
+  background-color: #ffffff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 480px;
+  padding: 2rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  animation: modalAparecer 0.3s ease-out;
+}
+
+/* Efeito suave de surgimento */
+@keyframes modalAparecer {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.modal-header h2 {
+  font-size: 1.25rem;
+  color: var(--cor-texto);
+  font-weight: 700;
+}
+
+.btn-fechar {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.btn-fechar:hover {
+  background-color: #f1f5f9;
+  color: #dc2626;
+}
+
+.modal-body {
+  color: #64748b;
+  text-align: center;
+  padding: 2rem 0;
+}
+
+/* --- FORMULÁRIO DO MODAL --- */
+.form-agendamento {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  text-align: left;
+}
+
+.form-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.form-grupo label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--cor-texto);
+}
+
+.form-grupo input,
+.form-grupo select {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: var(--cor-texto);
+  background-color: #f8fafc;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.form-grupo input:focus,
+.form-grupo select:focus {
+  border-color: var(--cor-primaria);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(199, 75, 103, 0.1);
+}
+
+.form-linha-dupla {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+}
+
+.form-linha-dupla .form-grupo {
+  flex: 1;
+  min-width: 0; /* Impede que o input empurre o layout para fora */
+}
+
+.btn-salvar {
+  background: linear-gradient(135deg, var(--cor-primaria) 0%, #a03c53 100%);
+  color: white;
+  border: none;
+  padding: 0.8rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(199, 75, 103, 0.2);
+}
+
+.btn-salvar:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
