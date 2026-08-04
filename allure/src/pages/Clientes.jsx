@@ -1,14 +1,19 @@
 import React, { useState } from "react";
 import { Plus, Search, Edit2, Trash2, ClipboardList } from "lucide-react";
 import { ModalCliente } from "../components/ModalCliente";
+import { ModalHistorico } from "../components/ModalHistorico";
 import "./Clientes.css";
 
 export function Clientes() {
   // Estado para capturar o que for digitado na barra de pesquisa
   const [busca, setBusca] = useState("");
 
-  // Memória para controlar o modal de cliente
+  // Memória para controlar o modal de nova cliente
   const [modalAberto, setModalAberto] = useState(false);
+
+  // Memória para controlar o modal de histórico
+  const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false);
+  const [clienteParaHistorico, setClienteParaHistorico] = useState(null);
 
   // Tabela simulada de Clientes (os mesmos dados que usamos no Modal)
   const clientesMock = [
@@ -53,7 +58,6 @@ export function Clientes() {
           <p>Visualize e gerencie as clientes do salão</p>
         </div>
 
-        {/* Botão atualizado com a ação de abrir o modal */}
         <button className="btn-novo" onClick={() => setModalAberto(true)}>
           <Plus size={18} strokeWidth={2.5} />
           Nova Cliente
@@ -100,6 +104,10 @@ export function Clientes() {
                         <button
                           className="btn-acao historico"
                           title="Ver Histórico"
+                          onClick={() => {
+                            setClienteParaHistorico(cliente);
+                            setModalHistoricoAberto(true);
+                          }}
                         >
                           <ClipboardList size={18} />
                         </button>
@@ -139,10 +147,17 @@ export function Clientes() {
         </div>
       </div>
 
-      {/* Janela Modal controlada pelo estado */}
+      {/* Janela Modal de Nova Cliente */}
       <ModalCliente
         isOpen={modalAberto}
         onClose={() => setModalAberto(false)}
+      />
+
+      {/* Janela Modal de Histórico */}
+      <ModalHistorico
+        isOpen={modalHistoricoAberto}
+        onClose={() => setModalHistoricoAberto(false)}
+        cliente={clienteParaHistorico}
       />
     </div>
   );

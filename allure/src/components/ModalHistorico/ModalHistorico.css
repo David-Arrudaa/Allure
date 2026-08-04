@@ -1,0 +1,70 @@
+.historico-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1rem;
+  max-height: 450px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  padding-left: 0.5rem;
+}
+
+/* Scrollbar customizada para a lista não ficar feia */
+.historico-lista::-webkit-scrollbar {
+  width: 6px;
+}
+.historico-lista::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
+
+.historico-item {
+  position: relative;
+  border-left: 3px solid var(--cor-primaria);
+  padding-left: 1.2rem;
+}
+
+/* Bolinha da linha do tempo */
+.historico-item::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: 0;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background-color: var(--cor-primaria);
+  box-shadow: 0 0 0 3px #fdf2f4;
+}
+
+.historico-data {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.historico-detalhes {
+  background-color: #f8fafc;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--cor-borda);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.historico-detalhes h4 {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 1.05rem;
+}
+
+.historico-detalhes p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #475569;
+}
