@@ -217,3 +217,72 @@
   color: var(--cor-primaria);
   border-color: #fbcfe8;
 }
+/* --- NOVOS ELEMENTOS DO CARD (Agenda.css) --- */
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.cliente-info-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.icone-recorrencia {
+  color: #94a3b8;
+  /* Uma leve animação caso queira dar um charme, opcional */
+}
+
+.card-acoes-topo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.btn-wpp-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #25d366; /* Verde oficial do WhatsApp */
+  color: #ffffff;
+  border-radius: 6px;
+  padding: 4px;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-wpp-card:hover {
+  background-color: #128c7e;
+  transform: scale(1.05);
+}
+
+/* --- BOTÃO DE CHECK/STATUS --- */
+.btn-status-tick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #ffffff;
+}
+
+.btn-status-tick.status-pendente {
+  background-color: #f59e0b; /* Amarelo */
+}
+
+.btn-status-tick.status-confirmado {
+  background-color: #10b981; /* Verde */
+}
+
+.btn-status-tick:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
