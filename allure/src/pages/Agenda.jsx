@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Check, MessageCircle, Trash2 } from "lucide-react"; // <-- Ícone de Lixeira adicionado
+import { Plus, Check, MessageCircle, Trash2 } from "lucide-react";
 import { ModalAgendamento } from "../components/ModalAgendamento";
 import "./Agenda.css";
 
 export function Agenda() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [agendamentoEditando, setAgendamentoEditando] = useState(null);
-  const [agendamentoParaExcluir, setAgendamentoParaExcluir] = useState(null); // <-- Estado da Exclusão
+  const [agendamentoParaExcluir, setAgendamentoParaExcluir] = useState(null);
+
+  // Agora usamos uma string para a mensagem. Se estiver vazia, o modal fica fechado.
+  const [mensagemErro, setMensagemErro] = useState("");
+
   const [horaAtual, setHoraAtual] = useState(new Date());
 
   useEffect(() => {
@@ -100,12 +104,72 @@ export function Agenda() {
     );
   };
 
-  // Função que realmente apaga o agendamento da lista
   const confirmarExclusao = () => {
     setAgendamentos(
       agendamentos.filter((ag) => ag.id !== agendamentoParaExcluir.id),
     );
     setAgendamentoParaExcluir(null);
+  };
+
+  // Função para salvar agendamento COM DUPLA VALIDAÇÃO
+  const salvarAgendamento = (novoDado) => {
+    // 1. VALIDAÇÃO DE HORÁRIO NO PASSADO (Somente para novos agendamentos)
+    if (!novoDado.id) {
+      // Junta a data escolhida com a hora escolhida
+      const dataAgendamentoObj = new Date(
+        `${novoDado.data}T${novoDado.horarioInicio}:00`,
+      );
+      const agora = new Date();
+
+      // Se a data/hora montada for menor que agora, barra!
+      if (dataAgendamentoObj < agora) {
+        setMensagemErro(
+          "Você não pode criar um agendamento em um horário que já passou!",
+        );
+        return;
+      }
+    }
+
+    // 2. VALIDAÇÃO DE CHOQUE DE HORÁRIO
+    const converterParaMinutos = (horaString) => {
+      const [horas, minutos] = horaString.split(":").map(Number);
+      return horas * 60 + minutos;
+    };
+
+    const inicioNovo = converterParaMinutos(novoDado.horarioInicio);
+    const fimNovo = inicioNovo + novoDado.duracao;
+
+    const temChoque = agendamentos.some((ag) => {
+      if (novoDado.id && ag.id === novoDado.id) return false;
+      if (ag.profissional !== novoDado.profissional) return false;
+
+      const inicioExistente = converterParaMinutos(ag.horarioInicio);
+      const fimExistente = inicioExistente + ag.duracao;
+
+      return inicioNovo < fimExistente && fimNovo > inicioExistente;
+    });
+
+    if (temChoque) {
+      setMensagemErro(
+        "Esse profissional já possui um agendamento ou pausa nesse horário. Por favor, escolha outro.",
+      );
+      return;
+    }
+
+    // Se passou por todas as travas, salva!
+    if (novoDado.id) {
+      setAgendamentos(
+        agendamentos.map((ag) => (ag.id === novoDado.id ? novoDado : ag)),
+      );
+    } else {
+      const novoId =
+        agendamentos.length > 0
+          ? Math.max(...agendamentos.map((ag) => ag.id)) + 1
+          : 1;
+      setAgendamentos([...agendamentos, { ...novoDado, id: novoId }]);
+    }
+
+    setIsModalOpen(false);
   };
 
   const abrirNovoAgendamento = () => {
@@ -179,44 +243,45 @@ export function Agenda() {
                         <span className="cartao-cliente">{ag.cliente}</span>
                       </div>
 
-                      {ag.status !== "bloqueio" && (
-                        <div className="card-acoes-topo">
-                          {/* AQUI ENTRA O BOTÃO DE LIXEIRA */}
-                          <button
-                            className="btn-delete-card"
-                            title="Excluir Agendamento"
-                            onClick={(e) => {
-                              e.stopPropagation(); // Impede de abrir a edição
-                              setAgendamentoParaExcluir(ag); // Ativa o mini-modal
-                            }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                      <div className="card-acoes-topo">
+                        <button
+                          className="btn-delete-card"
+                          title="Excluir Agendamento"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAgendamentoParaExcluir(ag);
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
 
-                          <a
-                            href="#"
-                            className="btn-wpp-card"
-                            title="WhatsApp"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MessageCircle size={14} />
-                          </a>
-                          <button
-                            className={`btn-status-tick status-${ag.status}`}
-                            title={
-                              ag.status === "pendente"
-                                ? "Confirmar"
-                                : "Desmarcar"
-                            }
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              alternarStatus(ag.id);
-                            }}
-                          >
-                            <Check size={14} strokeWidth={3} />
-                          </button>
-                        </div>
-                      )}
+                        {ag.status !== "bloqueio" && (
+                          <>
+                            <a
+                              href="#"
+                              className="btn-wpp-card"
+                              title="WhatsApp"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MessageCircle size={14} />
+                            </a>
+                            <button
+                              className={`btn-status-tick status-${ag.status}`}
+                              title={
+                                ag.status === "pendente"
+                                  ? "Confirmar"
+                                  : "Desmarcar"
+                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                alternarStatus(ag.id);
+                              }}
+                            >
+                              <Check size={14} strokeWidth={3} />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
 
                     <div className="cartao-horario">
@@ -241,6 +306,7 @@ export function Agenda() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         agendamento={agendamentoEditando}
+        onSave={salvarAgendamento}
       />
 
       {/* MINI-MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
@@ -273,6 +339,36 @@ export function Agenda() {
                 Sim, apagar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE AVISO DINÂMICO (Mostra a mensagem que estiver no estado) */}
+      {mensagemErro !== "" && (
+        <div
+          className="modal-overlay"
+          style={{ zIndex: 9999 }}
+          onClick={() => setMensagemErro("")}
+        >
+          <div
+            className="modal-box modal-exclusao"
+            onClick={(e) => e.stopPropagation()}
+            style={{ textAlign: "center", padding: "2rem" }}
+          >
+            <h3 style={{ color: "#E11D48", marginBottom: "1rem" }}>
+              Ação Inválida
+            </h3>
+            <p style={{ marginBottom: "1.5rem", color: "#475569" }}>
+              {mensagemErro}
+            </p>
+
+            <button
+              className="btn-salvar"
+              onClick={() => setMensagemErro("")}
+              style={{ width: "100%" }}
+            >
+              Entendi
+            </button>
           </div>
         </div>
       )}
