@@ -1,22 +1,46 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, RefreshCw } from "lucide-react";
 import "./ModalAgendamento.css";
 
-export function ModalAgendamento({ isOpen, onClose }) {
+export function ModalAgendamento({ isOpen, onClose, agendamento }) {
+  const dataHoje = new Date().toISOString().split("T")[0];
+
   const [buscaCliente, setBuscaCliente] = useState("");
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
+  const [dataAgendamento, setDataAgendamento] = useState(dataHoje);
+  const [horario, setHorario] = useState("09:00");
   const [profissional, setProfissional] = useState("Ana Silva");
   const [servico, setServico] = useState("");
-  const [horario, setHorario] = useState("09:00");
+  const [duracao, setDuracao] = useState(60);
   const [valor, setValor] = useState("");
 
-  // NOVOS ESTADOS DA RECORRÊNCIA
   const [isRecorrente, setIsRecorrente] = useState(false);
-  const [intervalo, setIntervalo] = useState(21); // Padrão selecionado: 21 dias
+  const [intervalo, setIntervalo] = useState(21);
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
 
-  // 1. Tabela simulada de Clientes
+  // O EFEITO MÁGICO: Preenche os dados se vier um agendamento para edição
+  useEffect(() => {
+    if (agendamento) {
+      setBuscaCliente(agendamento.cliente);
+      setProfissional(agendamento.profissional);
+      setServico(agendamento.servico);
+      setHorario(agendamento.horarioInicio);
+      setDuracao(agendamento.duracao);
+      setValor(agendamento.valor);
+    } else {
+      // Limpa os campos se for um "Novo Agendamento"
+      setBuscaCliente("");
+      setClienteSelecionado(null);
+      setDataAgendamento(dataHoje);
+      setHorario("09:00");
+      setProfissional("Ana Silva");
+      setServico("");
+      setDuracao(60);
+      setValor("");
+    }
+  }, [agendamento, isOpen, dataHoje]);
+
   const clientesCadastradas = [
     { id: 1, nome: "Juliana Costa", telefone: "(15) 99999-1111" },
     { id: 2, nome: "Camila Mendes", telefone: "(15) 99999-2222" },
@@ -24,7 +48,6 @@ export function ModalAgendamento({ isOpen, onClose }) {
     { id: 4, nome: "Mariana Souza", telefone: "(15) 99999-4444" },
   ];
 
-  // 2. Tabela simulada de Serviços
   const servicosCadastrados = [
     { id: 1, nome: "Manicure", valor: "35,00" },
     { id: 2, nome: "Pedicure", valor: "35,00" },
@@ -35,36 +58,45 @@ export function ModalAgendamento({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
+  const calcularHoraFim = (horaInicio, duracaoMinutos) => {
+    if (!horaInicio) return "";
+    const [horas, minutos] = horaInicio.split(":").map(Number);
+    const data = new Date();
+    data.setHours(horas, minutos + Number(duracaoMinutos), 0);
+    return data.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const horaFim = calcularHoraFim(horario, duracao);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const nomeFinal = clienteSelecionado
       ? clienteSelecionado.nome
       : buscaCliente;
 
-    // A lógica de cálculo de domingos/segundas e checagem de conflitos entrará aqui
-    console.log({
+    const pacoteSalvar = {
+      id: agendamento ? agendamento.id : Math.random(), // Mantém o ID se for edição
       cliente: nomeFinal,
-      profissional,
-      servico,
-      horario,
-      valor,
+      data: dataAgendamento,
+      profissional: profissional,
+      servico: servico,
+      horarioInicio: horario,
+      horarioFim: horaFim,
+      duracao: duracao,
+      valor: valor,
+      status: agendamento ? agendamento.status : "pendente", // Mantém status na edição
       recorrencia: isRecorrente
         ? { intervalo, dataInicio, dataFim }
         : "Nenhuma",
-    });
+    };
 
+    console.log(agendamento ? "Editando:" : "Novo:", pacoteSalvar);
     alert(
-      `Agendamento de ${nomeFinal} confirmado para ${horario}! Valor: R$ ${valor}`,
+      `${agendamento ? "Edição salva" : "Agendamento confirmado"} com sucesso!`,
     );
-
-    // Limpa os campos após salvar
-    setBuscaCliente("");
-    setClienteSelecionado(null);
-    setServico("");
-    setValor("");
-    setIsRecorrente(false);
-    setDataInicio("");
-    setDataFim("");
     onClose();
   };
 
@@ -72,7 +104,7 @@ export function ModalAgendamento({ isOpen, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Novo Agendamento</h2>
+          <h2>{agendamento ? "Editar Agendamento" : "Novo Agendamento"}</h2>
           <button className="btn-fechar" onClick={onClose} title="Fechar">
             <X size={20} strokeWidth={2.5} />
           </button>
@@ -146,37 +178,48 @@ export function ModalAgendamento({ isOpen, onClose }) {
 
           <div className="form-linha-dupla">
             <div className="form-grupo">
-              <label>Profissional</label>
-              <select
-                value={profissional}
-                onChange={(e) => setProfissional(e.target.value)}
-              >
-                <option value="Ana Silva">Ana Silva</option>
-                <option value="Beatriz Santos">Beatriz Santos</option>
-                <option value="Carla Dias">Carla Dias</option>
-              </select>
+              <label>Data do Agendamento</label>
+              <input
+                type="date"
+                value={dataAgendamento}
+                onChange={(e) => setDataAgendamento(e.target.value)}
+                required
+              />
             </div>
-
             <div className="form-grupo">
-              <label>Horário</label>
+              <label>Horário Início</label>
               <select
                 value={horario}
                 onChange={(e) => setHorario(e.target.value)}
               >
                 {[
+                  "07:00",
+                  "07:30",
+                  "08:00",
+                  "08:30",
                   "09:00",
+                  "09:30",
                   "10:00",
+                  "10:30",
                   "11:00",
+                  "11:30",
                   "12:00",
+                  "12:30",
                   "13:00",
+                  "13:30",
                   "14:00",
+                  "14:30",
                   "15:00",
+                  "15:30",
                   "16:00",
+                  "16:30",
                   "17:00",
+                  "17:30",
                   "18:00",
+                  "18:30",
                   "19:00",
+                  "19:30",
                   "20:00",
-                  "21:00",
                 ].map((h) => (
                   <option key={h} value={h}>
                     {h}
@@ -188,19 +231,27 @@ export function ModalAgendamento({ isOpen, onClose }) {
 
           <div className="form-linha-dupla">
             <div className="form-grupo">
+              <label>Profissional</label>
+              <select
+                value={profissional}
+                onChange={(e) => setProfissional(e.target.value)}
+              >
+                <option value="Ana Silva">Ana Silva</option>
+                <option value="Beatriz Santos">Beatriz Santos</option>
+                <option value="Carla Dias">Carla Dias</option>
+              </select>
+            </div>
+            <div className="form-grupo">
               <label>Serviço</label>
               <select
                 value={servico}
                 onChange={(e) => {
                   const servicoEscolhido = e.target.value;
                   setServico(servicoEscolhido);
-
                   const infoServico = servicosCadastrados.find(
                     (s) => s.nome === servicoEscolhido,
                   );
-                  if (infoServico) {
-                    setValor(infoServico.valor);
-                  }
+                  if (infoServico) setValor(infoServico.valor);
                 }}
                 required
               >
@@ -214,7 +265,41 @@ export function ModalAgendamento({ isOpen, onClose }) {
                 ))}
               </select>
             </div>
+          </div>
 
+          <div className="form-linha-dupla">
+            <div className="form-grupo">
+              <label>Duração Prevista</label>
+              <select
+                value={duracao}
+                onChange={(e) => setDuracao(e.target.value)}
+              >
+                {[30, 45, 60, 90, 120, 150, 180, 240].map((d) => (
+                  <option key={d} value={d}>
+                    {d >= 60
+                      ? `${Math.floor(d / 60)}h ${d % 60 > 0 ? (d % 60) + "min" : ""}`
+                      : `${d} min`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-grupo">
+              <label>Término (Automático)</label>
+              <input
+                type="text"
+                value={horaFim}
+                disabled
+                style={{
+                  backgroundColor: "#F1F5F9",
+                  fontWeight: "600",
+                  color: "#64748B",
+                  cursor: "not-allowed",
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="form-linha-dupla">
             <div className="form-grupo">
               <label>Valor (R$)</label>
               <input
@@ -225,78 +310,7 @@ export function ModalAgendamento({ isOpen, onClose }) {
                 required
               />
             </div>
-          </div>
-
-          {/* SESSÃO DE RECORRÊNCIA */}
-          <div className="recorrencia-container">
-            <label className="recorrencia-toggle">
-              <input
-                type="checkbox"
-                checked={isRecorrente}
-                onChange={(e) => setIsRecorrente(e.target.checked)}
-              />
-              <RefreshCw
-                size={16}
-                color={isRecorrente ? "#C74B67" : "#64748B"}
-              />
-              Tornar agendamento recorrente
-            </label>
-
-            {isRecorrente && (
-              <div className="recorrencia-box">
-                <label
-                  style={{
-                    fontSize: "0.85rem",
-                    color: "#64748B",
-                    marginBottom: "0.5rem",
-                    display: "block",
-                  }}
-                >
-                  Intervalo de dias
-                </label>
-                <div className="opcoes-intervalo">
-                  {[7, 21, 28].map((valorOpcao) => (
-                    <button
-                      key={valorOpcao}
-                      type="button"
-                      className={`btn-intervalo ${
-                        intervalo === valorOpcao ? "ativo" : ""
-                      }`}
-                      onClick={() => setIntervalo(valorOpcao)}
-                    >
-                      {valorOpcao} dias
-                    </button>
-                  ))}
-                </div>
-
-                <div className="datas-recorrencia">
-                  <div
-                    className="form-grupo"
-                    style={{ flex: 1, marginBottom: 0 }}
-                  >
-                    <label>Data Inicial *</label>
-                    <input
-                      type="date"
-                      value={dataInicio}
-                      onChange={(e) => setDataInicio(e.target.value)}
-                      required={isRecorrente}
-                    />
-                  </div>
-                  <div
-                    className="form-grupo"
-                    style={{ flex: 1, marginBottom: 0 }}
-                  >
-                    <label>Data Final *</label>
-                    <input
-                      type="date"
-                      value={dataFim}
-                      onChange={(e) => setDataFim(e.target.value)}
-                      required={isRecorrente}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+            <div className="form-grupo" style={{ visibility: "hidden" }}></div>
           </div>
 
           <button
@@ -304,7 +318,7 @@ export function ModalAgendamento({ isOpen, onClose }) {
             className="btn-salvar"
             style={{ marginTop: "1.5rem" }}
           >
-            Confirmar Agendamento
+            {agendamento ? "Salvar Alterações" : "Confirmar Agendamento"}
           </button>
         </form>
       </div>
