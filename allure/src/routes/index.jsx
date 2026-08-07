@@ -1,7 +1,8 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Login } from "../pages/Login";
-import { Home } from "../components/Home/Home"; // <-- 1. Importação da Home
+import { Home } from "../components/Home/Home";
+import { Financeiro } from "../components/Financeiro/Financeiro"; // <-- 1. Importação do Financeiro
 import { Agenda } from "../pages/Agenda";
 import { Clientes } from "../pages/Clientes";
 import { Servicos } from "../pages/Servicos";
@@ -25,23 +26,20 @@ export function AppRoutes() {
             </PrivateRoute>
           }
         >
-          {/* 2. Rota raiz agora abre a Home profissional dentro do Layout */}
-          <Route
-            index
-            element={
-              <Home
-                aoNavegar={(pagina) => (window.location.href = `/${pagina}`)}
-              />
-            }
-          />
+          {/* Agora a Home está limpa, pois a navegação já é feita dentro dela */}
+          <Route index element={<Home />} />
 
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/servicos" element={<Servicos />} />
+
+          {/* 2. Nossa nova Rota de Finanças! */}
+          <Route path="/financeiro" element={<Financeiro />} />
+
           <Route path="/configuracoes" element={<Configuracoes />} />
         </Route>
 
-        {/* 3. Qualquer link errado agora joga para a Home principal */}
+        {/* Qualquer link errado agora joga para a Home principal */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
