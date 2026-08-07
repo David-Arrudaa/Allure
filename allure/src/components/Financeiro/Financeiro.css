@@ -214,7 +214,7 @@
   color: #7e22ce;
 }
 
-/* SEÇÃO DE HISTÓRICO */
+/* SEÇÃO GERAL */
 .section-box {
   background-color: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -237,7 +237,143 @@
   margin: 0;
 }
 
-/* TABELA / LISTA DE PAGAMENTOS */
+.mb-15 {
+  margin-bottom: 1.5rem;
+}
+.mt-10 {
+  margin-top: 1rem;
+}
+
+/* SEÇÃO DE FUNCIONÁRIAS (NOVO) */
+.prof-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.prof-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.prof-card:hover {
+  border-color: var(--cor-primaria);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(199, 75, 103, 0.1);
+}
+
+.prof-card.ativo {
+  border-color: var(--cor-primaria);
+  background: linear-gradient(135deg, #ffffff 0%, #fdf2f4 100%);
+  box-shadow: 0 4px 12px rgba(199, 75, 103, 0.15);
+}
+
+.prof-card-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.prof-card-info strong {
+  font-size: 1.05rem;
+  color: var(--cor-texto, #334155);
+}
+
+.prof-card-info span {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.prof-card-valor {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--cor-primaria);
+}
+
+/* DETALHES DA FUNCIONÁRIA */
+.prof-detalhes-container {
+  background-color: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.prof-detalhes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.prof-detalhes-header h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--cor-texto, #334155);
+  margin: 0;
+}
+
+.btn-fechar {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  padding: 0.3rem;
+  transition: all 0.2s;
+}
+
+.btn-fechar:hover {
+  background-color: #e2e8f0;
+  color: #e11d48;
+}
+
+/* RESUMO DE TAGS */
+.prof-resumo-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.resumo-label {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.prof-tag {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: #475569;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.prof-tag strong {
+  color: var(--cor-primaria);
+  margin-right: 4px;
+}
+
+/* TABELAS */
 .tabela-financeira {
   display: flex;
   flex-direction: column;
@@ -246,7 +382,6 @@
 
 .tabela-cabecalho {
   display: grid;
-  grid-template-columns: 2fr 2fr 1fr 1fr 1fr;
   padding: 0.5rem 1rem;
   font-size: 0.75rem;
   font-weight: 700;
@@ -257,13 +392,22 @@
 
 .tabela-linha {
   display: grid;
-  grid-template-columns: 2fr 2fr 1fr 1fr 1fr;
   align-items: center;
   padding: 0.85rem 1rem;
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   font-size: 0.9rem;
+}
+
+.tabela-cabecalho.geral-table,
+.tabela-linha.geral-table {
+  grid-template-columns: 2fr 2fr 1fr 1fr 1fr;
+}
+
+.tabela-cabecalho.prof-table,
+.tabela-linha.prof-table {
+  grid-template-columns: 1fr 2fr 2fr 1fr;
 }
 
 .texto-secundario {
@@ -298,4 +442,15 @@
 .estado-vazio p {
   font-size: 0.95rem;
   margin: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
