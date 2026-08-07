@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Plus, Check, MessageCircle, Trash2 } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Plus, Check, MessageCircle, Trash2, Calendar } from "lucide-react";
 import { ModalAgendamento } from "../components/ModalAgendamento";
 import "./Agenda.css";
 
@@ -7,12 +7,14 @@ export function Agenda() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [agendamentoEditando, setAgendamentoEditando] = useState(null);
   const [agendamentoParaExcluir, setAgendamentoParaExcluir] = useState(null);
-
-  // Agora usamos uma string para a mensagem. Se estiver vazia, o modal fica fechado.
   const [mensagemErro, setMensagemErro] = useState("");
 
+  // Controle da data atual e do relógio
   const [horaAtual, setHoraAtual] = useState(new Date());
+  const [dataSelecionada, setDataSelecionada] = useState(new Date());
+  const linhaTempoRef = useRef(null);
 
+  // Relógio rodando a cada 1 minuto
   useEffect(() => {
     const timer = setInterval(() => {
       setHoraAtual(new Date());
@@ -20,6 +22,48 @@ export function Agenda() {
     return () => clearInterval(timer);
   }, []);
 
+  // Formata a data para exibir bonito (ex: Terça-feira, 05 de Agosto)
+  const formatarDataExibicao = (data) => {
+    const dias = [
+      "Domingo",
+      "Segunda-feira",
+      "Terça-feira",
+      "Quarta-feira",
+      "Quinta-feira",
+      "Sexta-feira",
+      "Sábado",
+    ];
+    const meses = [
+      "Janeiro",
+      "Fevereiro",
+      "Março",
+      "Abril",
+      "Maio",
+      "Junho",
+      "Julho",
+      "Agosto",
+      "Setembro",
+      "Outubro",
+      "Novembro",
+      "Dezembro",
+    ];
+    return `${dias[data.getDay()]}, ${String(data.getDate()).padStart(2, "0")} de ${meses[data.getMonth()]}`;
+  };
+
+  // Funções de Navegação da Data
+  const irParaHoje = () => setDataSelecionada(new Date());
+  const diaAnterior = () => {
+    const novaData = new Date(dataSelecionada);
+    novaData.setDate(novaData.getDate() - 1);
+    setDataSelecionada(novaData);
+  };
+  const proximoDia = () => {
+    const novaData = new Date(dataSelecionada);
+    novaData.setDate(novaData.getDate() + 1);
+    setDataSelecionada(novaData);
+  };
+
+  // Cálculos de Posição
   const calcularPosicao = (horarioString) => {
     const [hora, minuto] = horarioString.split(":").map(Number);
     const minutosDesde07h = hora * 60 + minuto - 7 * 60;
@@ -37,11 +81,29 @@ export function Agenda() {
     });
   };
 
+  // Lógica da Linha do Tempo Vermelha
+  const hoje = new Date();
+  const isHoje =
+    dataSelecionada.getDate() === hoje.getDate() &&
+    dataSelecionada.getMonth() === hoje.getMonth() &&
+    dataSelecionada.getFullYear() === hoje.getFullYear();
+
   const minutosAtuais = horaAtual.getHours() * 60 + horaAtual.getMinutes();
   const posicaoLinhaTempo = (minutosAtuais - 7 * 60) * 2;
   const mostrarLinhaTempo =
-    posicaoLinhaTempo >= 0 && posicaoLinhaTempo <= 14 * 60 * 2;
+    isHoje && posicaoLinhaTempo >= 0 && posicaoLinhaTempo <= 14 * 60 * 2;
 
+  // Auto-scroll para a linha do tempo quando abrir "Hoje"
+  useEffect(() => {
+    if (mostrarLinhaTempo && linhaTempoRef.current) {
+      linhaTempoRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, [dataSelecionada, mostrarLinhaTempo]);
+
+  // Lista Mockada
   const [agendamentos, setAgendamentos] = useState([
     {
       id: 1,
@@ -85,7 +147,12 @@ export function Agenda() {
     },
   ]);
 
-  const profissionais = ["Ana Silva", "Beatriz Santos", "Carla Dias"];
+  const profissionais = [
+    { nome: "Ana Silva", especialidade: "Nail Designer", foto: "" },
+    { nome: "Beatriz Santos", especialidade: "Manicure Clássica", foto: "" },
+    { nome: "Carla Dias", especialidade: "Pedicure e Spa", foto: "" },
+  ];
+
   const horasDoDia = Array.from(
     { length: 14 },
     (_, i) => `${String(i + 7).padStart(2, "0")}:00`,
@@ -111,18 +178,12 @@ export function Agenda() {
     setAgendamentoParaExcluir(null);
   };
 
-  // Função para salvar agendamento COM DUPLA VALIDAÇÃO
   const salvarAgendamento = (novoDado) => {
-    // 1. VALIDAÇÃO DE HORÁRIO NO PASSADO (Somente para novos agendamentos)
     if (!novoDado.id) {
-      // Junta a data escolhida com a hora escolhida
       const dataAgendamentoObj = new Date(
         `${novoDado.data}T${novoDado.horarioInicio}:00`,
       );
-      const agora = new Date();
-
-      // Se a data/hora montada for menor que agora, barra!
-      if (dataAgendamentoObj < agora) {
+      if (dataAgendamentoObj < new Date()) {
         setMensagemErro(
           "Você não pode criar um agendamento em um horário que já passou!",
         );
@@ -130,7 +191,6 @@ export function Agenda() {
       }
     }
 
-    // 2. VALIDAÇÃO DE CHOQUE DE HORÁRIO
     const converterParaMinutos = (horaString) => {
       const [horas, minutos] = horaString.split(":").map(Number);
       return horas * 60 + minutos;
@@ -142,10 +202,8 @@ export function Agenda() {
     const temChoque = agendamentos.some((ag) => {
       if (novoDado.id && ag.id === novoDado.id) return false;
       if (ag.profissional !== novoDado.profissional) return false;
-
       const inicioExistente = converterParaMinutos(ag.horarioInicio);
       const fimExistente = inicioExistente + ag.duracao;
-
       return inicioNovo < fimExistente && fimNovo > inicioExistente;
     });
 
@@ -156,7 +214,6 @@ export function Agenda() {
       return;
     }
 
-    // Se passou por todas as travas, salva!
     if (novoDado.id) {
       setAgendamentos(
         agendamentos.map((ag) => (ag.id === novoDado.id ? novoDado : ag)),
@@ -168,35 +225,62 @@ export function Agenda() {
           : 1;
       setAgendamentos([...agendamentos, { ...novoDado, id: novoId }]);
     }
-
     setIsModalOpen(false);
-  };
-
-  const abrirNovoAgendamento = () => {
-    setAgendamentoEditando(null);
-    setIsModalOpen(true);
-  };
-
-  const abrirEdicao = (agendamento) => {
-    setAgendamentoEditando(agendamento);
-    setIsModalOpen(true);
   };
 
   return (
     <div className="agenda-container">
+      {/* BARRA SUPERIOR (TOPBAR) */}
       <div className="agenda-topbar">
-        <div className="agenda-info">
-          <h2>Agenda do Dia</h2>
-          <p>Terça-feira, 05 de Agosto</p>
+        <div className="agenda-info-navegacao">
+          <div className="agenda-info">
+            <h2>Agenda do Dia</h2>
+            <div className="data-formatada">
+              {formatarDataExibicao(dataSelecionada)}
+
+              {/* Botão de calendário com input embutido */}
+              <label className="btn-calendario-icon" title="Escolher data">
+                <Calendar size={18} />
+                <input
+                  type="date"
+                  className="input-data-invisivel"
+                  value={dataSelecionada.toISOString().split("T")[0]}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const [ano, mes, dia] = e.target.value.split("-");
+                      setDataSelecionada(new Date(ano, mes - 1, dia));
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="agenda-botoes-nav">
+            <button onClick={diaAnterior}>&lt; Anterior</button>
+            <button onClick={irParaHoje}>Hoje</button>
+            <button onClick={proximoDia}>Próxima &gt;</button>
+          </div>
         </div>
-        <button className="btn-novo" onClick={abrirNovoAgendamento}>
+
+        <button
+          className="btn-novo"
+          onClick={() => {
+            setAgendamentoEditando(null);
+            setIsModalOpen(true);
+          }}
+        >
           <Plus size={20} />
           Novo Agendamento
         </button>
       </div>
 
+      {/* ÁREA COM SCROLL INTERNO DA AGENDA */}
       <div className="agenda-wrapper">
+        {/* Coluna da esquerda (14 horas fixas) */}
         <div className="coluna-horarios">
+          <div className="espaco-cabecalho-horarios"></div>{" "}
+          {/* Espaço vazio para alinhar com o cabeçalho fixo das profissionais */}
           {horasDoDia.map((hora) => (
             <div key={hora} className="horario-label">
               <span>{hora}</span>
@@ -205,27 +289,49 @@ export function Agenda() {
           ))}
         </div>
 
+        {/* Grade principal com a agenda */}
         <div className="grade-profissionais">
           {mostrarLinhaTempo && (
             <div
+              ref={linhaTempoRef}
               className="linha-tempo"
               style={{ top: `${posicaoLinhaTempo}px` }}
-            ></div>
+            >
+              <div className="bolinha-linha-tempo"></div>
+            </div>
           )}
 
-          {profissionais.map((profNome) => (
-            <div key={profNome} className="coluna-profissional">
+          {profissionais.map((prof) => (
+            <div key={prof.nome} className="coluna-profissional">
+              {/* CABEÇALHO FIXO (FOTO + NOME LADO A LADO) */}
               <div className="profissional-header">
-                <h3>{profNome}</h3>
+                {prof.foto ? (
+                  <img
+                    src={prof.foto}
+                    alt={prof.nome}
+                    className="avatar-img-agenda"
+                  />
+                ) : (
+                  <div className="avatar-placeholder-agenda">
+                    {prof.nome.charAt(0)}
+                  </div>
+                )}
+                <div className="profissional-header-info">
+                  <h3>{prof.nome}</h3>
+                </div>
               </div>
 
+              {/* RENDERIZAÇÃO DOS CARDS */}
               {agendamentos
-                .filter((ag) => ag.profissional === profNome)
+                .filter((ag) => ag.profissional === prof.nome)
                 .map((ag) => (
                   <div
                     key={ag.id}
                     className="cartao-agendamento"
-                    onClick={() => abrirEdicao(ag)}
+                    onClick={() => {
+                      setAgendamentoEditando(ag);
+                      setIsModalOpen(true);
+                    }}
                     style={{
                       top: `${calcularPosicao(ag.horarioInicio)}px`,
                       height: `${ag.duracao * 2}px`,
@@ -246,7 +352,6 @@ export function Agenda() {
                       <div className="card-acoes-topo">
                         <button
                           className="btn-delete-card"
-                          title="Excluir Agendamento"
                           onClick={(e) => {
                             e.stopPropagation();
                             setAgendamentoParaExcluir(ag);
@@ -254,24 +359,17 @@ export function Agenda() {
                         >
                           <Trash2 size={14} />
                         </button>
-
                         {ag.status !== "bloqueio" && (
                           <>
                             <a
                               href="#"
                               className="btn-wpp-card"
-                              title="WhatsApp"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <MessageCircle size={14} />
                             </a>
                             <button
                               className={`btn-status-tick status-${ag.status}`}
-                              title={
-                                ag.status === "pendente"
-                                  ? "Confirmar"
-                                  : "Desmarcar"
-                              }
                               onClick={(e) => {
                                 e.stopPropagation();
                                 alternarStatus(ag.id);
@@ -288,7 +386,6 @@ export function Agenda() {
                       {ag.horarioInicio} -{" "}
                       {calcularHoraFim(ag.horarioInicio, ag.duracao)}
                     </div>
-
                     <div className="cartao-servico">
                       <span>{ag.servico}</span>
                       <span className="cartao-valor">
@@ -309,7 +406,7 @@ export function Agenda() {
         onSave={salvarAgendamento}
       />
 
-      {/* MINI-MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
       {agendamentoParaExcluir && (
         <div
           className="modal-overlay"
@@ -324,7 +421,6 @@ export function Agenda() {
               Tem certeza que deseja apagar o agendamento de{" "}
               <strong>{agendamentoParaExcluir.cliente}</strong>?
             </p>
-
             <div className="modal-exclusao-acoes">
               <button
                 className="btn-cancelar"
@@ -343,7 +439,7 @@ export function Agenda() {
         </div>
       )}
 
-      {/* MODAL DE AVISO DINÂMICO (Mostra a mensagem que estiver no estado) */}
+      {/* MODAL DE AVISO DE ERRO */}
       {mensagemErro !== "" && (
         <div
           className="modal-overlay"
@@ -355,17 +451,16 @@ export function Agenda() {
             onClick={(e) => e.stopPropagation()}
             style={{ textAlign: "center", padding: "2rem" }}
           >
-            <h3 style={{ color: "#E11D48", marginBottom: "1rem" }}>
+            <h3 style={{ color: "#E11D48", margin: "0 0 1rem 0" }}>
               Ação Inválida
             </h3>
-            <p style={{ marginBottom: "1.5rem", color: "#475569" }}>
+            <p style={{ margin: "0 0 1.5rem 0", color: "#475569" }}>
               {mensagemErro}
             </p>
-
             <button
-              className="btn-salvar"
+              className="btn-confirmar-exclusao"
               onClick={() => setMensagemErro("")}
-              style={{ width: "100%" }}
+              style={{ width: "100%", backgroundColor: "var(--cor-primaria)" }}
             >
               Entendi
             </button>

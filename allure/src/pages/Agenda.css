@@ -59,13 +59,12 @@
    ========================================= */
 .agenda-wrapper {
   display: flex;
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: auto;
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
   position: relative;
+  background-color: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  max-height: 70vh; /* Limita a altura da agenda na tela */
+  overflow-y: auto; /* Cria a barra de rolagem interna */
 }
 
 /* Customizando o Scroll */
@@ -134,32 +133,44 @@
   display: flex;
   flex-grow: 1;
   position: relative;
-  /* Cria uma linha cinza de fundo a cada 60px (meia hora) para guiar o olho */
   background-image: linear-gradient(#e2e8f0 1px, transparent 1px);
   background-size: 100% 60px;
+  min-height: 1750px;
 }
 
 .coluna-profissional {
   flex: 1;
   min-width: 250px;
   border-right: 1px solid #e2e8f0;
-  position: relative; /* VITAL: Segura o agendamento apenas na coluna dela */
+  position: relative;
+  min-height: 1750px; /* A MÁGICA ESTÁ AQUI: Isso força a coluna a ir até o final da tela, segurando o cabeçalho no topo! */
 }
 
 .profissional-header {
+  display: flex;
+  flex-direction: row; /* Força os itens a ficarem um do lado do outro */
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background-color: #fdf2f4; /* Fundo rosinha como no seu print */
   padding: 1rem;
-  background-color: var(--cor-secundaria);
-  border-bottom: 1px solid #fbcfe8;
-  text-align: center;
-  position: sticky;
-  top: 0;
-  z-index: 5;
+  border-bottom: 2px solid #fbcfe8;
+  position: sticky; /* Diz para o elemento grudar */
+  top: 0; /* Gruda exatamente no topo do wrapper */
+  z-index: 10; /* Garante que o cabeçalho passe por cima dos cards */
 }
 
-.profissional-header h3 {
-  font-size: 1.1rem;
-  color: var(--cor-texto);
+.profissional-header-info {
+  display: flex;
+  align-items: center;
+}
+
+.profissional-header-info h3 {
+  margin: 0;
+  font-size: 0.95rem; /* Fonte um pouco menor e mais limpa */
   font-weight: 700;
+  color: var(--cor-texto, #334155);
+  white-space: nowrap; /* Impede que o nome quebre para a linha de baixo */
 }
 
 /* =========================================
@@ -381,4 +392,134 @@
 
 .btn-confirmar-exclusao:hover {
   background-color: #dc2626;
+}
+
+/* AJUSTES DO CABEÇALHO DA PROFISSIONAL */
+.profissional-header-info h3 {
+  margin: 0;
+  font-size: 0.9rem; /* Fonte diminuída */
+  font-weight: 700;
+  color: var(--cor-texto, #334155);
+}
+
+/* CONTAINER DA DATA E NAVEGAÇÃO */
+.agenda-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.agenda-info-navegacao {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.data-formatada {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* BOTÕES DE NAVEGAÇÃO DE DIAS */
+.agenda-botoes-nav {
+  display: flex;
+  gap: 0.25rem;
+  background-color: #f8fafc;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.agenda-botoes-nav button {
+  background: white;
+  border: 1px solid transparent;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.agenda-botoes-nav button:hover {
+  border-color: #cbd5e1;
+  color: var(--cor-primaria);
+}
+
+/* INPUT DE CALENDÁRIO INVISÍVEL */
+.btn-calendario-icon {
+  cursor: pointer;
+  color: var(--cor-primaria);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: #fdf2f4;
+  padding: 0.4rem;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.btn-calendario-icon:hover {
+  background: #fbcfe8;
+}
+
+.input-data-invisivel {
+  opacity: 0;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  left: 0;
+  top: 0;
+}
+
+/* AJUSTE DA LINHA DO TEMPO (BOLINHA) */
+.linha-tempo {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #ef4444;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.bolinha-linha-tempo {
+  width: 10px;
+  height: 10px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  position: absolute;
+  left: -5px;
+  top: -4px;
+}
+
+/* Define o tamanho redondo tanto para a foto quanto para a letra */
+.avatar-img-agenda,
+.avatar-placeholder-agenda {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Dá a cor de fundo e centraliza a letra quando não tem foto */
+.avatar-placeholder-agenda {
+  background: linear-gradient(135deg, var(--cor-primaria) 0%, #a03c53 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: bold;
 }
