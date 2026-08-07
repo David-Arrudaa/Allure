@@ -1,0 +1,259 @@
+.home-container {
+  padding: 1.5rem;
+  background-color: #ffffff;
+  border-radius: var(--raio-borda, 12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  min-height: calc(100vh - 3rem);
+  color: var(--cor-texto, #334155);
+  font-family: "Inter", sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.home-header h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--cor-texto, #334155);
+  letter-spacing: -0.5px;
+  margin-bottom: 0.2rem;
+}
+
+.home-header p {
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.btn-acao-primaria {
+  background: linear-gradient(135deg, var(--cor-primaria) 0%, #a03c53 100%);
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(199, 75, 103, 0.25);
+}
+
+.btn-acao-primaria:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(199, 75, 103, 0.35);
+}
+
+/* CARDS DE INDICADORES COM MAIS VIDA */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.metric-card {
+  background: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #fdf2f4 100%
+  ); /* Leve toque da cor do sistema no fundo */
+  border: 1px solid #fbcfe8; /* Borda rosada suave */
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(199, 75, 103, 0.05);
+  transition: all 0.2s ease;
+}
+
+.metric-card:hover {
+  border-color: var(--cor-primaria);
+  box-shadow: 0 4px 12px rgba(199, 75, 103, 0.12);
+}
+
+.metric-info span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--cor-primaria);
+  letter-spacing: 0.05em;
+}
+
+.metric-info h2 {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: var(--cor-texto, #334155);
+  margin-top: 0.3rem;
+}
+
+.metric-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Ícones com cores mais fortes e marcantes */
+.metric-icon.blue {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+.metric-icon.green {
+  background-color: #d1fae5;
+  color: #047857;
+}
+.metric-icon.purple {
+  background-color: #f3e8ff;
+  color: #7e22ce;
+}
+
+/* ATALHOS RÁPIDOS */
+.shortcuts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.shortcut-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.shortcut-card:hover {
+  border-color: var(--cor-primaria);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(199, 75, 103, 0.1);
+  background-color: #fffafb;
+}
+
+.shortcut-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background-color: rgba(199, 75, 103, 0.15);
+  color: var(--cor-primaria);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.shortcut-icon.secondary {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.shortcut-text {
+  flex-grow: 1;
+}
+
+.shortcut-text h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--cor-texto, #334155);
+  margin-bottom: 0.1rem;
+}
+
+.shortcut-text p {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.shortcut-arrow {
+  color: var(--cor-primaria);
+}
+
+/* SEÇÕES INFERIORES */
+.home-sections-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+.section-box {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1.25rem;
+  color: var(--cor-primaria); /* Título ganha destaque com a cor principal */
+  border-bottom: 2px solid #fdf2f4;
+  padding-bottom: 0.5rem;
+}
+
+.section-title h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--cor-texto, #334155);
+}
+
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.ranking-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 0.5rem;
+  background-color: transparent;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ranking-item:last-child {
+  border-bottom: none;
+}
+
+.ranking-detalhes {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.ranking-detalhes strong {
+  font-size: 0.95rem;
+  color: var(--cor-texto, #334155);
+}
+
+.ranking-detalhes span {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+.ranking-valor {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--cor-primaria); /* Valores em destaque com a cor do sistema */
+}

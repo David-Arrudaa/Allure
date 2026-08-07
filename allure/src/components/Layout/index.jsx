@@ -1,7 +1,14 @@
 import React from "react";
 import { NavLink, Outlet } from "react-router-dom";
-// Adicionamos o ícone Scissors aqui na importação
-import { CalendarDays, Users, Settings, LogOut, Scissors } from "lucide-react";
+// Adicionado o ícone LayoutDashboard para a Home
+import {
+  CalendarDays,
+  Users,
+  Settings,
+  LogOut,
+  Scissors,
+  LayoutDashboard,
+} from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import "./Layout.css";
 
@@ -18,6 +25,12 @@ export function Layout() {
         </div>
 
         <nav className="sidebar-nav">
+          {/* NOVO LINK PARA O PAINEL / HOME */}
+          <NavLink to="/" end className="nav-item">
+            <LayoutDashboard size={20} />
+            <span>Painel</span>
+          </NavLink>
+
           <NavLink to="/agenda" className="nav-item">
             <CalendarDays size={20} />
             <span>Agenda</span>
@@ -28,7 +41,6 @@ export function Layout() {
             <span>Clientes</span>
           </NavLink>
 
-          {/* NOVO MENU DE SERVIÇOS ADICIONADO AQUI */}
           <NavLink to="/servicos" className="nav-item">
             <Scissors size={20} />
             <span>Serviços</span>
@@ -59,7 +71,7 @@ export function Layout() {
         </div>
       </aside>
 
-      {/* ÁREA DIREITA (Agora sem o Header, ganha espaço total!) */}
+      {/* ÁREA DIREITA */}
       <div className="main-wrapper">
         <main className="main-content">
           <Outlet />
