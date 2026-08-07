@@ -2,7 +2,8 @@ import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Login } from "../pages/Login";
 import { Home } from "../components/Home/Home";
-import { Financeiro } from "../components/Financeiro/Financeiro"; // <-- 1. Importação do Financeiro
+import { Financeiro } from "../components/Financeiro/Financeiro";
+import { Equipe } from "../components/Equipe/Equipe"; // <-- 1. Importação da Equipe adicionada aqui
 import { Agenda } from "../pages/Agenda";
 import { Clientes } from "../pages/Clientes";
 import { Servicos } from "../pages/Servicos";
@@ -28,14 +29,13 @@ export function AppRoutes() {
         >
           {/* Agora a Home está limpa, pois a navegação já é feita dentro dela */}
           <Route index element={<Home />} />
-
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/servicos" element={<Servicos />} />
-
-          {/* 2. Nossa nova Rota de Finanças! */}
+          {/* Rotas de Finanças e Equipe */}
           <Route path="/financeiro" element={<Financeiro />} />
-
+          <Route path="/equipe" element={<Equipe />} />{" "}
+          {/* <-- 2. Rota da Equipe adicionada aqui */}
           <Route path="/configuracoes" element={<Configuracoes />} />
         </Route>
 

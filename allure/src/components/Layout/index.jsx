@@ -7,7 +7,8 @@ import {
   LogOut,
   Scissors,
   LayoutDashboard,
-  DollarSign, // <-- 1. Adicionado o ícone do dinheiro
+  DollarSign,
+  Briefcase, // <-- Ícone da Equipe adicionado aqui
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import "./Layout.css";
@@ -25,7 +26,6 @@ export function Layout() {
         </div>
 
         <nav className="sidebar-nav">
-          {/* LINK PARA O PAINEL / HOME */}
           <NavLink to="/" end className="nav-item">
             <LayoutDashboard size={20} />
             <span>Painel</span>
@@ -46,7 +46,12 @@ export function Layout() {
             <span>Serviços</span>
           </NavLink>
 
-          {/* 2. NOVO LINK PARA O FINANCEIRO */}
+          {/* NOVO LINK PARA A EQUIPE */}
+          <NavLink to="/equipe" className="nav-item">
+            <Briefcase size={20} />
+            <span>Equipe</span>
+          </NavLink>
+
           <NavLink to="/financeiro" className="nav-item">
             <DollarSign size={20} />
             <span>Financeiro</span>
