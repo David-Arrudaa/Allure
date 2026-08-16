@@ -14,12 +14,11 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const [duracao, setDuracao] = useState(60);
   const [valor, setValor] = useState("");
 
-  // NOVO ESTADO: Controla se é um bloqueio ou cliente normal
   const [isBloqueio, setIsBloqueio] = useState(false);
 
+  // Estados de Recorrência
   const [isRecorrente, setIsRecorrente] = useState(false);
   const [intervalo, setIntervalo] = useState(21);
-  const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
 
   useEffect(() => {
@@ -30,7 +29,12 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       setHorario(agendamento.horarioInicio);
       setDuracao(agendamento.duracao);
       setValor(agendamento.valor);
-      setIsBloqueio(agendamento.status === "bloqueio"); // Se for edição de pausa, já marca a caixinha
+      setIsBloqueio(agendamento.status === "bloqueio");
+
+      // Reseta a recorrência ao editar um agendamento específico
+      setIsRecorrente(false);
+      setIntervalo(21);
+      setDataFim("");
     } else {
       setBuscaCliente("");
       setClienteSelecionado(null);
@@ -40,7 +44,12 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       setServico("");
       setDuracao(60);
       setValor("");
-      setIsBloqueio(false); // Garante que novo agendamento vem desmarcado
+      setIsBloqueio(false);
+
+      // Reseta a recorrência ao criar um novo
+      setIsRecorrente(false);
+      setIntervalo(21);
+      setDataFim("");
     }
   }, [agendamento, isOpen, dataHoje]);
 
@@ -77,14 +86,13 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Se for bloqueio, pega o que foi digitado direto. Se não, usa a seleção normal.
     const nomeFinal = isBloqueio
       ? buscaCliente
       : clienteSelecionado
         ? clienteSelecionado.nome
         : buscaCliente;
 
-    // Constrói o pacote com os dados
+    // Pacote de dados atualizado com a recorrência
     const pacoteSalvar = {
       id: agendamento ? agendamento.id : null,
       cliente: nomeFinal,
@@ -99,9 +107,11 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         : agendamento
           ? agendamento.status
           : "pendente",
+      isRecorrente: isRecorrente,
+      intervalo: isRecorrente ? Number(intervalo) : null,
+      dataFim: isRecorrente ? dataFim : null,
     };
 
-    // Dispara a função que desenha na Agenda
     if (onSave) {
       onSave(pacoteSalvar);
     }
@@ -110,7 +120,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        {/* CABEÇALHO COMPACTO COM A OPÇÃO DE BLOQUEIO DISCRETA */}
         <div
           className="modal-header"
           style={{ alignItems: "center", marginBottom: "1.2rem" }}
@@ -122,7 +131,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            {/* Checkbox discreto alinhado no topo */}
             <label
               style={{
                 display: "flex",
@@ -184,7 +192,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
               required
             />
 
-            {/* Mostra a lista suspensa SÓ se NÃO for bloqueio */}
             {!isBloqueio &&
               buscaCliente.trim().length >= 3 &&
               !clienteSelecionado && (
@@ -248,7 +255,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
               />
             </div>
 
-            {/* NOVO CAMPO DE HORÁRIO COM RELÓGIO NATIVO */}
             <div className="form-grupo">
               <label>Horário Início</label>
               <input
@@ -282,7 +288,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
               </select>
             </div>
 
-            {/* Esconde Serviço e Valor se for bloqueio */}
             {!isBloqueio && (
               <div className="form-grupo">
                 <label>Serviço</label>
@@ -359,6 +364,137 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                 className="form-grupo"
                 style={{ visibility: "hidden" }}
               ></div>
+            </div>
+          )}
+
+          {/* SESSÃO DE RECORRÊNCIA - FORMATO DE BOTÕES */}
+          {!agendamento && (
+            <div
+              className="form-grupo"
+              style={{
+                marginTop: "1rem",
+                backgroundColor: "#F8FAFC",
+                padding: "1rem",
+                borderRadius: "8px",
+                border: "1px solid #E2E8F0",
+              }}
+            >
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  cursor: "pointer",
+                  margin: 0,
+                  fontWeight: "600",
+                  color: "var(--cor-primaria)",
+                  userSelect: "none",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isRecorrente}
+                  onChange={(e) => setIsRecorrente(e.target.checked)}
+                  style={{
+                    width: "16px",
+                    height: "16px",
+                    accentColor: "var(--cor-primaria)",
+                  }}
+                />
+                <RefreshCw size={16} /> Tornar agendamento recorrente
+              </label>
+
+              {isRecorrente && (
+                <div style={{ marginTop: "1.2rem" }}>
+                  <label
+                    style={{
+                      fontSize: "0.85rem",
+                      color: "var(--cor-primaria)",
+                      fontWeight: "600",
+                      marginBottom: "8px",
+                      display: "block",
+                    }}
+                  >
+                    Intervalo de dias
+                  </label>
+
+                  {/* Botoes de selecao de dias */}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "10px",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    {[7, 14, 21, 28].map((dias) => (
+                      <button
+                        key={dias}
+                        type="button"
+                        onClick={() => setIntervalo(dias)}
+                        style={{
+                          flex: 1,
+                          padding: "8px 0",
+                          borderRadius: "8px",
+                          border: `1px solid ${Number(intervalo) === dias ? "var(--cor-primaria)" : "#CBD5E1"}`,
+                          backgroundColor:
+                            Number(intervalo) === dias
+                              ? "var(--cor-primaria)"
+                              : "transparent",
+                          color:
+                            Number(intervalo) === dias
+                              ? "#FFFFFF"
+                              : "var(--cor-primaria)",
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                        }}
+                      >
+                        {dias} dias
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="form-linha-dupla">
+                    <div className="form-grupo">
+                      <label
+                        style={{
+                          color: "var(--cor-primaria)",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        Data Inicial *
+                      </label>
+                      <input
+                        type="date"
+                        value={dataAgendamento}
+                        disabled
+                        style={{
+                          backgroundColor: "#E2E8F0",
+                          color: "#64748B",
+                          cursor: "not-allowed",
+                        }}
+                      />
+                    </div>
+                    <div className="form-grupo">
+                      <label
+                        style={{
+                          color: "var(--cor-primaria)",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        Data Final *
+                      </label>
+                      <input
+                        type="date"
+                        value={dataFim}
+                        onChange={(e) => setDataFim(e.target.value)}
+                        min={dataAgendamento}
+                        required={isRecorrente}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
