@@ -1,26 +1,62 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, Search, Edit2, Trash2 } from "lucide-react";
 import { ModalServico } from "../components/ModalServico";
+import { supabase } from "../services/supabase";
 import "./Servicos.css";
 
 export function Servicos() {
-  // Estado para capturar o que for digitado na barra de pesquisa
   const [busca, setBusca] = useState("");
-
-  // Memória para controlar o modal de serviço
   const [modalAberto, setModalAberto] = useState(false);
 
-  // Tabela simulada de Serviços (Focada apenas no nome e valor)
-  const servicosMock = [
-    { id: 1, nome: "Corte Feminino", preco: "80,00" },
-    { id: 2, nome: "Escova Modeladora", preco: "50,00" },
-    { id: 3, nome: "Manutenção em Gel", preco: "120,00" },
-    { id: 4, nome: "Spa dos Pés", preco: "50,00" },
-    { id: 5, nome: "Manicure e Pedicure", preco: "65,00" },
-  ];
+  // Novos estados para o banco de dados
+  const [servicos, setServicos] = useState([]);
+  const [servicoEditando, setServicoEditando] = useState(null);
+  const [servicoParaExcluir, setServicoParaExcluir] = useState(null);
 
-  // Filtro de busca instantâneo
-  const servicosFiltrados = servicosMock.filter((servico) =>
+  // Busca os serviços direto do Supabase
+  const buscarServicos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("servicos")
+        .select("*")
+        .order("nome", { ascending: true });
+
+      if (error) throw error;
+      if (data) setServicos(data);
+    } catch (error) {
+      console.error("Erro ao buscar serviços:", error.message);
+    }
+  };
+
+  // Roda a busca assim que a tela abre
+  useEffect(() => {
+    buscarServicos();
+  }, []);
+
+  // Função para deletar o serviço do banco
+  const confirmarExclusao = async () => {
+    if (!servicoParaExcluir) return;
+
+    try {
+      const { error } = await supabase
+        .from("servicos")
+        .delete()
+        .eq("id", servicoParaExcluir.id);
+
+      if (error) throw error;
+
+      setServicoParaExcluir(null);
+      buscarServicos(); // Atualiza a tabela
+    } catch (error) {
+      console.error("Erro ao excluir serviço:", error.message);
+      alert(
+        "Não foi possível excluir. Este serviço pode estar vinculado a algum agendamento do histórico.",
+      );
+    }
+  };
+
+  // Filtro instantâneo
+  const servicosFiltrados = servicos.filter((servico) =>
     servico.nome.toLowerCase().includes(busca.toLowerCase()),
   );
 
@@ -32,15 +68,19 @@ export function Servicos() {
           <p>Cadastre e ajuste os valores dos serviços do salão</p>
         </div>
 
-        {/* Botão atualizado para abrir o modal */}
-        <button className="btn-novo" onClick={() => setModalAberto(true)}>
+        <button
+          className="btn-novo"
+          onClick={() => {
+            setServicoEditando(null); // Garante que abra o modal limpo
+            setModalAberto(true);
+          }}
+        >
           <Plus size={18} strokeWidth={2.5} />
           Novo Serviço
         </button>
       </div>
 
       <div className="servicos-conteudo">
-        {/* Barra de Pesquisa */}
         <div className="servicos-filtros">
           <div className="busca-container">
             <Search size={18} />
@@ -53,7 +93,6 @@ export function Servicos() {
           </div>
         </div>
 
-        {/* Tabela de Listagem */}
         <div className="tabela-container">
           <table className="tabela-servicos">
             <thead>
@@ -70,18 +109,24 @@ export function Servicos() {
                     <td>
                       <strong>{servico.nome}</strong>
                     </td>
-                    <td>R$ {servico.preco}</td>
+                    {/* Formata o preço com vírgula */}
+                    <td>R$ {String(servico.preco).replace(".", ",")}</td>
                     <td>
                       <div className="acoes-tabela">
                         <button
                           className="btn-acao editar"
                           title="Editar Serviço"
+                          onClick={() => {
+                            setServicoEditando(servico);
+                            setModalAberto(true);
+                          }}
                         >
                           <Edit2 size={18} />
                         </button>
                         <button
                           className="btn-acao excluir"
                           title="Excluir Serviço"
+                          onClick={() => setServicoParaExcluir(servico)}
                         >
                           <Trash2 size={18} />
                         </button>
@@ -108,11 +153,57 @@ export function Servicos() {
         </div>
       </div>
 
-      {/* Janela Modal controlada pelo estado */}
+      {/* Janela Modal conectada ao estado de edição */}
       <ModalServico
         isOpen={modalAberto}
-        onClose={() => setModalAberto(false)}
+        servico={servicoEditando}
+        onClose={() => {
+          setModalAberto(false);
+          setServicoEditando(null);
+          buscarServicos(); // Recarrega a tabela ao salvar/fechar
+        }}
       />
+
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      {servicoParaExcluir && (
+        <div
+          className="modal-overlay"
+          onClick={() => setServicoParaExcluir(null)}
+        >
+          <div
+            className="modal-box modal-exclusao"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              style={{
+                fontSize: "1.25rem",
+                color: "#1E293B",
+                marginBottom: "0.5rem",
+              }}
+            >
+              Confirmar Exclusão
+            </h3>
+            <p style={{ color: "#475569", marginBottom: "1.5rem" }}>
+              Tem certeza que deseja apagar o serviço{" "}
+              <strong>{servicoParaExcluir.nome}</strong> do sistema?
+            </p>
+            <div className="modal-exclusao-acoes">
+              <button
+                className="btn-cancelar"
+                onClick={() => setServicoParaExcluir(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-confirmar-exclusao"
+                onClick={confirmarExclusao}
+              >
+                Sim, apagar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
