@@ -140,14 +140,30 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
     e.preventDefault();
 
     try {
-      const dataHoraCompleta = `${dataAgendamento}T${horario}:00-03:00`;
+      // 1. PREPARAÇÃO DAS DATAS
+      let datasParaAgendar = [dataAgendamento];
 
-      // 1. VALIDAÇÃO DE CONFLITO DE HORÁRIO
+      if (!agendamento && isRecorrente && dataFim) {
+        let dataAtualLoop = new Date(`${dataAgendamento}T12:00:00`);
+        let dataFinalLimite = new Date(`${dataFim}T12:00:00`);
+
+        while (true) {
+          dataAtualLoop.setDate(dataAtualLoop.getDate() + Number(intervalo));
+          if (dataAtualLoop > dataFinalLimite) break;
+          datasParaAgendar.push(dataAtualLoop.toISOString().split("T")[0]);
+        }
+      }
+
+      const horariosCompletos = datasParaAgendar.map(
+        (dt) => `${dt}T${horario}:00-03:00`,
+      );
+
+      // 2. VALIDAÇÃO DE CONFLITO DE HORÁRIO EM LOTE
       const { data: conflitos, error: erroConflito } = await supabase
         .from("appointments")
-        .select("id")
+        .select("id, data_horario")
         .eq("profissional_id", profissionalId)
-        .eq("data_horario", dataHoraCompleta)
+        .in("data_horario", horariosCompletos)
         .neq("status", "cancelado");
 
       if (erroConflito) throw erroConflito;
@@ -158,14 +174,20 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
       if (temConflito) {
         const profObj = listaProfissionais.find((p) => p.id === profissionalId);
+        const dataConflitante = conflitos[0].data_horario
+          .split("T")[0]
+          .split("-")
+          .reverse()
+          .join("/");
         setConflictInfo({
           profissionalNome: profObj ? profObj.nome : "A profissional",
-          horario: horario,
+          horario: `${horario} do dia ${dataConflitante}`,
         });
         setShowConflictModal(true);
         return;
       }
 
+      // 3. CADASTRO DE CLIENTE SE NECESSÁRIO
       let customerIdFinal = clienteSelecionado ? clienteSelecionado.id : null;
 
       if (!isBloqueio && !customerIdFinal && buscaCliente.trim()) {
@@ -180,7 +202,14 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         }
       }
 
-      const pacoteSalvarBanco = {
+      // GERA UM ID ÚNICO PARA A SÉRIE RECORRENTE (se for novo e recorrente)
+      const idGrupoRecorrencia =
+        !agendamento && isRecorrente
+          ? `rec_${Date.now().toString(36)}_${Math.random().toString(36).substring(2)}`
+          : agendamento?.grupo_recorrencia || null;
+
+      // 4. CRIAÇÃO DOS PACOTES E SALVAMENTO
+      const pacotesSalvarBanco = horariosCompletos.map((dataHoraCompleta) => ({
         customer_id: isBloqueio ? null : customerIdFinal,
         profissional_id: profissionalId,
         servico: isBloqueio ? buscaCliente || "Pausa" : servico,
@@ -188,34 +217,30 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         data_horario: dataHoraCompleta,
         status: isBloqueio ? "bloqueio" : "pendente",
         pagamento: "pendente",
-      };
+        grupo_recorrencia: idGrupoRecorrencia, // <- SALVA O IDENTIFICADOR DA SÉRIE
+      }));
 
       let resSalvar;
       if (agendamento && agendamento.id) {
         resSalvar = await supabase
           .from("appointments")
-          .update(pacoteSalvarBanco)
+          .update(pacotesSalvarBanco[0])
           .eq("id", agendamento.id);
       } else {
         resSalvar = await supabase
           .from("appointments")
-          .insert([pacoteSalvarBanco]);
+          .insert(pacotesSalvarBanco);
       }
 
-      if (resSalvar && resSalvar.error) {
-        throw resSalvar.error;
-      }
+      if (resSalvar && resSalvar.error) throw resSalvar.error;
 
-      if (onSave) {
-        onSave();
-      }
+      if (onSave) onSave();
       onClose();
     } catch (err) {
       console.error("Erro ao salvar agendamento:", err);
       alert("Erro ao salvar agendamento: " + (err.message || err));
     }
   };
-
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
@@ -473,6 +498,136 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
             </div>
           )}
 
+          {/* BLOCO DE RECORRÊNCIA RESTAURADO */}
+          {!agendamento && (
+            <div
+              className="form-grupo"
+              style={{
+                marginTop: "1rem",
+                backgroundColor: "#F8FAFC",
+                padding: "1rem",
+                borderRadius: "8px",
+                border: "1px solid #E2E8F0",
+              }}
+            >
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  cursor: "pointer",
+                  margin: 0,
+                  fontWeight: "600",
+                  color: "var(--cor-primaria)",
+                  userSelect: "none",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isRecorrente}
+                  onChange={(e) => setIsRecorrente(e.target.checked)}
+                  style={{
+                    width: "16px",
+                    height: "16px",
+                    accentColor: "var(--cor-primaria)",
+                  }}
+                />
+                <RefreshCw size={16} /> Tornar agendamento recorrente
+              </label>
+
+              {isRecorrente && (
+                <div style={{ marginTop: "1.2rem" }}>
+                  <label
+                    style={{
+                      fontSize: "0.85rem",
+                      color: "var(--cor-primaria)",
+                      fontWeight: "600",
+                      marginBottom: "8px",
+                      display: "block",
+                    }}
+                  >
+                    Intervalo de dias
+                  </label>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "10px",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    {[7, 14, 21, 28].map((dias) => (
+                      <button
+                        key={dias}
+                        type="button"
+                        onClick={() => setIntervalo(dias)}
+                        style={{
+                          flex: 1,
+                          padding: "8px 0",
+                          borderRadius: "8px",
+                          border: `1px solid ${Number(intervalo) === dias ? "var(--cor-primaria)" : "#CBD5E1"}`,
+                          backgroundColor:
+                            Number(intervalo) === dias
+                              ? "var(--cor-primaria)"
+                              : "transparent",
+                          color:
+                            Number(intervalo) === dias
+                              ? "#FFFFFF"
+                              : "var(--cor-primaria)",
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                        }}
+                      >
+                        {dias} dias
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="form-linha-dupla">
+                    <div className="form-grupo">
+                      <label
+                        style={{
+                          color: "var(--cor-primaria)",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        Data Inicial *
+                      </label>
+                      <input
+                        type="date"
+                        value={dataAgendamento}
+                        disabled
+                        style={{
+                          backgroundColor: "#E2E8F0",
+                          color: "#64748B",
+                          cursor: "not-allowed",
+                        }}
+                      />
+                    </div>
+                    <div className="form-grupo">
+                      <label
+                        style={{
+                          color: "var(--cor-primaria)",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        Data Final *
+                      </label>
+                      <input
+                        type="date"
+                        value={dataFim}
+                        onChange={(e) => setDataFim(e.target.value)}
+                        min={dataAgendamento}
+                        required={isRecorrente}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <button
             type="submit"
             className="btn-salvar"
@@ -538,7 +693,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
             >
               <strong>{conflictInfo.profissionalNome}</strong> já possui um
               agendamento marcado para as{" "}
-              <strong>{conflictInfo.horario}</strong> nesta data.
+              <strong>{conflictInfo.horario}</strong>.
             </p>
 
             <button

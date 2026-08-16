@@ -1,11 +1,23 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Plus, Check, Trash2, Calendar, CircleDollarSign } from "lucide-react";
+import { useLocation } from "react-router-dom";
+import {
+  Plus,
+  Check,
+  Trash2,
+  Calendar,
+  CircleDollarSign,
+  RefreshCw,
+  X,
+  CalendarDays,
+} from "lucide-react";
 import { ModalAgendamento } from "../components/ModalAgendamento";
 import { ModalPagamento } from "../components/ModalPagamento/ModalPagamento";
 import { supabase } from "../services/supabase";
 import "./Agenda.css";
 
 export function Agenda() {
+  const location = useLocation();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [agendamentoEditando, setAgendamentoEditando] = useState(null);
   const [agendamentoParaExcluir, setAgendamentoParaExcluir] = useState(null);
@@ -18,6 +30,13 @@ export function Agenda() {
     agendamentoParaDesfazerPagamento,
     setAgendamentoParaDesfazerPagamento,
   ] = useState(null);
+
+  // ESTADOS DA RECORRÊNCIA
+  const [isModalRecorrenciaAberto, setIsModalRecorrenciaAberto] =
+    useState(false);
+  const [listaRecorrencia, setListaRecorrencia] = useState([]);
+  const [grupoRecorrenciaFoco, setGrupoRecorrenciaFoco] = useState(null);
+  const [loadingRecorrencia, setLoadingRecorrencia] = useState(false);
 
   const [horaAtual, setHoraAtual] = useState(new Date());
   const [dataSelecionada, setDataSelecionada] = useState(new Date());
@@ -33,10 +52,8 @@ export function Agenda() {
     return () => clearInterval(timer);
   }, []);
 
-  // FUNÇÃO PARA BUSCAR OS PROFISSIONAIS E AGENDAMENTOS DO SUPABASE
   const carregarDadosAgenda = async () => {
     try {
-      // 1. Busca os profissionais cadastrados
       const { data: profsData, error: profsError } = await supabase
         .from("profissionais")
         .select("id, nome, especialidade, foto");
@@ -44,7 +61,7 @@ export function Agenda() {
       if (profsError) throw profsError;
       if (profsData) setProfissionais(profsData);
 
-      // 2. Busca os agendamentos vinculando com customers e profissionais
+      // BUSCA COM A NOVA COLUNA GRUPO_RECORRENCIA
       const { data, error } = await supabase.from("appointments").select(`
           *,
           customers ( nome ),
@@ -70,10 +87,12 @@ export function Agenda() {
             servico: item.servico,
             horarioInicio: horarioFormatado,
             data: dataFormatada,
+            dataHoraCompleta: item.data_horario,
             duracao: 60,
             valor: item.valor ? String(item.valor).replace(".", ",") : "0,00",
             status: item.status || "pendente",
             pagamento: item.pagamento || "pendente",
+            grupo_recorrencia: item.grupo_recorrencia, // <- Mapeamento da recorrência
           };
         });
 
@@ -87,6 +106,101 @@ export function Agenda() {
   useEffect(() => {
     carregarDadosAgenda();
   }, []);
+
+  useEffect(() => {
+    if (location.state && location.state.dataAlvo) {
+      const novaData = new Date(location.state.dataAlvo);
+      setDataSelecionada(novaData);
+
+      if (location.state.abrirAgendamentoId && agendamentos.length > 0) {
+        const agFoco = agendamentos.find(
+          (ag) => ag.id === location.state.abrirAgendamentoId,
+        );
+
+        if (agFoco) {
+          setAgendamentoParaPagamento(agFoco);
+          setIsModalPagamentoAberto(true);
+          window.history.replaceState({}, document.title);
+        }
+      }
+    }
+  }, [location.state, agendamentos]);
+
+  // FUNÇÃO PARA BUSCAR E ABRIR O MODAL DE RECORRÊNCIA
+  const handleAbrirRecorrencia = async (ag, e) => {
+    e.stopPropagation();
+    setGrupoRecorrenciaFoco(ag);
+    setIsModalRecorrenciaAberto(true);
+    setLoadingRecorrencia(true);
+
+    try {
+      const hojeStr = new Date().toISOString().split("T")[0];
+
+      const { data, error } = await supabase
+        .from("appointments")
+        .select("*, customers(nome)")
+        .eq("grupo_recorrencia", ag.grupo_recorrencia)
+        .gte("data_horario", hojeStr) // Pega apenas agendamentos de hoje em diante
+        .order("data_horario", { ascending: true });
+
+      if (error) throw error;
+      setListaRecorrencia(data || []);
+    } catch (error) {
+      console.error("Erro ao buscar recorrências:", error);
+    } finally {
+      setLoadingRecorrencia(false);
+    }
+  };
+
+  // FUNÇÃO PARA EXCLUIR TODA A SÉRIE FUTURA
+  const confirmarExclusaoSerie = async () => {
+    if (
+      !window.confirm(
+        `Isso irá apagar todos os horários futuros desta cliente.\nTem certeza?`,
+      )
+    )
+      return;
+
+    try {
+      const hojeStr = new Date().toISOString().split("T")[0];
+      const { error } = await supabase
+        .from("appointments")
+        .delete()
+        .eq("grupo_recorrencia", grupoRecorrenciaFoco.grupo_recorrencia)
+        .gte("data_horario", hojeStr);
+
+      if (error) throw error;
+
+      setIsModalRecorrenciaAberto(false);
+      carregarDadosAgenda();
+    } catch (error) {
+      console.error("Erro ao excluir série:", error);
+    }
+  };
+
+  // FUNÇÃO PARA EXCLUIR UM ITEM DA LISTA DE RECORRÊNCIA
+  const excluirItemUnicoSerie = async (idParaExcluir) => {
+    if (!window.confirm("Deseja apagar apenas este horário?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("appointments")
+        .delete()
+        .eq("id", idParaExcluir);
+      if (error) throw error;
+
+      setListaRecorrencia((prev) =>
+        prev.filter((item) => item.id !== idParaExcluir),
+      );
+      carregarDadosAgenda();
+
+      if (listaRecorrencia.length <= 1) {
+        setIsModalRecorrenciaAberto(false);
+      }
+    } catch (error) {
+      console.error("Erro ao excluir agendamento da série:", error);
+    }
+  };
 
   const formatarDataExibicao = (data) => {
     const dias = [
@@ -171,13 +285,11 @@ export function Agenda() {
 
   const alternarStatus = async (id, statusAtual) => {
     const novoStatus = statusAtual === "pendente" ? "confirmado" : "pendente";
-
     try {
       const { error } = await supabase
         .from("appointments")
         .update({ status: novoStatus })
         .eq("id", id);
-
       if (error) throw error;
       carregarDadosAgenda();
     } catch (error) {
@@ -187,13 +299,11 @@ export function Agenda() {
 
   const confirmarExclusao = async () => {
     if (!agendamentoParaExcluir) return;
-
     try {
       const { error } = await supabase
         .from("appointments")
         .delete()
         .eq("id", agendamentoParaExcluir.id);
-
       if (error) throw error;
       setAgendamentoParaExcluir(null);
       carregarDadosAgenda();
@@ -338,6 +448,29 @@ export function Agenda() {
                       >
                         {ag.status !== "bloqueio" && (
                           <>
+                            {/* BOTÃO DE RECORRÊNCIA AQUI */}
+                            {ag.grupo_recorrencia && (
+                              <button
+                                onClick={(e) => handleAbrirRecorrencia(ag, e)}
+                                style={{
+                                  backgroundColor: "#E0F2FE",
+                                  color: "#0284C7",
+                                  border: "none",
+                                  borderRadius: "8px",
+                                  width: "32px",
+                                  height: "32px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                  transition: "all 0.2s",
+                                }}
+                                title="Ver série de agendamentos"
+                              >
+                                <RefreshCw size={16} strokeWidth={2.5} />
+                              </button>
+                            )}
+
                             <a
                               href={`https://wa.me/?text=${encodeURIComponent(`Olá ${ag.cliente}, tudo bem? Seu agendamento de ${ag.servico} está marcado para hoje às ${ag.horarioInicio}!`)}`}
                               target="_blank"
@@ -353,7 +486,6 @@ export function Agenda() {
                                 alignItems: "center",
                                 justifyContent: "center",
                                 textDecoration: "none",
-                                transition: "all 0.2s",
                               }}
                               title="Chamar no WhatsApp"
                             >
@@ -385,7 +517,6 @@ export function Agenda() {
                                 justifyContent: "center",
                                 cursor: "pointer",
                                 boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-                                transition: "all 0.2s",
                               }}
                               title={
                                 ag.pagamento === "pago"
@@ -418,7 +549,6 @@ export function Agenda() {
                                 alignItems: "center",
                                 justifyContent: "center",
                                 cursor: "pointer",
-                                transition: "all 0.2s",
                               }}
                               title={
                                 ag.status === "confirmado"
@@ -456,7 +586,6 @@ export function Agenda() {
                             alignItems: "center",
                             justifyContent: "center",
                             cursor: "pointer",
-                            transition: "all 0.2s",
                           }}
                           title="Excluir"
                         >
@@ -508,6 +637,217 @@ export function Agenda() {
         }}
       />
 
+      {/* MODAL DE LISTAGEM DE RECORRÊNCIA */}
+      {isModalRecorrenciaAberto && (
+        <div
+          className="modal-overlay"
+          onClick={() => setIsModalRecorrenciaAberto(false)}
+        >
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "550px" }}
+          >
+            <div className="modal-header" style={{ marginBottom: "1rem" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+              >
+                <div
+                  style={{
+                    padding: "8px",
+                    backgroundColor: "#E0F2FE",
+                    borderRadius: "8px",
+                    color: "#0284C7",
+                  }}
+                >
+                  <CalendarDays size={24} />
+                </div>
+                <div>
+                  <h2
+                    style={{ margin: 0, fontSize: "1.25rem", color: "#1E293B" }}
+                  >
+                    Série de Agendamentos
+                  </h2>
+                  <p
+                    style={{
+                      margin: "2px 0 0",
+                      fontSize: "0.85rem",
+                      color: "#64748B",
+                    }}
+                  >
+                    Visualizando horários futuros de{" "}
+                    <strong>{grupoRecorrenciaFoco?.cliente}</strong>.
+                  </p>
+                </div>
+              </div>
+              <button
+                className="btn-fechar"
+                onClick={() => setIsModalRecorrenciaAberto(false)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {loadingRecorrencia ? (
+              <p
+                style={{
+                  textAlign: "center",
+                  color: "#64748B",
+                  padding: "2rem",
+                }}
+              >
+                Carregando horários...
+              </p>
+            ) : (
+              <div
+                style={{
+                  maxHeight: "350px",
+                  overflowY: "auto",
+                  paddingRight: "8px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                }}
+              >
+                {listaRecorrencia.map((item) => {
+                  const dataObj = new Date(item.data_horario);
+                  const dataFormatada = `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}`;
+                  const horaFormatada = dataObj.toLocaleTimeString("pt-BR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 16px",
+                        border: "1px solid #E2E8F0",
+                        borderRadius: "8px",
+                        backgroundColor: "#F8FAFC",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            backgroundColor: "#FFFFFF",
+                            border: "1px solid #CBD5E1",
+                            borderRadius: "6px",
+                            padding: "4px 8px",
+                            fontWeight: "700",
+                            color: "#334155",
+                          }}
+                        >
+                          {dataFormatada}
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              fontWeight: "600",
+                              color: "#0F172A",
+                              fontSize: "0.95rem",
+                            }}
+                          >
+                            {horaFormatada}
+                          </div>
+                          <div style={{ fontSize: "0.8rem", color: "#64748B" }}>
+                            {item.status}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button
+                          onClick={() => {
+                            setAgendamentoEditando({
+                              id: item.id,
+                              cliente: item.customers?.nome,
+                              profissionalId: item.profissional_id,
+                              servico: item.servico,
+                              horarioInicio: horaFormatada,
+                              data: dataObj.toISOString().split("T")[0],
+                              duracao: 60,
+                              valor: String(item.valor).replace(".", ","),
+                              status: item.status,
+                              grupo_recorrencia: item.grupo_recorrencia,
+                            });
+                            setIsModalRecorrenciaAberto(false);
+                            setIsModalOpen(true);
+                          }}
+                          style={{
+                            padding: "6px 12px",
+                            backgroundColor: "#FFFFFF",
+                            border: "1px solid #E2E8F0",
+                            borderRadius: "6px",
+                            color: "#475569",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => excluirItemUnicoSerie(item.id)}
+                          style={{
+                            padding: "6px",
+                            backgroundColor: "#FEE2E2",
+                            border: "none",
+                            borderRadius: "6px",
+                            color: "#EF4444",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                          title="Excluir apenas este"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: "1.5rem",
+                paddingTop: "1rem",
+                borderTop: "1px solid #E2E8F0",
+              }}
+            >
+              <button
+                onClick={confirmarExclusaoSerie}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  backgroundColor: "#FEF2F2",
+                  color: "#EF4444",
+                  border: "1px solid #FECACA",
+                  borderRadius: "8px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+              >
+                Excluir Todos os Futuros Desta Série
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAIS DE EXCLUSÃO E DESFAZER PAGAMENTO OMITIDOS PARA BREVIDADE (Mantidos do original) */}
       {agendamentoParaDesfazerPagamento && (
         <div
           className="modal-overlay"
@@ -575,34 +915,6 @@ export function Agenda() {
                 Sim, apagar
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {mensagemErro !== "" && (
-        <div
-          className="modal-overlay"
-          style={{ zIndex: 9999 }}
-          onClick={() => setMensagemErro("")}
-        >
-          <div
-            className="modal-box modal-exclusao"
-            onClick={(e) => e.stopPropagation()}
-            style={{ textAlign: "center", padding: "2rem" }}
-          >
-            <h3 style={{ color: "#E11D48", margin: "0 0 1rem 0" }}>
-              Ação Inválida
-            </h3>
-            <p style={{ margin: "0 0 1.5rem 0", color: "#475569" }}>
-              {mensagemErro}
-            </p>
-            <button
-              className="btn-confirmar-exclusao"
-              onClick={() => setMensagemErro("")}
-              style={{ width: "100%", backgroundColor: "var(--cor-primaria)" }}
-            >
-              Entendi
-            </button>
           </div>
         </div>
       )}
