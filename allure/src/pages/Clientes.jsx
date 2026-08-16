@@ -1,50 +1,49 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, Search, Edit2, Trash2, ClipboardList } from "lucide-react";
 import { ModalCliente } from "../components/ModalCliente";
 import { ModalHistorico } from "../components/ModalHistorico";
+import { supabase } from "../services/supabase";
 import "./Clientes.css";
 
 export function Clientes() {
-  // Estado para capturar o que for digitado na barra de pesquisa
   const [busca, setBusca] = useState("");
-
-  // Memória para controlar o modal de nova cliente
   const [modalAberto, setModalAberto] = useState(false);
-
-  // Memória para controlar o modal de histórico
   const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false);
   const [clienteParaHistorico, setClienteParaHistorico] = useState(null);
 
-  // Tabela simulada de Clientes (os mesmos dados que usamos no Modal)
-  const clientesMock = [
-    {
-      id: 1,
-      nome: "Juliana Costa",
-      telefone: "(15) 99999-1111",
-      ultimaVisita: "15/08/2026",
-    },
-    {
-      id: 2,
-      nome: "Camila Mendes",
-      telefone: "(15) 99999-2222",
-      ultimaVisita: "10/08/2026",
-    },
-    {
-      id: 3,
-      nome: "Amanda Reis",
-      telefone: "(15) 99999-3333",
-      ultimaVisita: "02/08/2026",
-    },
-    {
-      id: 4,
-      nome: "Mariana Souza",
-      telefone: "(15) 99999-4444",
-      ultimaVisita: "20/07/2026",
-    },
-  ];
+  // Lista de clientes vinda do banco de dados
+  const [clientes, setClientes] = useState([]);
 
-  // Filtra a lista instantaneamente com base na busca (por nome ou telefone)
-  const clientesFiltrados = clientesMock.filter(
+  // Função para buscar os dados reais no Supabase
+  const buscarClientes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("*")
+        .order("nome", { ascending: true });
+
+      if (error) throw error;
+
+      if (data) {
+        const listaFormatada = data.map((item) => ({
+          id: item.id,
+          nome: item.nome,
+          telefone: item.telefone || "Não informado",
+          ultimaVisita: "A definir",
+        }));
+        setClientes(listaFormatada);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar clientes:", error.message);
+    }
+  };
+
+  useEffect(() => {
+    buscarClientes();
+  }, []);
+
+  // Filtra a lista com base na busca (por nome ou telefone)
+  const clientesFiltrados = clientes.filter(
     (cliente) =>
       cliente.nome.toLowerCase().includes(busca.toLowerCase()) ||
       cliente.telefone.includes(busca),
@@ -65,7 +64,6 @@ export function Clientes() {
       </div>
 
       <div className="clientes-conteudo">
-        {/* Barra de Pesquisa */}
         <div className="clientes-filtros">
           <div className="busca-container">
             <Search size={18} />
@@ -78,7 +76,6 @@ export function Clientes() {
           </div>
         </div>
 
-        {/* Tabela de Listagem */}
         <div className="tabela-container">
           <table className="tabela-clientes">
             <thead>
@@ -90,7 +87,6 @@ export function Clientes() {
               </tr>
             </thead>
             <tbody>
-              {/* Se a busca encontrou resultados, desenha as linhas */}
               {clientesFiltrados.length > 0 ? (
                 clientesFiltrados.map((cliente) => (
                   <tr key={cliente.id}>
@@ -128,7 +124,6 @@ export function Clientes() {
                   </tr>
                 ))
               ) : (
-                /* Se não encontrou nada na busca, exibe esta mensagem */
                 <tr>
                   <td
                     colSpan="4"
@@ -147,13 +142,14 @@ export function Clientes() {
         </div>
       </div>
 
-      {/* Janela Modal de Nova Cliente */}
       <ModalCliente
         isOpen={modalAberto}
-        onClose={() => setModalAberto(false)}
+        onClose={() => {
+          setModalAberto(false);
+          buscarClientes(); // Atualiza a tabela ao fechar o modal de cadastro
+        }}
       />
 
-      {/* Janela Modal de Histórico */}
       <ModalHistorico
         isOpen={modalHistoricoAberto}
         onClose={() => setModalHistoricoAberto(false)}

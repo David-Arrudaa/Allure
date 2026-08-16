@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
+import { supabase } from "../../services/supabase";
 import "./ModalCliente.css";
-// Importamos o CSS do ModalAgendamento apenas para garantir que as classes base (overlay e box) estejam disponíveis
 import "../ModalAgendamento/ModalAgendamento.css";
 
 export function ModalCliente({ isOpen, onClose }) {
@@ -9,20 +9,42 @@ export function ModalCliente({ isOpen, onClose }) {
   const [telefone, setTelefone] = useState("");
   const [aniversario, setAniversario] = useState("");
   const [observacoes, setObservacoes] = useState("");
+  const [carregando, setCarregando] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log({ nome, telefone, aniversario, observacoes });
-    alert(`Cliente ${nome} cadastrada com sucesso!`);
+    setCarregando(true);
 
-    // Limpa os campos e fecha
-    setNome("");
-    setTelefone("");
-    setAniversario("");
-    setObservacoes("");
-    onClose();
+    try {
+      // Envia os dados para a tabela customers no Supabase
+      const { error } = await supabase.from("customers").insert([
+        {
+          nome: nome.trim(),
+          telefone: telefone.trim(),
+          observacoes: observacoes.trim(),
+          // Se sua tabela tiver coluna de aniversário, descomente a linha abaixo:
+          // aniversario: aniversario || null
+        },
+      ]);
+
+      if (error) throw error;
+
+      alert(`Cliente ${nome} cadastrada com sucesso no banco de dados!`);
+
+      // Limpa os campos e fecha
+      setNome("");
+      setTelefone("");
+      setAniversario("");
+      setObservacoes("");
+      onClose();
+    } catch (error) {
+      console.error("Erro ao salvar cliente:", error.message);
+      alert(`Erro ao salvar cliente: ${error.message}`);
+    } finally {
+      setCarregando(false);
+    }
   };
 
   return (
@@ -82,8 +104,9 @@ export function ModalCliente({ isOpen, onClose }) {
             type="submit"
             className="btn-salvar"
             style={{ marginTop: "1rem" }}
+            disabled={carregando}
           >
-            Salvar Cadastro
+            {carregando ? "Salvando..." : "Salvar Cadastro"}
           </button>
         </form>
       </div>

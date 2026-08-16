@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Plus, Check, Trash2, Calendar, CircleDollarSign } from "lucide-react";
 import { ModalAgendamento } from "../components/ModalAgendamento";
 import { ModalPagamento } from "../components/ModalPagamento/ModalPagamento";
+import { supabase } from "../services/supabase";
 import "./Agenda.css";
 
 export function Agenda() {
@@ -13,8 +14,6 @@ export function Agenda() {
   const [isModalPagamentoAberto, setIsModalPagamentoAberto] = useState(false);
   const [agendamentoParaPagamento, setAgendamentoParaPagamento] =
     useState(null);
-
-  // NOVO ESTADO: Para controlar a janelinha de desfazer pagamento
   const [
     agendamentoParaDesfazerPagamento,
     setAgendamentoParaDesfazerPagamento,
@@ -24,11 +23,69 @@ export function Agenda() {
   const [dataSelecionada, setDataSelecionada] = useState(new Date());
   const linhaTempoRef = useRef(null);
 
+  const [agendamentos, setAgendamentos] = useState([]);
+  const [profissionais, setProfissionais] = useState([]);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setHoraAtual(new Date());
     }, 60000);
     return () => clearInterval(timer);
+  }, []);
+
+  // FUNÇÃO PARA BUSCAR OS PROFISSIONAIS E AGENDAMENTOS DO SUPABASE
+  const carregarDadosAgenda = async () => {
+    try {
+      // 1. Busca os profissionais cadastrados
+      const { data: profsData, error: profsError } = await supabase
+        .from("profissionais")
+        .select("id, nome, especialidade, foto");
+
+      if (profsError) throw profsError;
+      if (profsData) setProfissionais(profsData);
+
+      // 2. Busca os agendamentos vinculando com customers e profissionais
+      const { data, error } = await supabase.from("appointments").select(`
+          *,
+          customers ( nome ),
+          profissionais ( id, nome )
+        `);
+
+      if (error) throw error;
+
+      if (data) {
+        const listaFormatada = data.map((item) => {
+          const dataObj = new Date(item.data_horario);
+          const dataFormatada = dataObj.toISOString().split("T")[0];
+          const horarioFormatado = dataObj.toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+
+          return {
+            id: item.id,
+            cliente: item.customers?.nome || "Cliente",
+            profissionalId: item.profissional_id,
+            profissional: item.profissionais?.nome || "Profissional",
+            servico: item.servico,
+            horarioInicio: horarioFormatado,
+            data: dataFormatada,
+            duracao: 60,
+            valor: item.valor ? String(item.valor).replace(".", ",") : "0,00",
+            status: item.status || "pendente",
+            pagamento: item.pagamento || "pendente",
+          };
+        });
+
+        setAgendamentos(listaFormatada);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados da agenda:", error.message);
+    }
+  };
+
+  useEffect(() => {
+    carregarDadosAgenda();
   }, []);
 
   const formatarDataExibicao = (data) => {
@@ -107,145 +164,58 @@ export function Agenda() {
     }
   }, [dataSelecionada, mostrarLinhaTempo]);
 
-  const [agendamentos, setAgendamentos] = useState([
-    {
-      id: 1,
-      profissional: "Ana Silva",
-      cliente: "Juliana Costa",
-      servico: "Manutenção em Gel",
-      horarioInicio: "09:00",
-      duracao: 120,
-      valor: "120,00",
-      status: "pendente",
-      pagamento: "pendente",
-    },
-    {
-      id: 2,
-      profissional: "Beatriz Santos",
-      cliente: "Camila Mendes",
-      servico: "Pedicure",
-      horarioInicio: "10:30",
-      duracao: 60,
-      valor: "35,00",
-      status: "confirmado",
-      pagamento: "pago",
-    },
-    {
-      id: 3,
-      profissional: "Ana Silva",
-      cliente: "Amanda Reis",
-      servico: "Pé e Mão",
-      horarioInicio: "13:30",
-      duracao: 90,
-      valor: "65,00",
-      status: "pendente",
-      pagamento: "pendente",
-    },
-    {
-      id: 4,
-      profissional: "Carla Dias",
-      cliente: "ALMOÇO",
-      servico: "Pausa",
-      horarioInicio: "12:00",
-      duracao: 60,
-      valor: "-",
-      status: "bloqueio",
-    },
-  ]);
-
-  const profissionais = [
-    { nome: "Ana Silva", especialidade: "Nail Designer", foto: "" },
-    { nome: "Beatriz Santos", especialidade: "Manicure Clássica", foto: "" },
-    { nome: "Carla Dias", especialidade: "Pedicure e Spa", foto: "" },
-  ];
-
   const horasDoDia = Array.from(
     { length: 14 },
     (_, i) => `${String(i + 7).padStart(2, "0")}:00`,
   );
 
-  const alternarStatus = (id) => {
-    setAgendamentos(
-      agendamentos.map((ag) =>
-        ag.id === id && ag.status !== "bloqueio"
-          ? {
-              ...ag,
-              status: ag.status === "pendente" ? "confirmado" : "pendente",
-            }
-          : ag,
-      ),
-    );
+  const alternarStatus = async (id, statusAtual) => {
+    const novoStatus = statusAtual === "pendente" ? "confirmado" : "pendente";
+
+    try {
+      const { error } = await supabase
+        .from("appointments")
+        .update({ status: novoStatus })
+        .eq("id", id);
+
+      if (error) throw error;
+      carregarDadosAgenda();
+    } catch (error) {
+      console.error("Erro ao alterar status:", error.message);
+    }
   };
 
-  const confirmarExclusao = () => {
-    setAgendamentos(
-      agendamentos.filter((ag) => ag.id !== agendamentoParaExcluir.id),
-    );
-    setAgendamentoParaExcluir(null);
+  const confirmarExclusao = async () => {
+    if (!agendamentoParaExcluir) return;
+
+    try {
+      const { error } = await supabase
+        .from("appointments")
+        .delete()
+        .eq("id", agendamentoParaExcluir.id);
+
+      if (error) throw error;
+      setAgendamentoParaExcluir(null);
+      carregarDadosAgenda();
+    } catch (error) {
+      console.error("Erro ao excluir agendamento:", error.message);
+    }
   };
 
-  const salvarAgendamento = (novoDado) => {
-    if (!novoDado.id) {
-      const dataAgendamentoObj = new Date(
-        `${novoDado.data}T${novoDado.horarioInicio}:00`,
-      );
-      if (dataAgendamentoObj < new Date()) {
-        setMensagemErro(
-          "Você não pode criar um agendamento em um horário que já passou!",
-        );
-        return;
-      }
-    }
-
-    const converterParaMinutos = (horaString) => {
-      const [horas, minutos] = horaString.split(":").map(Number);
-      return horas * 60 + minutos;
-    };
-
-    const inicioNovo = converterParaMinutos(novoDado.horarioInicio);
-    const fimNovo = inicioNovo + novoDado.duracao;
-
-    const temChoque = agendamentos.some((ag) => {
-      if (novoDado.id && ag.id === novoDado.id) return false;
-      if (ag.profissional !== novoDado.profissional) return false;
-      const inicioExistente = converterParaMinutos(ag.horarioInicio);
-      const fimExistente = inicioExistente + ag.duracao;
-      return inicioNovo < fimExistente && fimNovo > inicioExistente;
-    });
-
-    if (temChoque) {
-      setMensagemErro(
-        "Esse profissional já possui um agendamento ou pausa nesse horário. Por favor, escolha outro.",
-      );
-      return;
-    }
-
-    if (novoDado.id) {
-      setAgendamentos(
-        agendamentos.map((ag) => (ag.id === novoDado.id ? novoDado : ag)),
-      );
-    } else {
-      const novoId =
-        agendamentos.length > 0
-          ? Math.max(...agendamentos.map((ag) => ag.id)) + 1
-          : 1;
-      setAgendamentos([...agendamentos, { ...novoDado, id: novoId }]);
-    }
-    setIsModalOpen(false);
-  };
-
-  // NOVA LÓGICA DO BOTÃO DE PAGAMENTO
   const handleAbrirPagamento = (ag, e) => {
     e.stopPropagation();
     if (ag.pagamento === "pago") {
-      // Se já está pago, abre a confirmação para desfazer
       setAgendamentoParaDesfazerPagamento(ag);
     } else {
-      // Se está pendente, abre o modal de recebimento normalmente
       setAgendamentoParaPagamento(ag);
       setIsModalPagamentoAberto(true);
     }
   };
+
+  const dataSelecionadaString = dataSelecionada.toISOString().split("T")[0];
+  const agendamentosDoDia = agendamentos.filter(
+    (ag) => ag.data === dataSelecionadaString,
+  );
 
   return (
     <div className="agenda-container">
@@ -313,7 +283,7 @@ export function Agenda() {
           )}
 
           {profissionais.map((prof) => (
-            <div key={prof.nome} className="coluna-profissional">
+            <div key={prof.id} className="coluna-profissional">
               <div className="profissional-header">
                 {prof.foto ? (
                   <img
@@ -331,8 +301,8 @@ export function Agenda() {
                 </div>
               </div>
 
-              {agendamentos
-                .filter((ag) => ag.profissional === prof.nome)
+              {agendamentosDoDia
+                .filter((ag) => ag.profissionalId === prof.id)
                 .map((ag) => (
                   <div
                     key={ag.id}
@@ -368,7 +338,6 @@ export function Agenda() {
                       >
                         {ag.status !== "bloqueio" && (
                           <>
-                            {/* 1. WHATSAPP */}
                             <a
                               href={`https://wa.me/?text=${encodeURIComponent(`Olá ${ag.cliente}, tudo bem? Seu agendamento de ${ag.servico} está marcado para hoje às ${ag.horarioInicio}!`)}`}
                               target="_blank"
@@ -399,7 +368,6 @@ export function Agenda() {
                               </svg>
                             </a>
 
-                            {/* 2. PAGAMENTO INTELIGENTE */}
                             <button
                               onClick={(e) => handleAbrirPagamento(ag, e)}
                               style={{
@@ -428,11 +396,10 @@ export function Agenda() {
                               <CircleDollarSign size={16} strokeWidth={2.5} />
                             </button>
 
-                            {/* 3. CONCLUIR */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                alternarStatus(ag.id);
+                                alternarStatus(ag.id, ag.status);
                               }}
                               style={{
                                 backgroundColor:
@@ -473,7 +440,6 @@ export function Agenda() {
                           </>
                         )}
 
-                        {/* 4. LIXEIRA */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -520,26 +486,28 @@ export function Agenda() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         agendamento={agendamentoEditando}
-        onSave={salvarAgendamento}
+        onSave={() => {
+          setIsModalOpen(false);
+          carregarDadosAgenda();
+        }}
       />
 
       <ModalPagamento
         isOpen={isModalPagamentoAberto}
         onClose={() => setIsModalPagamentoAberto(false)}
         dados={agendamentoParaPagamento}
-        onSave={(dadosPagamento) => {
-          setAgendamentos(
-            agendamentos.map((ag) =>
-              ag.id === agendamentoParaPagamento.id
-                ? { ...ag, pagamento: "pago" }
-                : ag,
-            ),
-          );
+        onSave={async () => {
+          if (agendamentoParaPagamento) {
+            await supabase
+              .from("appointments")
+              .update({ pagamento: "pago" })
+              .eq("id", agendamentoParaPagamento.id);
+            carregarDadosAgenda();
+          }
           setIsModalPagamentoAberto(false);
         }}
       />
 
-      {/* NOVO: MODAL DE DESFAZER PAGAMENTO */}
       {agendamentoParaDesfazerPagamento && (
         <div
           className="modal-overlay"
@@ -552,8 +520,7 @@ export function Agenda() {
             <h3>Desfazer Pagamento</h3>
             <p>
               Deseja estornar o pagamento recebido de{" "}
-              <strong>{agendamentoParaDesfazerPagamento.cliente}</strong> e
-              voltar para pendente?
+              <strong>{agendamentoParaDesfazerPagamento.cliente}</strong>?
             </p>
             <div className="modal-exclusao-acoes">
               <button
@@ -564,15 +531,13 @@ export function Agenda() {
               </button>
               <button
                 className="btn-confirmar-exclusao"
-                onClick={() => {
-                  setAgendamentos(
-                    agendamentos.map((ag) =>
-                      ag.id === agendamentoParaDesfazerPagamento.id
-                        ? { ...ag, pagamento: "pendente" }
-                        : ag,
-                    ),
-                  );
+                onClick={async () => {
+                  await supabase
+                    .from("appointments")
+                    .update({ pagamento: "pendente" })
+                    .eq("id", agendamentoParaDesfazerPagamento.id);
                   setAgendamentoParaDesfazerPagamento(null);
+                  carregarDadosAgenda();
                 }}
               >
                 Sim, desfazer
@@ -582,7 +547,6 @@ export function Agenda() {
         </div>
       )}
 
-      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
       {agendamentoParaExcluir && (
         <div
           className="modal-overlay"

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { X, RefreshCw } from "lucide-react";
+import { X, RefreshCw, AlertTriangle } from "lucide-react";
+import { supabase } from "../../services/supabase";
 import "./ModalAgendamento.css";
 
 export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
@@ -7,9 +8,15 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
   const [buscaCliente, setBuscaCliente] = useState("");
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
+  const [listaClientesBanco, setListaClientesBanco] = useState([]);
+
+  // Estados para carregar do banco
+  const [listaProfissionais, setListaProfissionais] = useState([]);
+  const [listaServicosBanco, setListaServicosBanco] = useState([]);
+
   const [dataAgendamento, setDataAgendamento] = useState(dataHoje);
   const [horario, setHorario] = useState("09:00");
-  const [profissional, setProfissional] = useState("Ana Silva");
+  const [profissionalId, setProfissionalId] = useState("");
   const [servico, setServico] = useState("");
   const [duracao, setDuracao] = useState(60);
   const [valor, setValor] = useState("");
@@ -21,17 +28,45 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const [intervalo, setIntervalo] = useState(21);
   const [dataFim, setDataFim] = useState("");
 
+  // Estado do Modal de Conflito de Horário
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [conflictInfo, setConflictInfo] = useState({
+    profissionalNome: "",
+    horario: "",
+  });
+
+  // Busca profissionais e serviços do banco ao abrir o modal
+  useEffect(() => {
+    async function carregarDadosIniciais() {
+      try {
+        const { data: profs } = await supabase
+          .from("profissionais")
+          .select("id, nome");
+        if (profs) setListaProfissionais(profs);
+
+        const { data: servs } = await supabase
+          .from("servicos")
+          .select("id, nome, preco");
+        if (servs) setListaServicosBanco(servs);
+      } catch (err) {
+        console.error("Erro ao carregar dados do banco:", err);
+      }
+    }
+    if (isOpen) {
+      carregarDadosIniciais();
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (agendamento) {
       setBuscaCliente(agendamento.cliente);
-      setProfissional(agendamento.profissional);
+      setProfissionalId(agendamento.profissionalId || "");
       setServico(agendamento.servico);
       setHorario(agendamento.horarioInicio);
       setDuracao(agendamento.duracao);
       setValor(agendamento.valor);
       setIsBloqueio(agendamento.status === "bloqueio");
 
-      // Reseta a recorrência ao editar um agendamento específico
       setIsRecorrente(false);
       setIntervalo(21);
       setDataFim("");
@@ -40,33 +75,51 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       setClienteSelecionado(null);
       setDataAgendamento(dataHoje);
       setHorario("09:00");
-      setProfissional("Ana Silva");
+      setProfissionalId("");
       setServico("");
       setDuracao(60);
       setValor("");
       setIsBloqueio(false);
 
-      // Reseta a recorrência ao criar um novo
       setIsRecorrente(false);
       setIntervalo(21);
       setDataFim("");
     }
   }, [agendamento, isOpen, dataHoje]);
 
-  const clientesCadastradas = [
-    { id: 1, nome: "Juliana Costa", telefone: "(15) 99999-1111" },
-    { id: 2, nome: "Camila Mendes", telefone: "(15) 99999-2222" },
-    { id: 3, nome: "Amanda Reis", telefone: "(15) 99999-3333" },
-    { id: 4, nome: "Mariana Souza", telefone: "(15) 99999-4444" },
-  ];
+  // BUSCA AS CLIENTES NO SUPABASE QUANDO DIGITAR 3 OU MAIS CARACTERES
+  useEffect(() => {
+    const buscarClientesNoBanco = async () => {
+      if (
+        buscaCliente.trim().length >= 3 &&
+        !clienteSelecionado &&
+        !isBloqueio
+      ) {
+        try {
+          const { data, error } = await supabase
+            .from("customers")
+            .select("id, nome, telefone")
+            .ilike("nome", `%${buscaCliente.trim()}%`)
+            .limit(5);
 
-  const servicosCadastrados = [
-    { id: 1, nome: "Manicure", valor: "35,00" },
-    { id: 2, nome: "Pedicure", valor: "35,00" },
-    { id: 3, nome: "Pé e Mão", valor: "65,00" },
-    { id: 4, nome: "Manutenção em Gel", valor: "120,00" },
-    { id: 5, nome: "Spa dos Pés", valor: "50,00" },
-  ];
+          if (error) throw error;
+          if (data) {
+            setListaClientesBanco(data);
+          }
+        } catch (error) {
+          console.error("Erro ao buscar clientes:", error.message);
+        }
+      } else {
+        setListaClientesBanco([]);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      buscarClientesNoBanco();
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [buscaCliente, clienteSelecionado, isBloqueio]);
 
   if (!isOpen) return null;
 
@@ -83,37 +136,83 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
   const horaFim = calcularHoraFim(horario, duracao);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const nomeFinal = isBloqueio
-      ? buscaCliente
-      : clienteSelecionado
-        ? clienteSelecionado.nome
-        : buscaCliente;
+    try {
+      const dataHoraCompleta = `${dataAgendamento}T${horario}:00-03:00`;
 
-    // Pacote de dados atualizado com a recorrência
-    const pacoteSalvar = {
-      id: agendamento ? agendamento.id : null,
-      cliente: nomeFinal,
-      data: dataAgendamento,
-      profissional: profissional,
-      servico: isBloqueio ? "Pausa" : servico,
-      horarioInicio: horario,
-      duracao: Number(duracao),
-      valor: isBloqueio ? "-" : valor,
-      status: isBloqueio
-        ? "bloqueio"
-        : agendamento
-          ? agendamento.status
-          : "pendente",
-      isRecorrente: isRecorrente,
-      intervalo: isRecorrente ? Number(intervalo) : null,
-      dataFim: isRecorrente ? dataFim : null,
-    };
+      // 1. VALIDAÇÃO DE CONFLITO DE HORÁRIO
+      const { data: conflitos, error: erroConflito } = await supabase
+        .from("appointments")
+        .select("id")
+        .eq("profissional_id", profissionalId)
+        .eq("data_horario", dataHoraCompleta)
+        .neq("status", "cancelado");
 
-    if (onSave) {
-      onSave(pacoteSalvar);
+      if (erroConflito) throw erroConflito;
+
+      const temConflito =
+        conflitos &&
+        conflitos.some((item) => !agendamento || item.id !== agendamento.id);
+
+      if (temConflito) {
+        const profObj = listaProfissionais.find((p) => p.id === profissionalId);
+        setConflictInfo({
+          profissionalNome: profObj ? profObj.nome : "A profissional",
+          horario: horario,
+        });
+        setShowConflictModal(true);
+        return;
+      }
+
+      let customerIdFinal = clienteSelecionado ? clienteSelecionado.id : null;
+
+      if (!isBloqueio && !customerIdFinal && buscaCliente.trim()) {
+        const { data: novoCliente, error: errCliente } = await supabase
+          .from("customers")
+          .insert([{ nome: buscaCliente.trim() }])
+          .select("id");
+
+        if (errCliente) throw errCliente;
+        if (novoCliente && novoCliente.length > 0) {
+          customerIdFinal = novoCliente[0].id;
+        }
+      }
+
+      const pacoteSalvarBanco = {
+        customer_id: isBloqueio ? null : customerIdFinal,
+        profissional_id: profissionalId,
+        servico: isBloqueio ? buscaCliente || "Pausa" : servico,
+        valor: isBloqueio ? 0 : Number(String(valor).replace(",", ".")) || 0,
+        data_horario: dataHoraCompleta,
+        status: isBloqueio ? "bloqueio" : "pendente",
+        pagamento: "pendente",
+      };
+
+      let resSalvar;
+      if (agendamento && agendamento.id) {
+        resSalvar = await supabase
+          .from("appointments")
+          .update(pacoteSalvarBanco)
+          .eq("id", agendamento.id);
+      } else {
+        resSalvar = await supabase
+          .from("appointments")
+          .insert([pacoteSalvarBanco]);
+      }
+
+      if (resSalvar && resSalvar.error) {
+        throw resSalvar.error;
+      }
+
+      if (onSave) {
+        onSave();
+      }
+      onClose();
+    } catch (err) {
+      console.error("Erro ao salvar agendamento:", err);
+      alert("Erro ao salvar agendamento: " + (err.message || err));
     }
   };
 
@@ -150,8 +249,9 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                   setIsBloqueio(e.target.checked);
                   if (e.target.checked) {
                     setClienteSelecionado(null);
+                    setBuscaCliente("");
                     setServico("Pausa");
-                    setValor("-");
+                    setValor("0,00");
                   }
                 }}
                 style={{
@@ -193,7 +293,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
             />
 
             {!isBloqueio &&
-              buscaCliente.trim().length >= 3 &&
+              listaClientesBanco.length > 0 &&
               !clienteSelecionado && (
                 <div
                   style={{
@@ -211,35 +311,34 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                     overflowY: "auto",
                   }}
                 >
-                  {clientesCadastradas
-                    .filter((c) =>
-                      c.nome.toLowerCase().includes(buscaCliente.toLowerCase()),
-                    )
-                    .map((c) => (
-                      <div
-                        key={c.id}
-                        onClick={() => {
-                          setClienteSelecionado(c);
-                          setBuscaCliente(c.nome);
-                        }}
-                        style={{
-                          padding: "0.6rem 1rem",
-                          cursor: "pointer",
-                          borderBottom: "1px solid #F1F5F9",
-                          fontSize: "0.9rem",
-                          color: "var(--cor-texto)",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#F8FAFC")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#FFFFFF")
-                        }
-                      >
-                        <strong>{c.nome}</strong> -{" "}
-                        <span style={{ color: "#64748B" }}>{c.telefone}</span>
-                      </div>
-                    ))}
+                  {listaClientesBanco.map((c) => (
+                    <div
+                      key={c.id}
+                      onClick={() => {
+                        setClienteSelecionado(c);
+                        setBuscaCliente(c.nome);
+                        setListaClientesBanco([]);
+                      }}
+                      style={{
+                        padding: "0.6rem 1rem",
+                        cursor: "pointer",
+                        borderBottom: "1px solid #F1F5F9",
+                        fontSize: "0.9rem",
+                        color: "var(--cor-texto)",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.backgroundColor = "#F8FAFC")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.backgroundColor = "#FFFFFF")
+                      }
+                    >
+                      <strong>{c.nome}</strong> -{" "}
+                      <span style={{ color: "#64748B" }}>
+                        {c.telefone || "Sem telefone"}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
           </div>
@@ -279,12 +378,18 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
             <div className="form-grupo">
               <label>Profissional</label>
               <select
-                value={profissional}
-                onChange={(e) => setProfissional(e.target.value)}
+                value={profissionalId}
+                onChange={(e) => setProfissionalId(e.target.value)}
+                required
               >
-                <option value="Ana Silva">Ana Silva</option>
-                <option value="Beatriz Santos">Beatriz Santos</option>
-                <option value="Carla Dias">Carla Dias</option>
+                <option value="" disabled>
+                  Selecione a profissional...
+                </option>
+                {listaProfissionais.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -296,17 +401,18 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                   onChange={(e) => {
                     const servicoEscolhido = e.target.value;
                     setServico(servicoEscolhido);
-                    const infoServico = servicosCadastrados.find(
+                    const infoServico = listaServicosBanco.find(
                       (s) => s.nome === servicoEscolhido,
                     );
-                    if (infoServico) setValor(infoServico.valor);
+                    if (infoServico)
+                      setValor(String(infoServico.preco).replace(".", ","));
                   }}
                   required={!isBloqueio}
                 >
                   <option value="" disabled>
                     Selecione um serviço...
                   </option>
-                  {servicosCadastrados.map((s) => (
+                  {listaServicosBanco.map((s) => (
                     <option key={s.id} value={s.nome}>
                       {s.nome}
                     </option>
@@ -367,137 +473,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
             </div>
           )}
 
-          {/* SESSÃO DE RECORRÊNCIA - FORMATO DE BOTÕES */}
-          {!agendamento && (
-            <div
-              className="form-grupo"
-              style={{
-                marginTop: "1rem",
-                backgroundColor: "#F8FAFC",
-                padding: "1rem",
-                borderRadius: "8px",
-                border: "1px solid #E2E8F0",
-              }}
-            >
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  cursor: "pointer",
-                  margin: 0,
-                  fontWeight: "600",
-                  color: "var(--cor-primaria)",
-                  userSelect: "none",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={isRecorrente}
-                  onChange={(e) => setIsRecorrente(e.target.checked)}
-                  style={{
-                    width: "16px",
-                    height: "16px",
-                    accentColor: "var(--cor-primaria)",
-                  }}
-                />
-                <RefreshCw size={16} /> Tornar agendamento recorrente
-              </label>
-
-              {isRecorrente && (
-                <div style={{ marginTop: "1.2rem" }}>
-                  <label
-                    style={{
-                      fontSize: "0.85rem",
-                      color: "var(--cor-primaria)",
-                      fontWeight: "600",
-                      marginBottom: "8px",
-                      display: "block",
-                    }}
-                  >
-                    Intervalo de dias
-                  </label>
-
-                  {/* Botoes de selecao de dias */}
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "10px",
-                      marginBottom: "1rem",
-                    }}
-                  >
-                    {[7, 14, 21, 28].map((dias) => (
-                      <button
-                        key={dias}
-                        type="button"
-                        onClick={() => setIntervalo(dias)}
-                        style={{
-                          flex: 1,
-                          padding: "8px 0",
-                          borderRadius: "8px",
-                          border: `1px solid ${Number(intervalo) === dias ? "var(--cor-primaria)" : "#CBD5E1"}`,
-                          backgroundColor:
-                            Number(intervalo) === dias
-                              ? "var(--cor-primaria)"
-                              : "transparent",
-                          color:
-                            Number(intervalo) === dias
-                              ? "#FFFFFF"
-                              : "var(--cor-primaria)",
-                          fontWeight: "600",
-                          cursor: "pointer",
-                          transition: "all 0.2s",
-                        }}
-                      >
-                        {dias} dias
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="form-linha-dupla">
-                    <div className="form-grupo">
-                      <label
-                        style={{
-                          color: "var(--cor-primaria)",
-                          fontSize: "0.85rem",
-                        }}
-                      >
-                        Data Inicial *
-                      </label>
-                      <input
-                        type="date"
-                        value={dataAgendamento}
-                        disabled
-                        style={{
-                          backgroundColor: "#E2E8F0",
-                          color: "#64748B",
-                          cursor: "not-allowed",
-                        }}
-                      />
-                    </div>
-                    <div className="form-grupo">
-                      <label
-                        style={{
-                          color: "var(--cor-primaria)",
-                          fontSize: "0.85rem",
-                        }}
-                      >
-                        Data Final *
-                      </label>
-                      <input
-                        type="date"
-                        value={dataFim}
-                        onChange={(e) => setDataFim(e.target.value)}
-                        min={dataAgendamento}
-                        required={isRecorrente}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           <button
             type="submit"
             className="btn-salvar"
@@ -507,6 +482,86 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
           </button>
         </form>
       </div>
+
+      {/* MODAL DE AVISO DE CONFLITO DE HORÁRIO */}
+      {showConflictModal && (
+        <div
+          className="modal-overlay"
+          style={{ zIndex: 1100, backgroundColor: "rgba(15, 23, 42, 0.6)" }}
+          onClick={() => setShowConflictModal(false)}
+        >
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "400px",
+              textAlign: "center",
+              padding: "2rem 1.5rem",
+              borderRadius: "16px",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.15)",
+            }}
+          >
+            <div
+              style={{
+                width: "56px",
+                height: "56px",
+                borderRadius: "50%",
+                backgroundColor: "#FEE2E2",
+                color: "#E11D48",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 1.25rem",
+              }}
+            >
+              <AlertTriangle size={28} strokeWidth={2.3} />
+            </div>
+
+            <h3
+              style={{
+                fontSize: "1.25rem",
+                fontWeight: "700",
+                color: "#1E293B",
+                margin: "0 0 0.5rem 0",
+              }}
+            >
+              Horário Indisponível
+            </h3>
+
+            <p
+              style={{
+                fontSize: "0.95rem",
+                color: "#64748B",
+                lineHeight: "1.5",
+                margin: "0 0 1.5rem 0",
+              }}
+            >
+              <strong>{conflictInfo.profissionalNome}</strong> já possui um
+              agendamento marcado para as{" "}
+              <strong>{conflictInfo.horario}</strong> nesta data.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setShowConflictModal(false)}
+              style={{
+                width: "100%",
+                padding: "0.8rem",
+                borderRadius: "10px",
+                border: "none",
+                backgroundColor: "var(--cor-primaria)",
+                color: "#FFFFFF",
+                fontWeight: "600",
+                fontSize: "1rem",
+                cursor: "pointer",
+                transition: "all 0.2s",
+              }}
+            >
+              Mudar Horário
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
