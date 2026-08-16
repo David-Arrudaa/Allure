@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Plus, Check, MessageCircle, Trash2, Calendar } from "lucide-react";
+import { Plus, Check, Trash2, Calendar, CircleDollarSign } from "lucide-react";
 import { ModalAgendamento } from "../components/ModalAgendamento";
+import { ModalPagamento } from "../components/ModalPagamento/ModalPagamento";
 import "./Agenda.css";
 
 export function Agenda() {
@@ -9,12 +10,20 @@ export function Agenda() {
   const [agendamentoParaExcluir, setAgendamentoParaExcluir] = useState(null);
   const [mensagemErro, setMensagemErro] = useState("");
 
-  // Controle da data atual e do relógio
+  const [isModalPagamentoAberto, setIsModalPagamentoAberto] = useState(false);
+  const [agendamentoParaPagamento, setAgendamentoParaPagamento] =
+    useState(null);
+
+  // NOVO ESTADO: Para controlar a janelinha de desfazer pagamento
+  const [
+    agendamentoParaDesfazerPagamento,
+    setAgendamentoParaDesfazerPagamento,
+  ] = useState(null);
+
   const [horaAtual, setHoraAtual] = useState(new Date());
   const [dataSelecionada, setDataSelecionada] = useState(new Date());
   const linhaTempoRef = useRef(null);
 
-  // Relógio rodando a cada 1 minuto
   useEffect(() => {
     const timer = setInterval(() => {
       setHoraAtual(new Date());
@@ -22,7 +31,6 @@ export function Agenda() {
     return () => clearInterval(timer);
   }, []);
 
-  // Formata a data para exibir bonito (ex: Terça-feira, 05 de Agosto)
   const formatarDataExibicao = (data) => {
     const dias = [
       "Domingo",
@@ -50,7 +58,6 @@ export function Agenda() {
     return `${dias[data.getDay()]}, ${String(data.getDate()).padStart(2, "0")} de ${meses[data.getMonth()]}`;
   };
 
-  // Funções de Navegação da Data
   const irParaHoje = () => setDataSelecionada(new Date());
   const diaAnterior = () => {
     const novaData = new Date(dataSelecionada);
@@ -63,7 +70,6 @@ export function Agenda() {
     setDataSelecionada(novaData);
   };
 
-  // Cálculos de Posição
   const calcularPosicao = (horarioString) => {
     const [hora, minuto] = horarioString.split(":").map(Number);
     const minutosDesde07h = hora * 60 + minuto - 7 * 60;
@@ -81,7 +87,6 @@ export function Agenda() {
     });
   };
 
-  // Lógica da Linha do Tempo Vermelha
   const hoje = new Date();
   const isHoje =
     dataSelecionada.getDate() === hoje.getDate() &&
@@ -93,7 +98,6 @@ export function Agenda() {
   const mostrarLinhaTempo =
     isHoje && posicaoLinhaTempo >= 0 && posicaoLinhaTempo <= 14 * 60 * 2;
 
-  // Auto-scroll para a linha do tempo quando abrir "Hoje"
   useEffect(() => {
     if (mostrarLinhaTempo && linhaTempoRef.current) {
       linhaTempoRef.current.scrollIntoView({
@@ -103,7 +107,6 @@ export function Agenda() {
     }
   }, [dataSelecionada, mostrarLinhaTempo]);
 
-  // Lista Mockada
   const [agendamentos, setAgendamentos] = useState([
     {
       id: 1,
@@ -114,6 +117,7 @@ export function Agenda() {
       duracao: 120,
       valor: "120,00",
       status: "pendente",
+      pagamento: "pendente",
     },
     {
       id: 2,
@@ -124,6 +128,7 @@ export function Agenda() {
       duracao: 60,
       valor: "35,00",
       status: "confirmado",
+      pagamento: "pago",
     },
     {
       id: 3,
@@ -134,6 +139,7 @@ export function Agenda() {
       duracao: 90,
       valor: "65,00",
       status: "pendente",
+      pagamento: "pendente",
     },
     {
       id: 4,
@@ -228,17 +234,27 @@ export function Agenda() {
     setIsModalOpen(false);
   };
 
+  // NOVA LÓGICA DO BOTÃO DE PAGAMENTO
+  const handleAbrirPagamento = (ag, e) => {
+    e.stopPropagation();
+    if (ag.pagamento === "pago") {
+      // Se já está pago, abre a confirmação para desfazer
+      setAgendamentoParaDesfazerPagamento(ag);
+    } else {
+      // Se está pendente, abre o modal de recebimento normalmente
+      setAgendamentoParaPagamento(ag);
+      setIsModalPagamentoAberto(true);
+    }
+  };
+
   return (
     <div className="agenda-container">
-      {/* BARRA SUPERIOR (TOPBAR) */}
       <div className="agenda-topbar">
         <div className="agenda-info-navegacao">
           <div className="agenda-info">
             <h2>Agenda do Dia</h2>
             <div className="data-formatada">
               {formatarDataExibicao(dataSelecionada)}
-
-              {/* Botão de calendário com input embutido */}
               <label className="btn-calendario-icon" title="Escolher data">
                 <Calendar size={18} />
                 <input
@@ -255,7 +271,6 @@ export function Agenda() {
               </label>
             </div>
           </div>
-
           <div className="agenda-botoes-nav">
             <button onClick={diaAnterior}>&lt; Anterior</button>
             <button onClick={irParaHoje}>Hoje</button>
@@ -275,12 +290,9 @@ export function Agenda() {
         </button>
       </div>
 
-      {/* ÁREA COM SCROLL INTERNO DA AGENDA */}
       <div className="agenda-wrapper">
-        {/* Coluna da esquerda (14 horas fixas) */}
         <div className="coluna-horarios">
-          <div className="espaco-cabecalho-horarios"></div>{" "}
-          {/* Espaço vazio para alinhar com o cabeçalho fixo das profissionais */}
+          <div className="espaco-cabecalho-horarios"></div>
           {horasDoDia.map((hora) => (
             <div key={hora} className="horario-label">
               <span>{hora}</span>
@@ -289,7 +301,6 @@ export function Agenda() {
           ))}
         </div>
 
-        {/* Grade principal com a agenda */}
         <div className="grade-profissionais">
           {mostrarLinhaTempo && (
             <div
@@ -303,7 +314,6 @@ export function Agenda() {
 
           {profissionais.map((prof) => (
             <div key={prof.nome} className="coluna-profissional">
-              {/* CABEÇALHO FIXO (FOTO + NOME LADO A LADO) */}
               <div className="profissional-header">
                 {prof.foto ? (
                   <img
@@ -321,7 +331,6 @@ export function Agenda() {
                 </div>
               </div>
 
-              {/* RENDERIZAÇÃO DOS CARDS */}
               {agendamentos
                 .filter((ag) => ag.profissional === prof.nome)
                 .map((ag) => (
@@ -349,36 +358,144 @@ export function Agenda() {
                         <span className="cartao-cliente">{ag.cliente}</span>
                       </div>
 
-                      <div className="card-acoes-topo">
-                        <button
-                          className="btn-delete-card"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setAgendamentoParaExcluir(ag);
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                      <div
+                        className="card-acoes-topo"
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          alignItems: "center",
+                        }}
+                      >
                         {ag.status !== "bloqueio" && (
                           <>
+                            {/* 1. WHATSAPP */}
                             <a
-                              href="#"
-                              className="btn-wpp-card"
+                              href={`https://wa.me/?text=${encodeURIComponent(`Olá ${ag.cliente}, tudo bem? Seu agendamento de ${ag.servico} está marcado para hoje às ${ag.horarioInicio}!`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
+                              style={{
+                                backgroundColor: "#DCFCE7",
+                                color: "#22C55E",
+                                borderRadius: "8px",
+                                width: "32px",
+                                height: "32px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                textDecoration: "none",
+                                transition: "all 0.2s",
+                              }}
+                              title="Chamar no WhatsApp"
                             >
-                              <MessageCircle size={14} />
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                              >
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+                              </svg>
                             </a>
+
+                            {/* 2. PAGAMENTO INTELIGENTE */}
                             <button
-                              className={`btn-status-tick status-${ag.status}`}
+                              onClick={(e) => handleAbrirPagamento(ag, e)}
+                              style={{
+                                backgroundColor:
+                                  ag.pagamento === "pago"
+                                    ? "#3B82F6"
+                                    : "#EF4444",
+                                color: "#FFFFFF",
+                                border: "none",
+                                borderRadius: "8px",
+                                width: "32px",
+                                height: "32px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                                boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
+                                transition: "all 0.2s",
+                              }}
+                              title={
+                                ag.pagamento === "pago"
+                                  ? "Pagamento Recebido - Clique para desfazer"
+                                  : "Receber Pagamento"
+                              }
+                            >
+                              <CircleDollarSign size={16} strokeWidth={2.5} />
+                            </button>
+
+                            {/* 3. CONCLUIR */}
+                            <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 alternarStatus(ag.id);
                               }}
+                              style={{
+                                backgroundColor:
+                                  ag.status === "confirmado"
+                                    ? "#22C55E"
+                                    : "#FEF3C7",
+                                color:
+                                  ag.status === "confirmado"
+                                    ? "#FFFFFF"
+                                    : "#F59E0B",
+                                border: "none",
+                                borderRadius: "8px",
+                                width: "32px",
+                                height: "32px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                                transition: "all 0.2s",
+                              }}
+                              title={
+                                ag.status === "confirmado"
+                                  ? "Agendamento Concluído"
+                                  : "Marcar como Concluído"
+                              }
                             >
-                              <Check size={14} strokeWidth={3} />
+                              <Check size={18} strokeWidth={3} />
                             </button>
+
+                            <div
+                              style={{
+                                width: "1px",
+                                height: "20px",
+                                backgroundColor: "#E2E8F0",
+                                margin: "0 2px",
+                              }}
+                            ></div>
                           </>
                         )}
+
+                        {/* 4. LIXEIRA */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAgendamentoParaExcluir(ag);
+                          }}
+                          style={{
+                            backgroundColor: "#FEE2E2",
+                            color: "#EF4444",
+                            border: "none",
+                            borderRadius: "8px",
+                            width: "32px",
+                            height: "32px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            transition: "all 0.2s",
+                          }}
+                          title="Excluir"
+                        >
+                          <Trash2 size={16} strokeWidth={2.5} />
+                        </button>
                       </div>
                     </div>
 
@@ -405,6 +522,65 @@ export function Agenda() {
         agendamento={agendamentoEditando}
         onSave={salvarAgendamento}
       />
+
+      <ModalPagamento
+        isOpen={isModalPagamentoAberto}
+        onClose={() => setIsModalPagamentoAberto(false)}
+        dados={agendamentoParaPagamento}
+        onSave={(dadosPagamento) => {
+          setAgendamentos(
+            agendamentos.map((ag) =>
+              ag.id === agendamentoParaPagamento.id
+                ? { ...ag, pagamento: "pago" }
+                : ag,
+            ),
+          );
+          setIsModalPagamentoAberto(false);
+        }}
+      />
+
+      {/* NOVO: MODAL DE DESFAZER PAGAMENTO */}
+      {agendamentoParaDesfazerPagamento && (
+        <div
+          className="modal-overlay"
+          onClick={() => setAgendamentoParaDesfazerPagamento(null)}
+        >
+          <div
+            className="modal-box modal-exclusao"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>Desfazer Pagamento</h3>
+            <p>
+              Deseja estornar o pagamento recebido de{" "}
+              <strong>{agendamentoParaDesfazerPagamento.cliente}</strong> e
+              voltar para pendente?
+            </p>
+            <div className="modal-exclusao-acoes">
+              <button
+                className="btn-cancelar"
+                onClick={() => setAgendamentoParaDesfazerPagamento(null)}
+              >
+                Voltar
+              </button>
+              <button
+                className="btn-confirmar-exclusao"
+                onClick={() => {
+                  setAgendamentos(
+                    agendamentos.map((ag) =>
+                      ag.id === agendamentoParaDesfazerPagamento.id
+                        ? { ...ag, pagamento: "pendente" }
+                        : ag,
+                    ),
+                  );
+                  setAgendamentoParaDesfazerPagamento(null);
+                }}
+              >
+                Sim, desfazer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
       {agendamentoParaExcluir && (
@@ -439,7 +615,6 @@ export function Agenda() {
         </div>
       )}
 
-      {/* MODAL DE AVISO DE ERRO */}
       {mensagemErro !== "" && (
         <div
           className="modal-overlay"
