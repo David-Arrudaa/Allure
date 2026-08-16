@@ -8,7 +8,6 @@ import {
   TrendingUp,
   ArrowUpRight,
   AlertCircle,
-  CalendarClock,
   X,
   CheckCircle2,
 } from "lucide-react";
@@ -18,9 +17,13 @@ import "./Home.css";
 export function Home() {
   const navigate = useNavigate();
 
+  // Função para pegar a data de hoje no formato YYYY-MM-DD para os inputs de data
+  const hojeFormatoInput = new Date().toISOString().split("T")[0];
+
   const [loading, setLoading] = useState(true);
-  const [filtroPeriodo, setFiltroPeriodo] = useState("mes");
-  const [resumoHoje, setResumoHoje] = useState(0);
+  const [filtroPeriodo, setFiltroPeriodo] = useState("mes"); // hoje, semana, mes, personalizado
+  const [dataCustomInicio, setDataCustomInicio] = useState(hojeFormatoInput);
+  const [dataCustomFim, setDataCustomFim] = useState(hojeFormatoInput);
 
   const [metricas, setMetricas] = useState({
     faturamento: 0,
@@ -39,7 +42,7 @@ export function Home() {
 
   useEffect(() => {
     carregarDadosPainel();
-  }, [filtroPeriodo]);
+  }, [filtroPeriodo, dataCustomInicio, dataCustomFim]);
 
   const carregarDadosPainel = async () => {
     try {
@@ -67,9 +70,7 @@ export function Home() {
         dataInicio = inicioHojeStr;
         dataFim = fimHojeStr;
       } else if (filtroPeriodo === "semana") {
-        // Semana completa: Domingo a Sábado para não perder nenhum dia de movimentação
         const diaSemana = hoje.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
-
         const dataDomingo = new Date(
           hoje.getFullYear(),
           hoje.getMonth(),
@@ -97,7 +98,7 @@ export function Home() {
           59,
           59,
         ).toISOString();
-      } else {
+      } else if (filtroPeriodo === "mes") {
         dataInicio = new Date(
           hoje.getFullYear(),
           hoje.getMonth(),
@@ -111,6 +112,14 @@ export function Home() {
           59,
           59,
         ).toISOString();
+      } else if (filtroPeriodo === "personalizado") {
+        // Usa as datas escolhidas nos inputs personalizados
+        if (!dataCustomInicio || !dataCustomFim) return;
+        const [anoI, mesI, diaI] = dataCustomInicio.split("-");
+        const [anoF, mesF, diaF] = dataCustomFim.split("-");
+
+        dataInicio = new Date(anoI, mesI - 1, diaI, 0, 0, 0).toISOString();
+        dataFim = new Date(anoF, mesF - 1, diaF, 23, 59, 59).toISOString();
       }
 
       // 1. Busca os dados de faturamento baseados no filtro selecionado
@@ -143,20 +152,6 @@ export function Home() {
         .order("data_horario", { ascending: true });
 
       if (errPendentes) throw errPendentes;
-
-      // Resumo de Hoje (Para a tag azul no topo)
-      if (filtroPeriodo === "hoje" && agendamentos) {
-        setResumoHoje(agendamentos.length);
-      } else {
-        const { count } = await supabase
-          .from("appointments")
-          .select("id", { count: "exact", head: true })
-          .gte("data_horario", inicioHojeStr)
-          .lte("data_horario", fimHojeStr)
-          .neq("status", "bloqueio")
-          .neq("status", "cancelado");
-        setResumoHoje(count || 0);
-      }
 
       // Processa Faturamento e Rankings (Só computa os PAGOS no período)
       let faturamento = 0;
@@ -230,7 +225,6 @@ export function Home() {
     }
   };
 
-  // Função para dar baixa no modal expresso
   const handleDarBaixa = async (idAgendamento) => {
     try {
       const { error } = await supabase
@@ -240,12 +234,10 @@ export function Home() {
 
       if (error) throw error;
 
-      // Se for o último da lista, fecha o modal sozinho para melhorar o fluxo
       if (listaPendentes.length === 1) {
         setIsModalPendentesAberto(false);
       }
 
-      // Recarrega os dados (o faturamento subirá na hora e o item sumirá)
       carregarDadosPainel();
     } catch (error) {
       console.error("Erro ao dar baixa no pagamento:", error.message);
@@ -265,7 +257,9 @@ export function Home() {
       ? "HOJE"
       : filtroPeriodo === "semana"
         ? "NA SEMANA"
-        : "NO MÊS";
+        : filtroPeriodo === "mes"
+          ? "NO MÊS"
+          : "PERÍODO SELECIONADO";
 
   return (
     <div className="home-container">
@@ -273,25 +267,6 @@ export function Home() {
         <div>
           <h2>Painel</h2>
           <p>Acompanhe a saúde do seu negócio em tempo real.</p>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              backgroundColor: "#F0F9FF",
-              color: "#0369A1",
-              padding: "6px 12px",
-              borderRadius: "20px",
-              fontSize: "0.85rem",
-              fontWeight: "600",
-              width: "fit-content",
-              marginTop: "12px",
-            }}
-          >
-            <CalendarClock size={16} />
-            Você tem {resumoHoje} agendamento(s) programado(s) para hoje
-          </div>
         </div>
 
         <div
@@ -299,18 +274,20 @@ export function Home() {
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "12px",
+            gap: "8px",
             alignItems: "flex-end",
           }}
         >
           <button
             className="btn-acao-primaria"
             onClick={() => navigate("/agenda")}
+            style={{ marginBottom: "4px" }}
           >
             <Plus size={18} />
             <span>Ir para Agenda</span>
           </button>
 
+          {/* BARRA DE BOTÕES DE FILTRO */}
           <div
             style={{
               display: "flex",
@@ -388,7 +365,83 @@ export function Home() {
             >
               Mês
             </button>
+            <button
+              onClick={() => setFiltroPeriodo("personalizado")}
+              style={{
+                border: "none",
+                padding: "6px 12px",
+                borderRadius: "6px",
+                fontSize: "0.85rem",
+                fontWeight: "600",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                backgroundColor:
+                  filtroPeriodo === "personalizado" ? "#FFFFFF" : "transparent",
+                color:
+                  filtroPeriodo === "personalizado"
+                    ? "var(--cor-primaria)"
+                    : "#64748B",
+                boxShadow:
+                  filtroPeriodo === "personalizado"
+                    ? "0 1px 3px rgba(0,0,0,0.1)"
+                    : "none",
+              }}
+            >
+              Personalizado
+            </button>
           </div>
+
+          {/* INPUTS DE DATA PARA O FILTRO PERSONALIZADO */}
+          {filtroPeriodo === "personalizado" && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                backgroundColor: "#FFFFFF",
+                padding: "6px 10px",
+                borderRadius: "8px",
+                border: "1px solid #E2E8F0",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+              }}
+            >
+              <input
+                type="date"
+                value={dataCustomInicio}
+                onChange={(e) => setDataCustomInicio(e.target.value)}
+                style={{
+                  border: "1px solid #CBD5E1",
+                  borderRadius: "6px",
+                  padding: "4px 8px",
+                  fontSize: "0.85rem",
+                  color: "#475569",
+                  fontFamily: "inherit",
+                }}
+              />
+              <span
+                style={{
+                  fontSize: "0.85rem",
+                  color: "#64748B",
+                  fontWeight: "600",
+                }}
+              >
+                até
+              </span>
+              <input
+                type="date"
+                value={dataCustomFim}
+                onChange={(e) => setDataCustomFim(e.target.value)}
+                style={{
+                  border: "1px solid #CBD5E1",
+                  borderRadius: "6px",
+                  padding: "4px 8px",
+                  fontSize: "0.85rem",
+                  color: "#475569",
+                  fontFamily: "inherit",
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
 

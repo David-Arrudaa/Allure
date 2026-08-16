@@ -1,37 +1,75 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { supabase } from "../../services/supabase";
 import "./ModalCliente.css";
 import "../ModalAgendamento/ModalAgendamento.css";
 
-export function ModalCliente({ isOpen, onClose }) {
+export function ModalCliente({ isOpen, onClose, cliente }) {
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [aniversario, setAniversario] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [carregando, setCarregando] = useState(false);
 
+  // Preenche os campos se for edição, ou limpa se for um novo cadastro
+  useEffect(() => {
+    if (cliente) {
+      setNome(cliente.nome || "");
+      setTelefone(
+        cliente.telefone && cliente.telefone !== "Não informado"
+          ? cliente.telefone
+          : "",
+      );
+      setAniversario(cliente.aniversario || "");
+      setObservacoes(cliente.observacoes || "");
+    } else {
+      setNome("");
+      setTelefone("");
+      setAniversario("");
+      setObservacoes("");
+    }
+  }, [cliente, isOpen]);
+
   if (!isOpen) return null;
+
+  // Função para formatar o nome: "david arruda" vira "David Arruda"
+  const formatarNome = (texto) => {
+    return texto.toLowerCase().replace(/(?:^|\s)\S/g, function (letra) {
+      return letra.toUpperCase();
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setCarregando(true);
 
     try {
-      // Envia os dados para a tabela customers no Supabase
-      const { error } = await supabase.from("customers").insert([
-        {
-          nome: nome.trim(),
-          telefone: telefone.trim(),
-          observacoes: observacoes.trim(),
-          // Se sua tabela tiver coluna de aniversário, descomente a linha abaixo:
-          // aniversario: aniversario || null
-        },
-      ]);
+      const dadosCliente = {
+        nome: nome.trim(),
+        telefone: telefone.trim(),
+        observacoes: observacoes.trim(),
+        // Se sua tabela tiver coluna de aniversário, descomente a linha abaixo:
+        // aniversario: aniversario || null
+      };
 
-      if (error) throw error;
+      if (cliente && cliente.id) {
+        // MODO EDIÇÃO
+        const { error } = await supabase
+          .from("customers")
+          .update(dadosCliente)
+          .eq("id", cliente.id);
 
-      alert(`Cliente ${nome} cadastrada com sucesso no banco de dados!`);
+        if (error) throw error;
+        // alert(`Cliente ${nome} atualizada com sucesso!`); // Opcional
+      } else {
+        // MODO CADASTRO
+        const { error } = await supabase
+          .from("customers")
+          .insert([dadosCliente]);
+
+        if (error) throw error;
+        // alert(`Cliente ${nome} cadastrada com sucesso!`); // Opcional
+      }
 
       // Limpa os campos e fecha
       setNome("");
@@ -51,7 +89,7 @@ export function ModalCliente({ isOpen, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Nova Cliente</h2>
+          <h2>{cliente ? "Editar Cliente" : "Nova Cliente"}</h2>
           <button className="btn-fechar" onClick={onClose} title="Fechar">
             <X size={20} strokeWidth={2.5} />
           </button>
@@ -64,7 +102,7 @@ export function ModalCliente({ isOpen, onClose }) {
               type="text"
               placeholder="Ex: Mariana Souza"
               value={nome}
-              onChange={(e) => setNome(e.target.value)}
+              onChange={(e) => setNome(formatarNome(e.target.value))} // Aplica a formatação em tempo real
               required
             />
           </div>
@@ -106,7 +144,11 @@ export function ModalCliente({ isOpen, onClose }) {
             style={{ marginTop: "1rem" }}
             disabled={carregando}
           >
-            {carregando ? "Salvando..." : "Salvar Cadastro"}
+            {carregando
+              ? "Salvando..."
+              : cliente
+                ? "Salvar Alterações"
+                : "Salvar Cadastro"}
           </button>
         </form>
       </div>

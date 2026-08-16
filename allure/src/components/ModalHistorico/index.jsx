@@ -1,56 +1,75 @@
-import React from "react";
-import { X, Calendar, User, DollarSign } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, Calendar, User, DollarSign, Loader2 } from "lucide-react";
+import { supabase } from "../../services/supabase";
 import "./ModalHistorico.css";
 import "../ModalAgendamento/ModalAgendamento.css";
 
 export function ModalHistorico({ isOpen, onClose, cliente }) {
+  const [historico, setHistorico] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Só carrega os dados se o modal estiver aberto e existir uma cliente selecionada
+    if (isOpen && cliente) {
+      carregarHistoricoCliente();
+    } else {
+      setHistorico([]); // Limpa ao fechar
+    }
+  }, [isOpen, cliente]);
+
+  const carregarHistoricoCliente = async () => {
+    try {
+      setLoading(true);
+
+      // 1. Descobre a data exata de 12 meses atrás no formato do banco
+      const dataLimite = new Date();
+      dataLimite.setMonth(dataLimite.getMonth() - 12);
+      const dataLimiteIso = dataLimite.toISOString();
+
+      // 2. Busca no Supabase os agendamentos da cliente específica, pagos e recentes
+      const { data, error } = await supabase
+        .from("appointments")
+        .select(
+          `
+          id,
+          data_horario,
+          servico,
+          valor,
+          profissionais ( nome )
+        `,
+        )
+        .eq("customer_id", cliente.id)
+        .eq("pagamento", "pago") // Filtra estritamente os concluídos/pagos
+        .gte("data_horario", dataLimiteIso) // Apenas últimos 12 meses
+        .order("data_horario", { ascending: false }); // Ordena do mais recente para o mais antigo
+
+      if (error) throw error;
+
+      if (data) {
+        // Formata os dados retornados para exibir bonitinho na tela
+        const historicoFormatado = data.map((item) => {
+          const dataObj = new Date(item.data_horario);
+          const dataBr = `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}/${dataObj.getFullYear()}`;
+
+          return {
+            id: item.id,
+            data: dataBr,
+            servico: item.servico || "Serviço não especificado",
+            profissional: item.profissionais?.nome || "Equipe",
+            valor: item.valor ? String(item.valor).replace(".", ",") : "0,00",
+          };
+        });
+
+        setHistorico(historicoFormatado);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar histórico da cliente:", error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isOpen || !cliente) return null;
-
-  // Dados simulados do histórico (Adicionei o ID 4 com uma data bem antiga para testarmos o filtro)
-  const historicoMock = [
-    {
-      id: 1,
-      data: "15/08/2026",
-      servico: "Manutenção em Gel",
-      profissional: "Ana Silva",
-      valor: "120,00",
-    },
-    {
-      id: 2,
-      data: "20/07/2026",
-      servico: "Pé e Mão",
-      profissional: "Beatriz Santos",
-      valor: "65,00",
-    },
-    {
-      id: 3,
-      data: "18/06/2026",
-      servico: "Spa dos Pés",
-      profissional: "Ana Silva",
-      valor: "50,00",
-    },
-    {
-      id: 4,
-      data: "10/01/2024",
-      servico: "Manicure Antiga",
-      profissional: "Carla Dias",
-      valor: "35,00",
-    }, // Este não deve aparecer!
-  ];
-
-  // 1. Descobre a data de exatamente 12 meses atrás
-  const dataLimite = new Date();
-  dataLimite.setMonth(dataLimite.getMonth() - 12);
-
-  // 2. Filtra a lista mantendo apenas os serviços recentes
-  const historicoFiltrado = historicoMock.filter((item) => {
-    // Converte a nossa data em texto (DD/MM/YYYY) para uma data real que o JavaScript entenda
-    const [dia, mes, ano] = item.data.split("/");
-    const dataDoServico = new Date(ano, mes - 1, dia);
-
-    // Retorna apenas se for mais recente que a data limite
-    return dataDoServico >= dataLimite;
-  });
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -70,8 +89,22 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
         </div>
 
         <div className="historico-lista">
-          {historicoFiltrado.length > 0 ? (
-            historicoFiltrado.map((item) => (
+          {loading ? (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: "3rem",
+                color: "#64748B",
+                gap: "10px",
+              }}
+            >
+              <Loader2 className="animate-spin" size={24} />
+              <span>Buscando histórico...</span>
+            </div>
+          ) : historico.length > 0 ? (
+            historico.map((item) => (
               <div key={item.id} className="historico-item">
                 <div className="historico-data">
                   <Calendar size={14} />
@@ -109,9 +142,12 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
                 color: "#94A3B8",
                 textAlign: "center",
                 marginTop: "1rem",
+                padding: "2rem",
+                backgroundColor: "#F8FAFC",
+                borderRadius: "8px",
               }}
             >
-              Nenhum atendimento registrado nos últimos 12 meses.
+              Nenhum atendimento pago registrado nos últimos 12 meses.
             </p>
           )}
         </div>

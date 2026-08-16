@@ -61,7 +61,6 @@ export function Agenda() {
       if (profsError) throw profsError;
       if (profsData) setProfissionais(profsData);
 
-      // BUSCA COM A NOVA COLUNA GRUPO_RECORRENCIA
       const { data, error } = await supabase.from("appointments").select(`
           *,
           customers ( nome ),
@@ -92,7 +91,7 @@ export function Agenda() {
             valor: item.valor ? String(item.valor).replace(".", ",") : "0,00",
             status: item.status || "pendente",
             pagamento: item.pagamento || "pendente",
-            grupo_recorrencia: item.grupo_recorrencia, // <- Mapeamento da recorrência
+            grupo_recorrencia: item.grupo_recorrencia,
           };
         });
 
@@ -126,7 +125,6 @@ export function Agenda() {
     }
   }, [location.state, agendamentos]);
 
-  // FUNÇÃO PARA BUSCAR E ABRIR O MODAL DE RECORRÊNCIA
   const handleAbrirRecorrencia = async (ag, e) => {
     e.stopPropagation();
     setGrupoRecorrenciaFoco(ag);
@@ -140,7 +138,7 @@ export function Agenda() {
         .from("appointments")
         .select("*, customers(nome)")
         .eq("grupo_recorrencia", ag.grupo_recorrencia)
-        .gte("data_horario", hojeStr) // Pega apenas agendamentos de hoje em diante
+        .gte("data_horario", hojeStr)
         .order("data_horario", { ascending: true });
 
       if (error) throw error;
@@ -152,7 +150,6 @@ export function Agenda() {
     }
   };
 
-  // FUNÇÃO PARA EXCLUIR TODA A SÉRIE FUTURA
   const confirmarExclusaoSerie = async () => {
     if (
       !window.confirm(
@@ -178,7 +175,6 @@ export function Agenda() {
     }
   };
 
-  // FUNÇÃO PARA EXCLUIR UM ITEM DA LISTA DE RECORRÊNCIA
   const excluirItemUnicoSerie = async (idParaExcluir) => {
     if (!window.confirm("Deseja apagar apenas este horário?")) return;
 
@@ -203,15 +199,8 @@ export function Agenda() {
   };
 
   const formatarDataExibicao = (data) => {
-    const dias = [
-      "Domingo",
-      "Segunda-feira",
-      "Terça-feira",
-      "Quarta-feira",
-      "Quinta-feira",
-      "Sexta-feira",
-      "Sábado",
-    ];
+    // ALTERAÇÃO 1: Dias da semana abreviados
+    const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     const meses = [
       "Janeiro",
       "Fevereiro",
@@ -322,17 +311,50 @@ export function Agenda() {
     }
   };
 
+  // Separação dos agendamentos para exibição no dia e cálculo do contador
   const dataSelecionadaString = dataSelecionada.toISOString().split("T")[0];
   const agendamentosDoDia = agendamentos.filter(
     (ag) => ag.data === dataSelecionadaString,
   );
+
+  // ALTERAÇÃO 2: Quantidade de atendimentos reais no dia (Ignora as pausas/bloqueios na contagem)
+  const qtdAtendimentosDia = agendamentosDoDia.filter(
+    (ag) => ag.status !== "bloqueio",
+  ).length;
 
   return (
     <div className="agenda-container">
       <div className="agenda-topbar">
         <div className="agenda-info-navegacao">
           <div className="agenda-info">
-            <h2>Agenda do Dia</h2>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                marginBottom: "4px",
+              }}
+            >
+              <h2 style={{ margin: 0 }}>Agenda do Dia</h2>
+
+              {/* TAG COM A QUANTIDADE DE AGENDAMENTOS */}
+              <div
+                style={{
+                  backgroundColor: "#F1F5F9",
+                  color: "#475569",
+                  padding: "4px 10px",
+                  borderRadius: "20px",
+                  fontSize: "0.75rem",
+                  fontWeight: "700",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                {qtdAtendimentosDia}{" "}
+                {qtdAtendimentosDia === 1 ? "agendamento" : "agendamentos"}
+              </div>
+            </div>
+
             <div className="data-formatada">
               {formatarDataExibicao(dataSelecionada)}
               <label className="btn-calendario-icon" title="Escolher data">
@@ -351,6 +373,7 @@ export function Agenda() {
               </label>
             </div>
           </div>
+
           <div className="agenda-botoes-nav">
             <button onClick={diaAnterior}>&lt; Anterior</button>
             <button onClick={irParaHoje}>Hoje</button>
@@ -448,7 +471,6 @@ export function Agenda() {
                       >
                         {ag.status !== "bloqueio" && (
                           <>
-                            {/* BOTÃO DE RECORRÊNCIA AQUI */}
                             {ag.grupo_recorrencia && (
                               <button
                                 onClick={(e) => handleAbrirRecorrencia(ag, e)}
@@ -637,7 +659,6 @@ export function Agenda() {
         }}
       />
 
-      {/* MODAL DE LISTAGEM DE RECORRÊNCIA */}
       {isModalRecorrenciaAberto && (
         <div
           className="modal-overlay"
@@ -847,7 +868,6 @@ export function Agenda() {
         </div>
       )}
 
-      {/* MODAIS DE EXCLUSÃO E DESFAZER PAGAMENTO OMITIDOS PARA BREVIDADE (Mantidos do original) */}
       {agendamentoParaDesfazerPagamento && (
         <div
           className="modal-overlay"
