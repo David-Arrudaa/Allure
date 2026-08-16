@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   UserPlus,
   Search,
@@ -9,10 +9,14 @@ import {
   Edit,
   Camera,
 } from "lucide-react";
+import { supabase } from "../../services/supabase"; // Importação do banco de dados
 import "./Equipe.css";
 
 export function Equipe() {
   const [busca, setBusca] = useState("");
+  const [equipe, setEquipe] = useState([]);
+  const [carregandoDados, setCarregandoDados] = useState(true);
+  const [carregandoForm, setCarregandoForm] = useState(false);
 
   // Controle do modal principal (Cadastro/Edição)
   const [modalAberto, setModalAberto] = useState(false);
@@ -28,30 +32,34 @@ export function Equipe() {
   const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
   const [profParaExcluir, setProfParaExcluir] = useState(null);
 
-  // Lista de equipe (Com fotos vazias no início para testar)
-  const [equipe, setEquipe] = useState([
-    {
-      id: 1,
-      nome: "Ana Silva",
-      especialidade: "Nail Designer",
-      telefone: "(11) 99999-1111",
-      foto: "",
-    },
-    {
-      id: 2,
-      nome: "Beatriz Santos",
-      especialidade: "Manicure Clássica",
-      telefone: "(11) 99999-2222",
-      foto: "",
-    },
-    {
-      id: 3,
-      nome: "Carla Dias",
-      especialidade: "Pedicure e Spa",
-      telefone: "(11) 99999-3333",
-      foto: "",
-    },
-  ]);
+  // 1. BUSCAR PROFISSIONAIS NO BANCO DE DADOS
+  const buscarProfissionais = async () => {
+    try {
+      setCarregandoDados(true);
+      const { data, error } = await supabase
+        .from("profissionais")
+        .select("*")
+        .order("nome", { ascending: true });
+
+      if (error) throw error;
+      if (data) setEquipe(data);
+    } catch (error) {
+      console.error("Erro ao buscar equipe:", error.message);
+    } finally {
+      setCarregandoDados(false);
+    }
+  };
+
+  useEffect(() => {
+    buscarProfissionais();
+  }, []);
+
+  // Formata o nome para Primeira Letra Maiúscula
+  const formatarNome = (texto) => {
+    return texto.toLowerCase().replace(/(?:^|\s)\S/g, function (letra) {
+      return letra.toUpperCase();
+    });
+  };
 
   // Abre modal para NOVA profissional
   const abrirModalCadastro = () => {
@@ -63,40 +71,73 @@ export function Equipe() {
   // Abre modal para EDITAR profissional
   const abrirModalEdicao = (prof) => {
     setEditandoId(prof.id);
-    setFormFunc(prof);
+    setFormFunc({
+      nome: prof.nome || "",
+      especialidade: prof.especialidade || "",
+      telefone: prof.telefone || "",
+      foto: prof.foto || "",
+    });
     setModalAberto(true);
   };
 
-  // Lida com o upload da imagem e converte para preview
+  // Lida com o upload da imagem e converte para preview (base64)
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Limite de tamanho de segurança (2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        alert("A imagem é muito grande. Escolha uma foto com menos de 2MB.");
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormFunc({ ...formFunc, foto: reader.result }); // Salva a imagem em formato base64
+        setFormFunc({ ...formFunc, foto: reader.result });
       };
       reader.readAsDataURL(file);
     }
   };
 
-  // Salvar (Serve para criar ou atualizar)
-  const handleSalvar = (e) => {
+  // 2. SALVAR (CRIAR OU ATUALIZAR NO BANCO)
+  const handleSalvar = async (e) => {
     e.preventDefault();
     if (!formFunc.nome || !formFunc.especialidade) return;
 
-    if (editandoId) {
-      // Atualizando existente
-      setEquipe(
-        equipe.map((f) => (f.id === editandoId ? { ...f, ...formFunc } : f)),
-      );
-    } else {
-      // Criando nova
-      const novaId =
-        equipe.length > 0 ? Math.max(...equipe.map((f) => f.id)) + 1 : 1;
-      setEquipe([...equipe, { id: novaId, ...formFunc }]);
-    }
+    setCarregandoForm(true);
 
-    setModalAberto(false);
+    try {
+      const dadosParaSalvar = {
+        nome: formFunc.nome.trim(),
+        especialidade: formFunc.especialidade.trim(),
+        telefone: formFunc.telefone.trim() || null,
+        foto: formFunc.foto || null,
+      };
+
+      if (editandoId) {
+        // MODO EDIÇÃO
+        const { error } = await supabase
+          .from("profissionais")
+          .update(dadosParaSalvar)
+          .eq("id", editandoId);
+
+        if (error) throw error;
+      } else {
+        // MODO CRIAÇÃO
+        const { error } = await supabase
+          .from("profissionais")
+          .insert([dadosParaSalvar]);
+
+        if (error) throw error;
+      }
+
+      setModalAberto(false);
+      buscarProfissionais(); // Atualiza a tela após salvar
+    } catch (error) {
+      console.error("Erro ao salvar profissional:", error.message);
+      alert("Erro ao salvar: " + error.message);
+    } finally {
+      setCarregandoForm(false);
+    }
   };
 
   // Modal de Exclusão
@@ -105,11 +146,26 @@ export function Equipe() {
     setModalExcluirAberto(true);
   };
 
-  const confirmarExclusao = () => {
-    if (profParaExcluir !== null) {
-      setEquipe(equipe.filter((f) => f.id !== profParaExcluir));
+  // 3. EXCLUIR DO BANCO
+  const confirmarExclusao = async () => {
+    if (!profParaExcluir) return;
+
+    try {
+      const { error } = await supabase
+        .from("profissionais")
+        .delete()
+        .eq("id", profParaExcluir);
+
+      if (error) throw error;
+
       setModalExcluirAberto(false);
       setProfParaExcluir(null);
+      buscarProfissionais(); // Atualiza a tela
+    } catch (error) {
+      console.error("Erro ao excluir profissional:", error.message);
+      alert(
+        "Não foi possível excluir. Esta profissional já possui agendamentos no sistema.",
+      );
     }
   };
 
@@ -148,49 +204,71 @@ export function Equipe() {
       </div>
 
       <div className="equipe-grid">
-        {equipeFiltrada.map((prof) => (
-          <div key={prof.id} className="equipe-card">
-            <div className="equipe-card-info">
-              {/* Se a profissional tem foto, exibe. Se não, exibe a letra do nome */}
-              {prof.foto ? (
-                <img
-                  src={prof.foto}
-                  alt={prof.nome}
-                  className="avatar-img-card"
-                />
-              ) : (
-                <div className="avatar-placeholder">{prof.nome.charAt(0)}</div>
-              )}
+        {carregandoDados ? (
+          <div
+            style={{
+              padding: "2rem",
+              color: "#64748B",
+              width: "100%",
+              textAlign: "center",
+            }}
+          >
+            Carregando equipe...
+          </div>
+        ) : equipeFiltrada.length > 0 ? (
+          equipeFiltrada.map((prof) => (
+            <div key={prof.id} className="equipe-card">
+              <div className="equipe-card-info">
+                {prof.foto ? (
+                  <img
+                    src={prof.foto}
+                    alt={prof.nome}
+                    className="avatar-img-card"
+                  />
+                ) : (
+                  <div className="avatar-placeholder">
+                    {prof.nome.charAt(0)}
+                  </div>
+                )}
 
-              <div className="info-textos">
-                <h3>{prof.nome}</h3>
-                <span className="especialidade">
-                  <Briefcase size={14} /> {prof.especialidade}
-                </span>
-                <span className="telefone">{prof.telefone}</span>
+                <div className="info-textos">
+                  <h3>{prof.nome}</h3>
+                  <span className="especialidade">
+                    <Briefcase size={14} /> {prof.especialidade}
+                  </span>
+                  <span className="telefone">
+                    {prof.telefone || "Sem telefone"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="equipe-card-acoes">
+                <button
+                  className="btn-editar"
+                  onClick={() => abrirModalEdicao(prof)}
+                  title="Editar"
+                >
+                  <Edit size={18} />
+                </button>
+                <button
+                  className="btn-excluir"
+                  onClick={() => abrirModalExcluir(prof.id)}
+                  title="Excluir"
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
             </div>
-
-            <div className="equipe-card-acoes">
-              <button
-                className="btn-editar"
-                onClick={() => abrirModalEdicao(prof)}
-                title="Editar"
-              >
-                <Edit size={18} />
-              </button>
-              <button
-                className="btn-excluir"
-                onClick={() => abrirModalExcluir(prof.id)}
-                title="Excluir"
-              >
-                <Trash2 size={18} />
-              </button>
-            </div>
-          </div>
-        ))}
-        {equipeFiltrada.length === 0 && (
-          <div className="estado-vazio-equipe">
+          ))
+        ) : (
+          <div
+            className="estado-vazio-equipe"
+            style={{
+              gridColumn: "1 / -1",
+              textAlign: "center",
+              padding: "3rem",
+            }}
+          >
             Nenhuma profissional encontrada.
           </div>
         )}
@@ -244,7 +322,10 @@ export function Equipe() {
                   placeholder="Ex: Amanda Lima"
                   value={formFunc.nome}
                   onChange={(e) =>
-                    setFormFunc({ ...formFunc, nome: e.target.value })
+                    setFormFunc({
+                      ...formFunc,
+                      nome: formatarNome(e.target.value),
+                    })
                   }
                 />
               </div>
@@ -257,7 +338,10 @@ export function Equipe() {
                   placeholder="Ex: Nail Designer"
                   value={formFunc.especialidade}
                   onChange={(e) =>
-                    setFormFunc({ ...formFunc, especialidade: e.target.value })
+                    setFormFunc({
+                      ...formFunc,
+                      especialidade: formatarNome(e.target.value),
+                    })
                   }
                 />
               </div>
@@ -279,11 +363,20 @@ export function Equipe() {
                   type="button"
                   className="btn-secundario"
                   onClick={() => setModalAberto(false)}
+                  disabled={carregandoForm}
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="btn-acao-primaria">
-                  {editandoId ? "Salvar Alterações" : "Salvar Profissional"}
+                <button
+                  type="submit"
+                  className="btn-acao-primaria"
+                  disabled={carregandoForm}
+                >
+                  {carregandoForm
+                    ? "Salvando..."
+                    : editandoId
+                      ? "Salvar Alterações"
+                      : "Salvar Profissional"}
                 </button>
               </div>
             </form>
