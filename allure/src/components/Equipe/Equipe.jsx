@@ -25,6 +25,7 @@ export function Equipe() {
     nome: "",
     especialidade: "",
     telefone: "",
+    ordem: "",
     foto: "",
   });
 
@@ -39,6 +40,7 @@ export function Equipe() {
       const { data, error } = await supabase
         .from("profissionais")
         .select("*")
+        .order("ordem", { ascending: true })
         .order("nome", { ascending: true });
 
       if (error) throw error;
@@ -61,10 +63,21 @@ export function Equipe() {
     });
   };
 
-  // Abre modal para NOVA profissional
+  // Abre modal para NOVA profissional (Calcula a próxima ordem automática)
   const abrirModalCadastro = () => {
     setEditandoId(null);
-    setFormFunc({ nome: "", especialidade: "", telefone: "", foto: "" });
+
+    // Calcula o próximo número com base na lista atual
+    const proximaOrdem =
+      equipe.length > 0 ? Math.max(...equipe.map((p) => p.ordem || 0)) + 1 : 1;
+
+    setFormFunc({
+      nome: "",
+      especialidade: "",
+      telefone: "",
+      ordem: String(proximaOrdem),
+      foto: "",
+    });
     setModalAberto(true);
   };
 
@@ -75,18 +88,21 @@ export function Equipe() {
       nome: prof.nome || "",
       especialidade: prof.especialidade || "",
       telefone: prof.telefone || "",
+      ordem:
+        prof.ordem !== null && prof.ordem !== undefined
+          ? String(prof.ordem)
+          : "1",
       foto: prof.foto || "",
     });
     setModalAberto(true);
   };
 
-  // Lida com o upload da imagem e converte para preview (base64)
+  // Lida com o upload da imagem (Limite de 5MB)
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Limite de tamanho de segurança (2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        alert("A imagem é muito grande. Escolha uma foto com menos de 2MB.");
+      if (file.size > 5 * 1024 * 1024) {
+        alert("A imagem é muito grande. Escolha uma foto com menos de 5MB.");
         return;
       }
 
@@ -98,7 +114,7 @@ export function Equipe() {
     }
   };
 
-  // 2. SALVAR (CRIAR OU ATUALIZAR NO BANCO)
+  // 2. SALVAR COM REORDENAÇÃO INTELIGENTE EM CASCATA
   const handleSalvar = async (e) => {
     e.preventDefault();
     if (!formFunc.nome || !formFunc.especialidade) return;
@@ -106,15 +122,54 @@ export function Equipe() {
     setCarregandoForm(true);
 
     try {
+      let novaOrdem = formFunc.ordem !== "" ? parseInt(formFunc.ordem, 10) : 1;
+
+      if (editandoId) {
+        const profissionalAntiga = equipe.find((p) => p.id === editandoId);
+        const ordemAntiga = profissionalAntiga
+          ? profissionalAntiga.ordem
+          : null;
+
+        if (ordemAntiga !== novaOrdem) {
+          if (novaOrdem < ordemAntiga) {
+            for (let prof of equipe) {
+              if (
+                prof.id !== editandoId &&
+                prof.ordem >= novaOrdem &&
+                prof.ordem < ordemAntiga
+              ) {
+                await supabase
+                  .from("profissionais")
+                  .update({ ordem: prof.ordem + 1 })
+                  .eq("id", prof.id);
+              }
+            }
+          } else if (novaOrdem > ordemAntiga) {
+            for (let prof of equipe) {
+              if (
+                prof.id !== editandoId &&
+                prof.ordem <= novaOrdem &&
+                prof.ordem > ordemAntiga
+              ) {
+                await supabase
+                  .from("profissionais")
+                  .update({ ordem: prof.ordem - 1 })
+                  .eq("id", prof.id);
+              }
+            }
+          }
+        }
+      }
+
       const dadosParaSalvar = {
         nome: formFunc.nome.trim(),
         especialidade: formFunc.especialidade.trim(),
         telefone: formFunc.telefone.trim() || null,
+        ordem: novaOrdem,
         foto: formFunc.foto || null,
       };
 
       if (editandoId) {
-        // MODO EDIÇÃO
         const { error } = await supabase
           .from("profissionais")
           .update(dadosParaSalvar)
@@ -122,7 +177,6 @@ export function Equipe() {
 
         if (error) throw error;
       } else {
-        // MODO CRIAÇÃO
         const { error } = await supabase
           .from("profissionais")
           .insert([dadosParaSalvar]);
@@ -131,7 +185,7 @@ export function Equipe() {
       }
 
       setModalAberto(false);
-      buscarProfissionais(); // Atualiza a tela após salvar
+      buscarProfissionais();
     } catch (error) {
       console.error("Erro ao salvar profissional:", error.message);
       alert("Erro ao salvar: " + error.message);
@@ -140,13 +194,11 @@ export function Equipe() {
     }
   };
 
-  // Modal de Exclusão
   const abrirModalExcluir = (id) => {
     setProfParaExcluir(id);
     setModalExcluirAberto(true);
   };
 
-  // 3. EXCLUIR DO BANCO
   const confirmarExclusao = async () => {
     if (!profParaExcluir) return;
 
@@ -160,7 +212,7 @@ export function Equipe() {
 
       setModalExcluirAberto(false);
       setProfParaExcluir(null);
-      buscarProfissionais(); // Atualiza a tela
+      buscarProfissionais();
     } catch (error) {
       console.error("Erro ao excluir profissional:", error.message);
       alert(
@@ -232,7 +284,18 @@ export function Equipe() {
                 )}
 
                 <div className="info-textos">
-                  <h3>{prof.nome}</h3>
+                  <h3>
+                    {prof.nome}{" "}
+                    <span
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "#94a3b8",
+                        fontWeight: "normal",
+                      }}
+                    >
+                      (Ordem: {prof.ordem ?? 1})
+                    </span>
+                  </h3>
                   <span className="especialidade">
                     <Briefcase size={14} /> {prof.especialidade}
                   </span>
@@ -274,10 +337,13 @@ export function Equipe() {
         )}
       </div>
 
-      {/* Modal de Cadastro / Edição */}
+      {/* Modal de Cadastro / Edição com rolagem interna para não quebrar a tela */}
       {modalAberto && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div
+            className="modal-content"
+            style={{ maxHeight: "90vh", overflowY: "auto" }}
+          >
             <div className="modal-header">
               <h3>
                 {editandoId ? "Editar Profissional" : "Cadastrar Profissional"}
@@ -291,7 +357,6 @@ export function Equipe() {
             </div>
 
             <form onSubmit={handleSalvar} className="modal-form">
-              {/* Seção de Upload da Foto */}
               <div className="upload-foto-container">
                 <div className="avatar-preview">
                   {formFunc.foto ? (
@@ -310,7 +375,7 @@ export function Equipe() {
                       style={{ display: "none" }}
                     />
                   </label>
-                  <span className="upload-dica">JPG, PNG. Max 2MB.</span>
+                  <span className="upload-dica">JPG, PNG. Max 5MB.</span>
                 </div>
               </div>
 
@@ -358,7 +423,19 @@ export function Equipe() {
                 />
               </div>
 
-              <div className="modal-acoes">
+              <div className="form-group">
+                <label>Ordem de Exibição na Agenda</label>
+                <input
+                  type="number"
+                  placeholder="Ex: 1"
+                  value={formFunc.ordem}
+                  onChange={(e) =>
+                    setFormFunc({ ...formFunc, ordem: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="modal-acoes" style={{ marginTop: "1.5rem" }}>
                 <button
                   type="button"
                   className="btn-secundario"
