@@ -9,19 +9,37 @@ import {
   RefreshCw,
   X,
   CalendarDays,
+  CheckCircle2,
 } from "lucide-react";
 import { ModalAgendamento } from "../components/ModalAgendamento";
 import { ModalPagamento } from "../components/ModalPagamento/ModalPagamento";
 import { supabase } from "../services/supabase";
 import "./Agenda.css";
 
+const formatarDataInput = (data) => {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+};
+
 export function Agenda() {
   const location = useLocation();
+
+  // SISTEMA DE NOTIFICAÇÃO (TOAST)
+  const [notificacao, setNotificacao] = useState({
+    visivel: false,
+    mensagem: "",
+    tipo: "sucesso",
+  });
+
+  const mostrarNotificacao = (mensagem, tipo = "sucesso") => {
+    setNotificacao({ visivel: true, mensagem, tipo });
+    setTimeout(() => {
+      setNotificacao({ visivel: false, mensagem: "", tipo: "sucesso" });
+    }, 3000);
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [agendamentoEditando, setAgendamentoEditando] = useState(null);
   const [agendamentoParaExcluir, setAgendamentoParaExcluir] = useState(null);
-  const [mensagemErro, setMensagemErro] = useState("");
 
   const [isModalPagamentoAberto, setIsModalPagamentoAberto] = useState(false);
   const [agendamentoParaPagamento, setAgendamentoParaPagamento] =
@@ -37,6 +55,12 @@ export function Agenda() {
   const [listaRecorrencia, setListaRecorrencia] = useState([]);
   const [grupoRecorrenciaFoco, setGrupoRecorrenciaFoco] = useState(null);
   const [loadingRecorrencia, setLoadingRecorrencia] = useState(false);
+
+  // NOVOS ESTADOS PARA OS MODAIS DE EXCLUSÃO DE RECORRÊNCIA
+  const [modalExclusaoSerieAberto, setModalExclusaoSerieAberto] =
+    useState(false);
+  const [itemRecorrenciaParaExcluir, setItemRecorrenciaParaExcluir] =
+    useState(null);
 
   const [horaAtual, setHoraAtual] = useState(new Date());
   const [dataSelecionada, setDataSelecionada] = useState(new Date());
@@ -72,7 +96,7 @@ export function Agenda() {
       if (data) {
         const listaFormatada = data.map((item) => {
           const dataObj = new Date(item.data_horario);
-          const dataFormatada = dataObj.toISOString().split("T")[0];
+          const dataFormatada = formatarDataInput(dataObj);
           const horarioFormatado = dataObj.toLocaleTimeString("pt-BR", {
             hour: "2-digit",
             minute: "2-digit",
@@ -132,7 +156,7 @@ export function Agenda() {
     setLoadingRecorrencia(true);
 
     try {
-      const hojeStr = new Date().toISOString().split("T")[0];
+      const hojeStr = formatarDataInput(new Date());
 
       const { data, error } = await supabase
         .from("appointments")
@@ -150,16 +174,10 @@ export function Agenda() {
     }
   };
 
-  const confirmarExclusaoSerie = async () => {
-    if (
-      !window.confirm(
-        `Isso irá apagar todos os horários futuros desta cliente.\nTem certeza?`,
-      )
-    )
-      return;
-
+  // NOVA FUNÇÃO: Executa a exclusão da série (chamada pelo modal de confirmação)
+  const executarExclusaoSerie = async () => {
     try {
-      const hojeStr = new Date().toISOString().split("T")[0];
+      const hojeStr = formatarDataInput(new Date());
       const { error } = await supabase
         .from("appointments")
         .delete()
@@ -168,27 +186,32 @@ export function Agenda() {
 
       if (error) throw error;
 
+      setModalExclusaoSerieAberto(false);
       setIsModalRecorrenciaAberto(false);
       carregarDadosAgenda();
+      mostrarNotificacao("Série de agendamentos excluída!");
     } catch (error) {
       console.error("Erro ao excluir série:", error);
     }
   };
 
-  const excluirItemUnicoSerie = async (idParaExcluir) => {
-    if (!window.confirm("Deseja apagar apenas este horário?")) return;
+  // NOVA FUNÇÃO: Executa a exclusão de 1 item da série (chamada pelo modal de confirmação)
+  const executarExclusaoItemUnico = async () => {
+    if (!itemRecorrenciaParaExcluir) return;
 
     try {
       const { error } = await supabase
         .from("appointments")
         .delete()
-        .eq("id", idParaExcluir);
+        .eq("id", itemRecorrenciaParaExcluir.id);
       if (error) throw error;
 
       setListaRecorrencia((prev) =>
-        prev.filter((item) => item.id !== idParaExcluir),
+        prev.filter((item) => item.id !== itemRecorrenciaParaExcluir.id),
       );
+      setItemRecorrenciaParaExcluir(null);
       carregarDadosAgenda();
+      mostrarNotificacao("Agendamento removido da série.");
 
       if (listaRecorrencia.length <= 1) {
         setIsModalRecorrenciaAberto(false);
@@ -199,7 +222,6 @@ export function Agenda() {
   };
 
   const formatarDataExibicao = (data) => {
-    // ALTERAÇÃO 1: Dias da semana abreviados
     const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     const meses = [
       "Janeiro",
@@ -281,6 +303,11 @@ export function Agenda() {
         .eq("id", id);
       if (error) throw error;
       carregarDadosAgenda();
+      mostrarNotificacao(
+        novoStatus === "confirmado"
+          ? "Agendamento concluído!"
+          : "Status alterado para pendente.",
+      );
     } catch (error) {
       console.error("Erro ao alterar status:", error.message);
     }
@@ -296,6 +323,7 @@ export function Agenda() {
       if (error) throw error;
       setAgendamentoParaExcluir(null);
       carregarDadosAgenda();
+      mostrarNotificacao("Agendamento excluído com sucesso.", "excluir");
     } catch (error) {
       console.error("Erro ao excluir agendamento:", error.message);
     }
@@ -311,19 +339,48 @@ export function Agenda() {
     }
   };
 
-  // Separação dos agendamentos para exibição no dia e cálculo do contador
-  const dataSelecionadaString = dataSelecionada.toISOString().split("T")[0];
+  const dataSelecionadaString = formatarDataInput(dataSelecionada);
   const agendamentosDoDia = agendamentos.filter(
     (ag) => ag.data === dataSelecionadaString,
   );
 
-  // ALTERAÇÃO 2: Quantidade de atendimentos reais no dia (Ignora as pausas/bloqueios na contagem)
   const qtdAtendimentosDia = agendamentosDoDia.filter(
     (ag) => ag.status !== "bloqueio",
   ).length;
 
   return (
     <div className="agenda-container">
+      {/* TOAST DE NOTIFICAÇÃO FLUTUANTE */}
+      {notificacao.visivel && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "24px",
+            right: "24px",
+            backgroundColor:
+              notificacao.tipo === "excluir" ? "#EF4444" : "#10B981",
+            color: "white",
+            padding: "12px 20px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            zIndex: 9999,
+            fontWeight: "600",
+            fontSize: "0.95rem",
+            animation: "slideIn 0.3s ease-out",
+          }}
+        >
+          {notificacao.tipo === "excluir" ? (
+            <Trash2 size={20} />
+          ) : (
+            <CheckCircle2 size={20} />
+          )}
+          {notificacao.mensagem}
+        </div>
+      )}
+
       <div className="agenda-topbar">
         <div className="agenda-info-navegacao">
           <div className="agenda-info">
@@ -337,7 +394,6 @@ export function Agenda() {
             >
               <h2 style={{ margin: 0 }}>Agenda do Dia</h2>
 
-              {/* TAG COM A QUANTIDADE DE AGENDAMENTOS */}
               <div
                 style={{
                   backgroundColor: "#F1F5F9",
@@ -362,7 +418,7 @@ export function Agenda() {
                 <input
                   type="date"
                   className="input-data-invisivel"
-                  value={dataSelecionada.toISOString().split("T")[0]}
+                  value={dataSelecionadaString}
                   onChange={(e) => {
                     if (e.target.value) {
                       const [ano, mes, dia] = e.target.value.split("-");
@@ -640,6 +696,11 @@ export function Agenda() {
         onSave={() => {
           setIsModalOpen(false);
           carregarDadosAgenda();
+          mostrarNotificacao(
+            agendamentoEditando
+              ? "Agendamento atualizado!"
+              : "Agendamento salvo com sucesso!",
+          );
         }}
       />
 
@@ -647,13 +708,19 @@ export function Agenda() {
         isOpen={isModalPagamentoAberto}
         onClose={() => setIsModalPagamentoAberto(false)}
         dados={agendamentoParaPagamento}
-        onSave={async () => {
+        onSave={async (pacotePagamento) => {
           if (agendamentoParaPagamento) {
             await supabase
               .from("appointments")
-              .update({ pagamento: "pago" })
+              .update({
+                pagamento: "pago",
+                status: "confirmado",
+                forma_pagamento: pacotePagamento.metodoPagamento,
+              })
               .eq("id", agendamentoParaPagamento.id);
+
             carregarDadosAgenda();
+            mostrarNotificacao("Pagamento recebido com sucesso!");
           }
           setIsModalPagamentoAberto(false);
         }}
@@ -795,7 +862,7 @@ export function Agenda() {
                               profissionalId: item.profissional_id,
                               servico: item.servico,
                               horarioInicio: horaFormatada,
-                              data: dataObj.toISOString().split("T")[0],
+                              data: formatarDataInput(dataObj),
                               duracao: 60,
                               valor: String(item.valor).replace(".", ","),
                               status: item.status,
@@ -817,7 +884,8 @@ export function Agenda() {
                           Editar
                         </button>
                         <button
-                          onClick={() => excluirItemUnicoSerie(item.id)}
+                          // Alterado: Em vez de disparar direto o alert, abre o modal novo
+                          onClick={() => setItemRecorrenciaParaExcluir(item)}
                           style={{
                             padding: "6px",
                             backgroundColor: "#FEE2E2",
@@ -848,7 +916,8 @@ export function Agenda() {
               }}
             >
               <button
-                onClick={confirmarExclusaoSerie}
+                // Alterado: Abre o modal de exclusão da série
+                onClick={() => setModalExclusaoSerieAberto(true)}
                 style={{
                   width: "100%",
                   padding: "10px",
@@ -862,6 +931,72 @@ export function Agenda() {
                 }}
               >
                 Excluir Todos os Futuros Desta Série
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NOVO MODAL: CONFIRMAR EXCLUSÃO DA SÉRIE INTEIRA */}
+      {modalExclusaoSerieAberto && (
+        <div
+          className="modal-overlay"
+          onClick={() => setModalExclusaoSerieAberto(false)}
+          style={{ zIndex: 1200 }}
+        >
+          <div
+            className="modal-box modal-exclusao"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>Excluir Série</h3>
+            <p>
+              Isso irá apagar todos os horários futuros de{" "}
+              <strong>{grupoRecorrenciaFoco?.cliente}</strong>.<br />
+              Tem certeza?
+            </p>
+            <div className="modal-exclusao-acoes">
+              <button
+                className="btn-cancelar"
+                onClick={() => setModalExclusaoSerieAberto(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-confirmar-exclusao"
+                onClick={executarExclusaoSerie}
+              >
+                Sim, apagar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NOVO MODAL: CONFIRMAR EXCLUSÃO DE UM ÚNICO ITEM DA SÉRIE */}
+      {itemRecorrenciaParaExcluir && (
+        <div
+          className="modal-overlay"
+          onClick={() => setItemRecorrenciaParaExcluir(null)}
+          style={{ zIndex: 1200 }}
+        >
+          <div
+            className="modal-box modal-exclusao"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>Confirmar Exclusão</h3>
+            <p>Deseja apagar apenas este horário da série?</p>
+            <div className="modal-exclusao-acoes">
+              <button
+                className="btn-cancelar"
+                onClick={() => setItemRecorrenciaParaExcluir(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-confirmar-exclusao"
+                onClick={executarExclusaoItemUnico}
+              >
+                Sim, apagar
               </button>
             </div>
           </div>
@@ -894,10 +1029,11 @@ export function Agenda() {
                 onClick={async () => {
                   await supabase
                     .from("appointments")
-                    .update({ pagamento: "pendente" })
+                    .update({ pagamento: "pendente", forma_pagamento: null })
                     .eq("id", agendamentoParaDesfazerPagamento.id);
                   setAgendamentoParaDesfazerPagamento(null);
                   carregarDadosAgenda();
+                  mostrarNotificacao("Pagamento desfeito.");
                 }}
               >
                 Sim, desfazer

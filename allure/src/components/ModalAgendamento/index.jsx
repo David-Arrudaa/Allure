@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, RefreshCw, AlertTriangle } from "lucide-react";
+import { X, RefreshCw, AlertTriangle, Clock, ListChecks } from "lucide-react";
 import { supabase } from "../../services/supabase";
 import "./ModalAgendamento.css";
 
@@ -28,12 +28,15 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const [intervalo, setIntervalo] = useState(21);
   const [dataFim, setDataFim] = useState("");
 
-  // Estado do Modal de Conflito de Horário
+  // ESTADOS DE RESOLUÇÃO DE CONFLITOS EM LOTE
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [conflictInfo, setConflictInfo] = useState({
+    tipo: "conflito_simples",
     profissionalNome: "",
     horario: "",
   });
+  const [pacotesPendentes, setPacotesPendentes] = useState([]);
+  const [conflitosDetalhados, setConflitosDetalhados] = useState([]);
 
   // Busca profissionais e serviços do banco ao abrir o modal
   useEffect(() => {
@@ -85,6 +88,10 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       setIntervalo(21);
       setDataFim("");
     }
+    // Reseta estados de conflito ao abrir
+    setShowConflictModal(false);
+    setPacotesPendentes([]);
+    setConflitosDetalhados([]);
   }, [agendamento, isOpen, dataHoje]);
 
   // BUSCA AS CLIENTES NO SUPABASE QUANDO DIGITAR 3 OU MAIS CARACTERES
@@ -103,9 +110,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
             .limit(5);
 
           if (error) throw error;
-          if (data) {
-            setListaClientesBanco(data);
-          }
+          if (data) setListaClientesBanco(data);
         } catch (error) {
           console.error("Erro ao buscar clientes:", error.message);
         }
@@ -114,10 +119,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       }
     };
 
-    const timer = setTimeout(() => {
-      buscarClientesNoBanco();
-    }, 300);
-
+    const timer = setTimeout(() => buscarClientesNoBanco(), 300);
     return () => clearTimeout(timer);
   }, [buscaCliente, clienteSelecionado, isBloqueio]);
 
@@ -136,29 +138,55 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
   const horaFim = calcularHoraFim(horario, duracao);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // PREPARA OS PACOTES PARA SALVAMENTO
+  const prepararSalvamento = async (e) => {
+    e?.preventDefault();
 
-    try {
-      // 1. PREPARAÇÃO DAS DATAS
-      let datasParaAgendar = [dataAgendamento];
+    // 0. TRAVA DE SEGURANÇA: HORÁRIO NO PASSADO
+    const dataHoraEscolhida = new Date(
+      `${dataAgendamento.replace(/-/g, "/")} ${horario}`,
+    );
+    const agora = new Date();
 
-      if (!agendamento && isRecorrente && dataFim) {
-        let dataAtualLoop = new Date(`${dataAgendamento}T12:00:00`);
-        let dataFinalLimite = new Date(`${dataFim}T12:00:00`);
+    if (dataHoraEscolhida < agora) {
+      setConflictInfo({
+        tipo: "passado",
+        horario: `${horario} do dia ${dataAgendamento.split("-").reverse().join("/")}`,
+      });
+      setShowConflictModal(true);
+      return;
+    }
 
-        while (true) {
-          dataAtualLoop.setDate(dataAtualLoop.getDate() + Number(intervalo));
-          if (dataAtualLoop > dataFinalLimite) break;
-          datasParaAgendar.push(dataAtualLoop.toISOString().split("T")[0]);
-        }
+    // 1. GERA TODAS AS DATAS DA SÉRIE
+    let pacotesIniciais = [{ dataStr: dataAgendamento, horaStr: horario }];
+
+    if (!agendamento && isRecorrente && dataFim) {
+      let dataAtualLoop = new Date(`${dataAgendamento}T12:00:00`);
+      let dataFinalLimite = new Date(`${dataFim}T12:00:00`);
+
+      // Avança pro primeiro salto
+      dataAtualLoop.setDate(dataAtualLoop.getDate() + Number(intervalo));
+
+      while (dataAtualLoop <= dataFinalLimite) {
+        pacotesIniciais.push({
+          dataStr: dataAtualLoop.toISOString().split("T")[0],
+          horaStr: horario,
+        });
+        dataAtualLoop.setDate(dataAtualLoop.getDate() + Number(intervalo));
       }
+    }
 
-      const horariosCompletos = datasParaAgendar.map(
-        (dt) => `${dt}T${horario}:00-03:00`,
+    validarESalvar(pacotesIniciais);
+  };
+
+  // VALIDA CONFLITOS E EFETIVA O SALVAMENTO NO BANCO
+  const validarESalvar = async (pacotes) => {
+    try {
+      const horariosCompletos = pacotes.map(
+        (p) => `${p.dataStr}T${p.horaStr}:00-03:00`,
       );
 
-      // 2. VALIDAÇÃO DE CONFLITO DE HORÁRIO EM LOTE
+      // 2. VALIDAÇÃO DE CONFLITOS EM LOTE
       const { data: conflitos, error: erroConflito } = await supabase
         .from("appointments")
         .select("id, data_horario")
@@ -168,26 +196,50 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
       if (erroConflito) throw erroConflito;
 
-      const temConflito =
-        conflitos &&
-        conflitos.some((item) => !agendamento || item.id !== agendamento.id);
+      const conflitosReais =
+        conflitos?.filter(
+          (item) => !agendamento || item.id !== agendamento.id,
+        ) || [];
 
-      if (temConflito) {
+      // SE HOUVER CONFLITOS, IDENTIFICA QUAIS PACOTES FALHARAM
+      if (conflitosReais.length > 0) {
         const profObj = listaProfissionais.find((p) => p.id === profissionalId);
-        const dataConflitante = conflitos[0].data_horario
-          .split("T")[0]
-          .split("-")
-          .reverse()
-          .join("/");
-        setConflictInfo({
-          profissionalNome: profObj ? profObj.nome : "A profissional",
-          horario: `${horario} do dia ${dataConflitante}`,
+
+        // Cruza as datas encontradas no banco com os pacotes gerados
+        const pacotesConflitantes = pacotes.filter((p) => {
+          const tempoPacote = new Date(
+            `${p.dataStr}T${p.horaStr}:00-03:00`,
+          ).getTime();
+          return conflitosReais.some(
+            (c) => new Date(c.data_horario).getTime() === tempoPacote,
+          );
         });
+
+        if (pacotes.length === 1) {
+          // Conflito em um agendamento único
+          setConflictInfo({
+            tipo: "conflito_simples",
+            profissionalNome: profObj ? profObj.nome : "A profissional",
+            horario: `${pacotes[0].horaStr} do dia ${pacotes[0].dataStr.split("-").reverse().join("/")}`,
+          });
+        } else {
+          // Conflito no meio de uma série recorrente (Abre o gerenciador de divergência)
+          setPacotesPendentes(pacotes);
+          setConflitosDetalhados(
+            pacotesConflitantes.map((p) => ({
+              dataStr: p.dataStr,
+              horarioAtual: p.horaStr,
+              novoHorario: p.horaStr,
+            })),
+          );
+          setConflictInfo({ tipo: "conflito_multiplo" });
+        }
+
         setShowConflictModal(true);
-        return;
+        return; // Pára a execução aqui
       }
 
-      // 3. CADASTRO DE CLIENTE SE NECESSÁRIO
+      // 3. SE NÃO TEM CONFLITOS (OU FORAM RESOLVIDOS), CADASTRA O CLIENTE SE NECESSÁRIO
       let customerIdFinal = clienteSelecionado ? clienteSelecionado.id : null;
 
       if (!isBloqueio && !customerIdFinal && buscaCliente.trim()) {
@@ -202,22 +254,22 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         }
       }
 
-      // GERA UM ID ÚNICO PARA A SÉRIE RECORRENTE (se for novo e recorrente)
+      // GERA UM ID ÚNICO PARA A SÉRIE RECORRENTE
       const idGrupoRecorrencia =
         !agendamento && isRecorrente
           ? `rec_${Date.now().toString(36)}_${Math.random().toString(36).substring(2)}`
           : agendamento?.grupo_recorrencia || null;
 
-      // 4. CRIAÇÃO DOS PACOTES E SALVAMENTO
-      const pacotesSalvarBanco = horariosCompletos.map((dataHoraCompleta) => ({
+      // 4. CRIAÇÃO DOS PACOTES FINAIS E SALVAMENTO
+      const pacotesSalvarBanco = pacotes.map((p) => ({
         customer_id: isBloqueio ? null : customerIdFinal,
         profissional_id: profissionalId,
         servico: isBloqueio ? buscaCliente || "Pausa" : servico,
         valor: isBloqueio ? 0 : Number(String(valor).replace(",", ".")) || 0,
-        data_horario: dataHoraCompleta,
+        data_horario: `${p.dataStr}T${p.horaStr}:00-03:00`,
         status: isBloqueio ? "bloqueio" : "pendente",
         pagamento: "pendente",
-        grupo_recorrencia: idGrupoRecorrencia, // <- SALVA O IDENTIFICADOR DA SÉRIE
+        grupo_recorrencia: idGrupoRecorrencia,
       }));
 
       let resSalvar;
@@ -241,6 +293,24 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       alert("Erro ao salvar agendamento: " + (err.message || err));
     }
   };
+
+  // RETOMA O SALVAMENTO APÓS AJUSTAR OS HORÁRIOS QUE DERAM CONFLITO
+  const handleResolverConflitosEmLote = () => {
+    const pacotesAtualizados = pacotesPendentes.map((p) => {
+      // Verifica se este pacote específico precisou de mudança
+      const conflitoResolvido = conflitosDetalhados.find(
+        (c) => c.dataStr === p.dataStr && c.horarioAtual === p.horaStr,
+      );
+      if (conflitoResolvido) {
+        return { ...p, horaStr: conflitoResolvido.novoHorario };
+      }
+      return p;
+    });
+
+    // Reenvia para validação (se o novo horário bater com outro agendamento, ele avisa de novo)
+    validarESalvar(pacotesAtualizados);
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
@@ -295,7 +365,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="form-agendamento">
+        <form onSubmit={prepararSalvamento} className="form-agendamento">
           <div className="form-grupo" style={{ position: "relative" }}>
             <label>
               {isBloqueio ? "Motivo do Bloqueio" : "Nome da Cliente"}
@@ -498,7 +568,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
             </div>
           )}
 
-          {/* BLOCO DE RECORRÊNCIA RESTAURADO */}
           {!agendamento && (
             <div
               className="form-grupo"
@@ -638,7 +707,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         </form>
       </div>
 
-      {/* MODAL DE AVISO DE CONFLITO DE HORÁRIO */}
+      {/* MODAL MISTO DE ALERTAS E DIVERGÊNCIAS */}
       {showConflictModal && (
         <div
           className="modal-overlay"
@@ -649,7 +718,8 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
             className="modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: "400px",
+              maxWidth:
+                conflictInfo.tipo === "conflito_multiplo" ? "480px" : "400px",
               textAlign: "center",
               padding: "2rem 1.5rem",
               borderRadius: "16px",
@@ -661,15 +731,31 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                 width: "56px",
                 height: "56px",
                 borderRadius: "50%",
-                backgroundColor: "#FEE2E2",
-                color: "#E11D48",
+                margin: "0 auto 1.25rem",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                margin: "0 auto 1.25rem",
+                backgroundColor:
+                  conflictInfo.tipo === "passado"
+                    ? "#FFFBEB"
+                    : conflictInfo.tipo === "conflito_multiplo"
+                      ? "#E0F2FE"
+                      : "#FEE2E2",
+                color:
+                  conflictInfo.tipo === "passado"
+                    ? "#D97706"
+                    : conflictInfo.tipo === "conflito_multiplo"
+                      ? "#0284C7"
+                      : "#E11D48",
               }}
             >
-              <AlertTriangle size={28} strokeWidth={2.3} />
+              {conflictInfo.tipo === "passado" ? (
+                <Clock size={28} strokeWidth={2.3} />
+              ) : conflictInfo.tipo === "conflito_multiplo" ? (
+                <ListChecks size={28} strokeWidth={2.3} />
+              ) : (
+                <AlertTriangle size={28} strokeWidth={2.3} />
+              )}
             </div>
 
             <h3
@@ -680,25 +766,119 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                 margin: "0 0 0.5rem 0",
               }}
             >
-              Horário Indisponível
+              {conflictInfo.tipo === "passado"
+                ? "Horário no Passado"
+                : conflictInfo.tipo === "conflito_multiplo"
+                  ? "Ajustar Divergências"
+                  : "Horário Indisponível"}
             </h3>
 
-            <p
-              style={{
-                fontSize: "0.95rem",
-                color: "#64748B",
-                lineHeight: "1.5",
-                margin: "0 0 1.5rem 0",
-              }}
-            >
-              <strong>{conflictInfo.profissionalNome}</strong> já possui um
-              agendamento marcado para as{" "}
-              <strong>{conflictInfo.horario}</strong>.
-            </p>
+            {/* SE FOR PASSADO OU CONFLITO SIMPLES (NÃO RECORRENTE) */}
+            {conflictInfo.tipo !== "conflito_multiplo" && (
+              <p
+                style={{
+                  fontSize: "0.95rem",
+                  color: "#64748B",
+                  lineHeight: "1.5",
+                  margin: "0 0 1.5rem 0",
+                }}
+              >
+                {conflictInfo.tipo === "passado" ? (
+                  <>
+                    Não é possível criar um agendamento para as{" "}
+                    <strong>{conflictInfo.horario}</strong>, pois este horário
+                    já passou.
+                  </>
+                ) : (
+                  <>
+                    <strong>{conflictInfo.profissionalNome}</strong> já possui
+                    um agendamento marcado para as{" "}
+                    <strong>{conflictInfo.horario}</strong>.
+                  </>
+                )}
+              </p>
+            )}
+
+            {/* SE FOR CONFLITO EM SÉRIE RECORRENTE */}
+            {conflictInfo.tipo === "conflito_multiplo" && (
+              <div style={{ textAlign: "left", marginBottom: "1.5rem" }}>
+                <p
+                  style={{
+                    fontSize: "0.9rem",
+                    color: "#64748B",
+                    lineHeight: "1.4",
+                    margin: "0 0 1rem 0",
+                    textAlign: "center",
+                  }}
+                >
+                  As datas abaixo já possuem agendamentos ocupando este horário.{" "}
+                  <strong>Escolha um novo horário apenas para elas</strong> para
+                  continuar salvando a série:
+                </p>
+
+                <div
+                  style={{
+                    maxHeight: "220px",
+                    overflowY: "auto",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: "8px",
+                    backgroundColor: "#F8FAFC",
+                  }}
+                >
+                  {conflitosDetalhados.map((conflito, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "12px",
+                        borderBottom:
+                          index < conflitosDetalhados.length - 1
+                            ? "1px solid #E2E8F0"
+                            : "none",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontWeight: "700",
+                          color: "#334155",
+                          fontSize: "0.95rem",
+                        }}
+                      >
+                        {conflito.dataStr.split("-").reverse().join("/")}
+                      </span>
+                      <input
+                        type="time"
+                        value={conflito.novoHorario}
+                        onChange={(e) => {
+                          const novaLista = [...conflitosDetalhados];
+                          novaLista[index].novoHorario = e.target.value;
+                          setConflitosDetalhados(novaLista);
+                        }}
+                        style={{
+                          padding: "8px 12px",
+                          borderRadius: "6px",
+                          border: "1px solid #CBD5E1",
+                          fontFamily: "inherit",
+                          fontWeight: "600",
+                          color: "var(--cor-primaria)",
+                          backgroundColor: "#FFFFFF",
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <button
               type="button"
-              onClick={() => setShowConflictModal(false)}
+              onClick={
+                conflictInfo.tipo === "conflito_multiplo"
+                  ? handleResolverConflitosEmLote
+                  : () => setShowConflictModal(false)
+              }
               style={{
                 width: "100%",
                 padding: "0.8rem",
@@ -712,7 +892,9 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                 transition: "all 0.2s",
               }}
             >
-              Mudar Horário
+              {conflictInfo.tipo === "conflito_multiplo"
+                ? "Rever e Salvar Série"
+                : "Mudar Horário"}
             </button>
           </div>
         </div>
