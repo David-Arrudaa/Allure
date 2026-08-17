@@ -10,6 +10,7 @@ import {
   X,
   CalendarDays,
   CheckCircle2,
+  AlertOctagon,
 } from "lucide-react";
 import { ModalAgendamento } from "../components/ModalAgendamento";
 import { ModalPagamento } from "../components/ModalPagamento/ModalPagamento";
@@ -23,7 +24,6 @@ const formatarDataInput = (data) => {
 export function Agenda() {
   const location = useLocation();
 
-  // SISTEMA DE NOTIFICAÇÃO (TOAST)
   const [notificacao, setNotificacao] = useState({
     visivel: false,
     mensagem: "",
@@ -49,14 +49,12 @@ export function Agenda() {
     setAgendamentoParaDesfazerPagamento,
   ] = useState(null);
 
-  // ESTADOS DA RECORRÊNCIA
   const [isModalRecorrenciaAberto, setIsModalRecorrenciaAberto] =
     useState(false);
   const [listaRecorrencia, setListaRecorrencia] = useState([]);
   const [grupoRecorrenciaFoco, setGrupoRecorrenciaFoco] = useState(null);
   const [loadingRecorrencia, setLoadingRecorrencia] = useState(false);
 
-  // NOVOS ESTADOS PARA OS MODAIS DE EXCLUSÃO DE RECORRÊNCIA
   const [modalExclusaoSerieAberto, setModalExclusaoSerieAberto] =
     useState(false);
   const [itemRecorrenciaParaExcluir, setItemRecorrenciaParaExcluir] =
@@ -111,7 +109,7 @@ export function Agenda() {
             horarioInicio: horarioFormatado,
             data: dataFormatada,
             dataHoraCompleta: item.data_horario,
-            duracao: 60,
+            duracao: item.duracao || 60,
             valor: item.valor ? String(item.valor).replace(".", ",") : "0,00",
             status: item.status || "pendente",
             pagamento: item.pagamento || "pendente",
@@ -174,7 +172,6 @@ export function Agenda() {
     }
   };
 
-  // NOVA FUNÇÃO: Executa a exclusão da série (chamada pelo modal de confirmação)
   const executarExclusaoSerie = async () => {
     try {
       const hojeStr = formatarDataInput(new Date());
@@ -195,7 +192,6 @@ export function Agenda() {
     }
   };
 
-  // NOVA FUNÇÃO: Executa a exclusão de 1 item da série (chamada pelo modal de confirmação)
   const executarExclusaoItemUnico = async () => {
     if (!itemRecorrenciaParaExcluir) return;
 
@@ -254,8 +250,8 @@ export function Agenda() {
 
   const calcularPosicao = (horarioString) => {
     const [hora, minuto] = horarioString.split(":").map(Number);
-    const minutosDesde07h = hora * 60 + minuto - 7 * 60;
-    return minutosDesde07h * 2;
+    const minutosDesde00h = hora * 60 + minuto;
+    return minutosDesde00h * 2;
   };
 
   const calcularHoraFim = (horaInicio, duracaoMinutos) => {
@@ -276,9 +272,9 @@ export function Agenda() {
     dataSelecionada.getFullYear() === hoje.getFullYear();
 
   const minutosAtuais = horaAtual.getHours() * 60 + horaAtual.getMinutes();
-  const posicaoLinhaTempo = (minutosAtuais - 7 * 60) * 2;
+  const posicaoLinhaTempo = minutosAtuais * 2;
   const mostrarLinhaTempo =
-    isHoje && posicaoLinhaTempo >= 0 && posicaoLinhaTempo <= 14 * 60 * 2;
+    isHoje && posicaoLinhaTempo >= 0 && posicaoLinhaTempo <= 24 * 60 * 2;
 
   useEffect(() => {
     if (mostrarLinhaTempo && linhaTempoRef.current) {
@@ -290,8 +286,8 @@ export function Agenda() {
   }, [dataSelecionada, mostrarLinhaTempo]);
 
   const horasDoDia = Array.from(
-    { length: 14 },
-    (_, i) => `${String(i + 7).padStart(2, "0")}:00`,
+    { length: 24 },
+    (_, i) => `${String(i).padStart(2, "0")}:00`,
   );
 
   const alternarStatus = async (id, statusAtual) => {
@@ -348,9 +344,12 @@ export function Agenda() {
     (ag) => ag.status !== "bloqueio",
   ).length;
 
+  const agendamentosOrfaos = agendamentosDoDia.filter(
+    (ag) => !profissionais.some((p) => p.id === ag.profissionalId),
+  );
+
   return (
     <div className="agenda-container">
-      {/* TOAST DE NOTIFICAÇÃO FLUTUANTE */}
       {notificacao.visivel && (
         <div
           style={{
@@ -393,7 +392,6 @@ export function Agenda() {
               }}
             >
               <h2 style={{ margin: 0 }}>Agenda do Dia</h2>
-
               <div
                 style={{
                   backgroundColor: "#F1F5F9",
@@ -444,8 +442,7 @@ export function Agenda() {
             setIsModalOpen(true);
           }}
         >
-          <Plus size={20} />
-          Novo Agendamento
+          <Plus size={20} /> Novo Agendamento
         </button>
       </div>
 
@@ -461,16 +458,6 @@ export function Agenda() {
         </div>
 
         <div className="grade-profissionais">
-          {mostrarLinhaTempo && (
-            <div
-              ref={linhaTempoRef}
-              className="linha-tempo"
-              style={{ top: `${posicaoLinhaTempo}px` }}
-            >
-              <div className="bolinha-linha-tempo"></div>
-            </div>
-          )}
-
           {profissionais.map((prof) => (
             <div key={prof.id} className="coluna-profissional">
               <div className="profissional-header">
@@ -516,7 +503,6 @@ export function Agenda() {
                       <div className="cliente-info-wrapper">
                         <span className="cartao-cliente">{ag.cliente}</span>
                       </div>
-
                       <div
                         className="card-acoes-topo"
                         style={{
@@ -527,28 +513,6 @@ export function Agenda() {
                       >
                         {ag.status !== "bloqueio" && (
                           <>
-                            {ag.grupo_recorrencia && (
-                              <button
-                                onClick={(e) => handleAbrirRecorrencia(ag, e)}
-                                style={{
-                                  backgroundColor: "#E0F2FE",
-                                  color: "#0284C7",
-                                  border: "none",
-                                  borderRadius: "8px",
-                                  width: "32px",
-                                  height: "32px",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  cursor: "pointer",
-                                  transition: "all 0.2s",
-                                }}
-                                title="Ver série de agendamentos"
-                              >
-                                <RefreshCw size={16} strokeWidth={2.5} />
-                              </button>
-                            )}
-
                             <a
                               href={`https://wa.me/?text=${encodeURIComponent(`Olá ${ag.cliente}, tudo bem? Seu agendamento de ${ag.servico} está marcado para hoje às ${ag.horarioInicio}!`)}`}
                               target="_blank"
@@ -577,7 +541,6 @@ export function Agenda() {
                                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
                               </svg>
                             </a>
-
                             <button
                               onClick={(e) => handleAbrirPagamento(ag, e)}
                               style={{
@@ -604,7 +567,6 @@ export function Agenda() {
                             >
                               <CircleDollarSign size={16} strokeWidth={2.5} />
                             </button>
-
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -636,7 +598,6 @@ export function Agenda() {
                             >
                               <Check size={18} strokeWidth={3} />
                             </button>
-
                             <div
                               style={{
                                 width: "1px",
@@ -647,7 +608,6 @@ export function Agenda() {
                             ></div>
                           </>
                         )}
-
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -672,10 +632,42 @@ export function Agenda() {
                       </div>
                     </div>
 
-                    <div className="cartao-horario">
-                      {ag.horarioInicio} -{" "}
-                      {calcularHoraFim(ag.horarioInicio, ag.duracao)}
+                    <div
+                      className="cartao-horario"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                    >
+                      <span>
+                        {ag.horarioInicio} -{" "}
+                        {calcularHoraFim(ag.horarioInicio, ag.duracao)}
+                      </span>
+                      {ag.grupo_recorrencia && (
+                        <button
+                          onClick={(e) => handleAbrirRecorrencia(ag, e)}
+                          style={{
+                            backgroundColor: "#E0F2FE",
+                            color: "#0284C7",
+                            border: "none",
+                            borderRadius: "6px",
+                            width: "24px",
+                            height: "24px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            transition: "all 0.2s",
+                            padding: 0,
+                          }}
+                          title="Ver série de agendamentos"
+                        >
+                          <RefreshCw size={14} strokeWidth={2.5} />
+                        </button>
+                      )}
                     </div>
+
                     <div className="cartao-servico">
                       <span>{ag.servico}</span>
                       <span className="cartao-valor">
@@ -686,6 +678,153 @@ export function Agenda() {
                 ))}
             </div>
           ))}
+
+          {agendamentosOrfaos.length > 0 && (
+            <div
+              className="coluna-profissional"
+              style={{
+                backgroundColor: "#FEF2F2",
+                borderRight: "1px solid #FECACA",
+              }}
+            >
+              <div
+                className="profissional-header"
+                style={{
+                  backgroundColor: "#FEE2E2",
+                  borderBottom: "1px solid #FECACA",
+                }}
+              >
+                <div
+                  className="avatar-placeholder-agenda"
+                  style={{ backgroundColor: "#EF4444", color: "#FFFFFF" }}
+                >
+                  <AlertOctagon size={20} strokeWidth={2.5} />
+                </div>
+                <div className="profissional-header-info">
+                  <h3 style={{ color: "#991B1B" }}>Sem Profissional</h3>
+                </div>
+              </div>
+
+              {agendamentosOrfaos.map((ag) => (
+                <div
+                  key={ag.id}
+                  className="cartao-agendamento"
+                  onClick={() => {
+                    setAgendamentoEditando(ag);
+                    setIsModalOpen(true);
+                  }}
+                  style={{
+                    top: `${calcularPosicao(ag.horarioInicio)}px`,
+                    height: `${ag.duracao * 2}px`,
+                    backgroundColor: "#FFFFFF",
+                    borderLeftColor: "#EF4444",
+                    border: "2px dashed #FECACA",
+                    borderLeft: "4px solid #EF4444",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div className="card-header" style={{ marginBottom: "0" }}>
+                    <div className="cliente-info-wrapper">
+                      <span className="cartao-cliente">{ag.cliente}</span>
+                    </div>
+                    <div
+                      className="card-acoes-topo"
+                      style={{
+                        display: "flex",
+                        gap: "8px",
+                        alignItems: "center",
+                      }}
+                    >
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAgendamentoParaExcluir(ag);
+                        }}
+                        style={{
+                          backgroundColor: "#FEE2E2",
+                          color: "#EF4444",
+                          border: "none",
+                          borderRadius: "8px",
+                          width: "32px",
+                          height: "32px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                        }}
+                        title="Excluir Definitivamente"
+                      >
+                        <Trash2 size={16} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    className="cartao-horario"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <span>
+                      {ag.horarioInicio} -{" "}
+                      {calcularHoraFim(ag.horarioInicio, ag.duracao)}
+                    </span>
+                    {ag.grupo_recorrencia && (
+                      <button
+                        onClick={(e) => handleAbrirRecorrencia(ag, e)}
+                        style={{
+                          backgroundColor: "#E0F2FE",
+                          color: "#0284C7",
+                          border: "none",
+                          borderRadius: "6px",
+                          width: "24px",
+                          height: "24px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                          padding: 0,
+                        }}
+                        title="Ver série de agendamentos"
+                      >
+                        <RefreshCw size={14} strokeWidth={2.5} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="cartao-servico">
+                    <span
+                      style={{
+                        color: "#EF4444",
+                        fontWeight: "600",
+                        fontSize: "0.8rem",
+                      }}
+                    >
+                      Reatribuir profissional
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* A LINHA DO TEMPO AGORA FICA AQUI, NO FINAL DE TUDO! */}
+          {mostrarLinhaTempo && (
+            <div
+              ref={linhaTempoRef}
+              className="linha-tempo"
+              style={{
+                top: `${posicaoLinhaTempo}px`,
+                zIndex: 999,
+                pointerEvents: "none",
+              }}
+            >
+              <div className="bolinha-linha-tempo"></div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -718,7 +857,6 @@ export function Agenda() {
                 forma_pagamento: pacotePagamento.metodoPagamento,
               })
               .eq("id", agendamentoParaPagamento.id);
-
             carregarDadosAgenda();
             mostrarNotificacao("Pagamento recebido com sucesso!");
           }
@@ -852,7 +990,6 @@ export function Agenda() {
                           </div>
                         </div>
                       </div>
-
                       <div style={{ display: "flex", gap: "8px" }}>
                         <button
                           onClick={() => {
@@ -884,7 +1021,6 @@ export function Agenda() {
                           Editar
                         </button>
                         <button
-                          // Alterado: Em vez de disparar direto o alert, abre o modal novo
                           onClick={() => setItemRecorrenciaParaExcluir(item)}
                           style={{
                             padding: "6px",
@@ -907,7 +1043,6 @@ export function Agenda() {
                 })}
               </div>
             )}
-
             <div
               style={{
                 marginTop: "1.5rem",
@@ -916,7 +1051,6 @@ export function Agenda() {
               }}
             >
               <button
-                // Alterado: Abre o modal de exclusão da série
                 onClick={() => setModalExclusaoSerieAberto(true)}
                 style={{
                   width: "100%",
@@ -937,7 +1071,6 @@ export function Agenda() {
         </div>
       )}
 
-      {/* NOVO MODAL: CONFIRMAR EXCLUSÃO DA SÉRIE INTEIRA */}
       {modalExclusaoSerieAberto && (
         <div
           className="modal-overlay"
@@ -972,7 +1105,6 @@ export function Agenda() {
         </div>
       )}
 
-      {/* NOVO MODAL: CONFIRMAR EXCLUSÃO DE UM ÚNICO ITEM DA SÉRIE */}
       {itemRecorrenciaParaExcluir && (
         <div
           className="modal-overlay"

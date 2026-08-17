@@ -301,8 +301,13 @@
   left: 0;
   right: 0;
   height: 2px;
-  background-color: #ef4444;
-  z-index: 20;
+  background-color: #ef4444; /* Vermelho */
+  z-index: 200; /* Deixa a linha por cima de tudo (o cartão expandido tem 100) */
+  pointer-events: none; /* O PULO DO GATO: Faz o mouse atravessar a linha, permitindo clicar no cartão embaixo dela! */
+}
+
+/* Caso a bolinha da linha tenha uma classe separada, garanta que ela também não bloqueie o clique */
+.bolinha-linha-tempo {
   pointer-events: none;
 }
 
@@ -522,4 +527,34 @@
   justify-content: center;
   font-size: 1.2rem;
   font-weight: bold;
+}
+
+/* =========================================
+   EFEITO DE EXPANSÃO PARA CARTÕES CURTOS
+   ========================================= */
+
+.cartao-agendamento {
+  /* Garante que o que não couber fique escondido no estado normal */
+  overflow: hidden;
+  /* Animação suave na hora de expandir */
+  transition:
+    height 0.2s ease-in-out,
+    box-shadow 0.2s ease,
+    z-index 0s;
+  z-index: 10;
+}
+
+.cartao-agendamento:hover {
+  /* O !important força o CSS a ignorar a altura fixa gerada no React */
+  height: max-content !important;
+  /* Garante que não vai diminuir caso seja um agendamento longo */
+  min-height: fit-content;
+  /* Joga o cartão para a frente para não ficar atrás do próximo horário */
+  z-index: 100 !important;
+  /* Sombra para dar a sensação de que o cartão flutuou */
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.2),
+    0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  /* Uma borda inferior para finalizar o design do cartão expandido */
+  border-bottom: 1px solid #e2e8f0;
 }
