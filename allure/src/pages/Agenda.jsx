@@ -78,7 +78,8 @@ export function Agenda() {
     try {
       const { data: profsData, error: profsError } = await supabase
         .from("profissionais")
-        .select("id, nome, especialidade, foto");
+        .select("id, nome, especialidade, foto")
+        .order("ordem", { ascending: true });
 
       if (profsError) throw profsError;
       if (profsData) setProfissionais(profsData);
