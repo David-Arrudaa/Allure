@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Search, Edit2, Trash2, ClipboardList } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  ClipboardList,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { ModalCliente } from "../components/ModalCliente";
 import { ModalHistorico } from "../components/ModalHistorico";
 import { supabase } from "../services/supabase";
@@ -7,69 +15,97 @@ import "./Clientes.css";
 
 export function Clientes() {
   const [busca, setBusca] = useState("");
-
-  // Estados dos modais
   const [modalAberto, setModalAberto] = useState(false);
   const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false);
 
-  // Estados de ação (quem está sendo editado/excluído/visualizado)
   const [clienteEditando, setClienteEditando] = useState(null);
   const [clienteParaHistorico, setClienteParaHistorico] = useState(null);
   const [clienteParaExcluir, setClienteParaExcluir] = useState(null);
 
-  // Lista de clientes vinda do banco de dados
   const [clientes, setClientes] = useState([]);
 
-  // Função para buscar os dados reais no Supabase, incluindo os agendamentos para a "Última Visita"
-  const buscarClientes = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("id, nome, telefone, appointments(data_horario, status)")
-        .order("nome", { ascending: true });
-
-      if (error) throw error;
-
-      if (data) {
-        const listaFormatada = data.map((item) => {
-          // Calcula a data da Última Visita baseada nos agendamentos passados
-          let ultimaVisitaStr = "A definir";
-          if (item.appointments && item.appointments.length > 0) {
-            const hoje = new Date();
-            const passados = item.appointments
-              .filter(
-                (a) =>
-                  new Date(a.data_horario) <= hoje &&
-                  a.status !== "cancelado" &&
-                  a.status !== "bloqueio",
-              )
-              .map((a) => new Date(a.data_horario));
-
-            if (passados.length > 0) {
-              const maxDate = new Date(Math.max(...passados));
-              ultimaVisitaStr = `${String(maxDate.getDate()).padStart(2, "0")}/${String(maxDate.getMonth() + 1).padStart(2, "0")}/${maxDate.getFullYear()}`;
-            }
-          }
-
-          return {
-            id: item.id,
-            nome: item.nome,
-            telefone: item.telefone || "Não informado",
-            ultimaVisita: ultimaVisitaStr,
-          };
-        });
-        setClientes(listaFormatada);
-      }
-    } catch (error) {
-      console.error("Erro ao buscar clientes:", error.message);
-    }
-  };
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const itensPorPagina = 25;
+  const [totalClientes, setTotalClientes] = useState(0);
 
   useEffect(() => {
-    buscarClientes();
-  }, []);
+    async function carregarClientes() {
+      try {
+        let countQuery = supabase
+          .from("customers")
+          .select("*", { count: "exact", head: true });
+        if (busca.trim().length > 0) {
+          countQuery = countQuery.ilike("nome", `%${busca.trim()}%`);
+        }
+        const { count } = await countQuery;
+        setTotalClientes(count || 0);
 
-  // FUNÇÃO PARA EXCLUIR CLIENTE
+        const inicio = (paginaAtual - 1) * itensPorPagina;
+        const fim = inicio + itensPorPagina - 1;
+
+        let query = supabase
+          .from("customers")
+          .select("id, nome, telefone, appointments(data_horario, status)")
+          .order("nome", { ascending: true })
+          .range(inicio, fim);
+
+        if (busca.trim().length > 0) {
+          query = query.ilike("nome", `%${busca.trim()}%`);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        if (data) {
+          const listaFormatada = data.map((item) => {
+            let ultimaVisitaStr = "A definir";
+            if (item.appointments && item.appointments.length > 0) {
+              const hoje = new Date();
+              const passados = item.appointments
+                .filter(
+                  (a) =>
+                    new Date(a.data_horario) <= hoje &&
+                    a.status !== "cancelado" &&
+                    a.status !== "bloqueio",
+                )
+                .map((a) => new Date(a.data_horario));
+
+              if (passados.length > 0) {
+                const maxDate = new Date(Math.max(...passados));
+                ultimaVisitaStr = `${String(maxDate.getDate()).padStart(2, "0")}/${String(maxDate.getMonth() + 1).padStart(2, "0")}/${maxDate.getFullYear()}`;
+              }
+            }
+
+            return {
+              id: item.id,
+              nome: item.nome || "Cliente sem nome",
+              telefone: item.telefone || "Não informado",
+              ultimaVisita: ultimaVisitaStr,
+            };
+          });
+          setClientes(listaFormatada);
+        }
+
+        // FAZ A TELA VOLTAR PARA O TOPO SUAVEMENTE AO MUDAR DE PÁGINA OU BUSCAR
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } catch (error) {
+        console.error("Erro ao buscar clientes:", error.message);
+      }
+    }
+
+    const timer = setTimeout(() => {
+      carregarClientes();
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [busca, paginaAtual]);
+
+  const handleBuscaChange = (e) => {
+    setBusca(e.target.value);
+    setPaginaAtual(1);
+  };
+
   const confirmarExclusao = async () => {
     if (!clienteParaExcluir) return;
 
@@ -82,34 +118,31 @@ export function Clientes() {
       if (error) throw error;
 
       setClienteParaExcluir(null);
-      buscarClientes(); // Recarrega a lista
+      setBusca("");
+      setPaginaAtual(1);
     } catch (error) {
       console.error("Erro ao excluir cliente:", error.message);
-      alert(
-        "Não foi possível excluir. Esta cliente pode ter agendamentos ou pagamentos vinculados a ela.",
-      );
+      alert("Não foi possível excluir esta cliente.");
     }
   };
 
-  // Filtra a lista com base na busca (por nome ou telefone)
-  const clientesFiltrados = clientes.filter(
-    (cliente) =>
-      cliente.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      cliente.telefone.includes(busca),
-  );
+  const totalPaginas = Math.ceil(totalClientes / itensPorPagina) || 1;
 
   return (
     <div className="clientes-container">
       <div className="clientes-topbar">
         <div className="clientes-info">
           <h2>Gestão de Clientes</h2>
-          <p>Visualize e gerencie as clientes do salão</p>
+          <p>
+            Visualize e gerencie as clientes do salão ({totalClientes}{" "}
+            cadastradas)
+          </p>
         </div>
 
         <button
           className="btn-novo"
           onClick={() => {
-            setClienteEditando(null); // Garante que abra vazio para um novo cadastro
+            setClienteEditando(null);
             setModalAberto(true);
           }}
         >
@@ -124,9 +157,9 @@ export function Clientes() {
             <Search size={18} />
             <input
               type="text"
-              placeholder="Buscar por nome ou telefone..."
+              placeholder="Buscar por nome..."
               value={busca}
-              onChange={(e) => setBusca(e.target.value)}
+              onChange={handleBuscaChange}
             />
           </div>
         </div>
@@ -142,8 +175,8 @@ export function Clientes() {
               </tr>
             </thead>
             <tbody>
-              {clientesFiltrados.length > 0 ? (
-                clientesFiltrados.map((cliente) => (
+              {clientes.length > 0 ? (
+                clientes.map((cliente) => (
                   <tr key={cliente.id}>
                     <td>
                       <strong>{cliente.nome}</strong>
@@ -202,27 +235,84 @@ export function Clientes() {
             </tbody>
           </table>
         </div>
+
+        {totalPaginas > 1 && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "1rem 0",
+            }}
+          >
+            <span style={{ fontSize: "0.9rem", color: "#64748B" }}>
+              Página <strong>{paginaAtual}</strong> de{" "}
+              <strong>{totalPaginas}</strong> ({totalClientes} registros)
+            </span>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                onClick={() => setPaginaAtual((prev) => Math.max(prev - 1, 1))}
+                disabled={paginaAtual === 1}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: "1px solid #CBD5E1",
+                  backgroundColor: paginaAtual === 1 ? "#F1F5F9" : "#FFFFFF",
+                  color: paginaAtual === 1 ? "#94A3B8" : "#334155",
+                  cursor: paginaAtual === 1 ? "not-allowed" : "pointer",
+                  fontWeight: "500",
+                }}
+              >
+                <ChevronLeft size={16} /> Anterior
+              </button>
+
+              <button
+                onClick={() =>
+                  setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas))
+                }
+                disabled={paginaAtual === totalPaginas}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: "1px solid #CBD5E1",
+                  backgroundColor:
+                    paginaAtual === totalPaginas ? "#F1F5F9" : "#FFFFFF",
+                  color: paginaAtual === totalPaginas ? "#94A3B8" : "#334155",
+                  cursor:
+                    paginaAtual === totalPaginas ? "not-allowed" : "pointer",
+                  fontWeight: "500",
+                }}
+              >
+                Próxima <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* MODAL DE CADASTRO/EDIÇÃO */}
       <ModalCliente
         isOpen={modalAberto}
-        cliente={clienteEditando} // Passa o cliente para o modal (se for edição)
+        cliente={clienteEditando}
         onClose={() => {
           setModalAberto(false);
-          setClienteEditando(null); // Limpa o estado ao fechar
-          buscarClientes(); // Atualiza a tabela ao fechar o modal
+          setClienteEditando(null);
+          setBusca("");
+          setPaginaAtual(1);
         }}
       />
 
-      {/* MODAL DE HISTÓRICO */}
       <ModalHistorico
         isOpen={modalHistoricoAberto}
         onClose={() => setModalHistoricoAberto(false)}
         cliente={clienteParaHistorico}
       />
 
-      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
       {clienteParaExcluir && (
         <div
           className="modal-overlay"
@@ -235,7 +325,7 @@ export function Clientes() {
             <h3>Confirmar Exclusão</h3>
             <p>
               Tem certeza que deseja apagar a cliente{" "}
-              <strong>{clienteParaExcluir.nome}</strong> da sua base de dados?
+              <strong>{clienteParaExcluir.nome}</strong>?
             </p>
             <div className="modal-exclusao-acoes">
               <button

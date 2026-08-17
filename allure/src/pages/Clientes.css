@@ -3,7 +3,7 @@
   border-radius: var(--raio-borda);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
   padding: 1.5rem;
-  height: calc(100vh - 3rem);
+  min-height: 100vh; /* Permite que a página cresça e crie a barra de rolagem geral */
   display: flex;
   flex-direction: column;
 }
@@ -31,7 +31,6 @@
 
 .clientes-conteudo {
   flex: 1;
-  overflow: auto;
   display: flex;
   flex-direction: column;
 }
@@ -79,7 +78,8 @@
   background-color: #ffffff;
   border: 1px solid var(--cor-borda);
   border-radius: 8px;
-  overflow: hidden; /* Mantém as bordas arredondadas nos cantos da tabela */
+  overflow-y: auto; /* Permite rolar verticalmente pelos 50 clientes */
+  overflow-x: auto; /* Permite rolar horizontalmente se necessário */
 }
 
 .tabela-clientes {
