@@ -86,16 +86,20 @@ export function Financeiro() {
   const carregarMetricasGerais = async () => {
     try {
       setLoading(true);
-      const mesIndex = meses.indexOf(mesSelecionado);
       const anoNum = Number(anoSelecionado);
+      let inicioFiltro, fimFiltro;
 
-      const mesFormatado = String(mesIndex + 1).padStart(2, "0");
-      const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
+      if (mesSelecionado === "Ano") {
+        inicioFiltro = `${anoNum}-01-01T00:00:00`;
+        fimFiltro = `${anoNum}-12-31T23:59:59`;
+      } else {
+        const mesIndex = meses.indexOf(mesSelecionado);
+        const mesFormatado = String(mesIndex + 1).padStart(2, "0");
+        const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
+        inicioFiltro = `${anoNum}-${mesFormatado}-01T00:00:00`;
+        fimFiltro = `${anoNum}-${mesFormatado}-${String(ultimoDiaMes).padStart(2, "0")}T23:59:59`;
+      }
 
-      const inicioFiltro = `${anoNum}-${mesFormatado}-01T00:00:00`;
-      const fimFiltro = `${anoNum}-${mesFormatado}-${String(ultimoDiaMes).padStart(2, "0")}T23:59:59`;
-
-      // ADICIONADO: forma_pagamento de volta ao select!
       const { data, error } = await supabase
         .from("appointments")
         .select(
@@ -124,7 +128,6 @@ export function Financeiro() {
           const valorNum = Number(item.valor) || 0;
           sumTotal += valorNum;
 
-          // Puxa a forma real que veio do banco de dados (Pix, Crédito, Débito, Dinheiro)
           const forma = item.forma_pagamento || "Não informada";
           const formaStr = forma.toLowerCase();
 
@@ -173,6 +176,7 @@ export function Financeiro() {
   const carregarDesempenhoEquipe = async () => {
     try {
       setLoadingEquipe(true);
+      const anoNum = Number(anoSelecionado);
       let inicioFiltro, fimFiltro;
 
       if (filtroDesempenho === "semana") {
@@ -193,13 +197,16 @@ export function Financeiro() {
         inicioFiltro = `${dataDomingo.getFullYear()}-${String(dataDomingo.getMonth() + 1).padStart(2, "0")}-${String(dataDomingo.getDate()).padStart(2, "0")}T00:00:00`;
         fimFiltro = `${dataSabado.getFullYear()}-${String(dataSabado.getMonth() + 1).padStart(2, "0")}-${String(dataSabado.getDate()).padStart(2, "0")}T23:59:59`;
       } else {
-        const mesIndex = meses.indexOf(mesSelecionado);
-        const anoNum = Number(anoSelecionado);
-        const mesFormatado = String(mesIndex + 1).padStart(2, "0");
-        const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
-
-        inicioFiltro = `${anoNum}-${mesFormatado}-01T00:00:00`;
-        fimFiltro = `${anoNum}-${mesFormatado}-${String(ultimoDiaMes).padStart(2, "0")}T23:59:59`;
+        if (mesSelecionado === "Ano") {
+          inicioFiltro = `${anoNum}-01-01T00:00:00`;
+          fimFiltro = `${anoNum}-12-31T23:59:59`;
+        } else {
+          const mesIndex = meses.indexOf(mesSelecionado);
+          const mesFormatado = String(mesIndex + 1).padStart(2, "0");
+          const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
+          inicioFiltro = `${anoNum}-${mesFormatado}-01T00:00:00`;
+          fimFiltro = `${anoNum}-${mesFormatado}-${String(ultimoDiaMes).padStart(2, "0")}T23:59:59`;
+        }
       }
 
       const { data, error } = await supabase
@@ -289,7 +296,6 @@ export function Financeiro() {
     }
   };
 
-  // 3. ATUALIZAR A COMISSÃO
   const handleAtualizarComissao = async (profId, novoValor) => {
     if (!profId || profId === "sem-prof") return;
     let valorLimpo = Number(novoValor);
@@ -328,7 +334,6 @@ export function Financeiro() {
     (dataAtual.getFullYear() - 1 + i).toString(),
   );
 
-  // MATEMÁTICA DA PAGINAÇÃO
   const totalPaginasGeral = Math.ceil(
     historicoPagamentos.length / itensPorPagina,
   );
@@ -348,7 +353,6 @@ export function Financeiro() {
     paginaProf * itensPorPagina,
   );
 
-  // Componente de Botões de Paginação
   const ControlesPaginacao = ({ paginaAtual, totalPaginas, setPagina }) => {
     if (totalPaginas <= 1) return null;
     return (
@@ -423,6 +427,30 @@ export function Financeiro() {
               className="input-busca"
             />
           </div>
+
+          {/* BOTÃO ANO TODO AO LADO DO SELECT DE ANO */}
+          <button
+            onClick={() => setMesSelecionado("Ano")}
+            style={{
+              padding: "0.6rem 1rem",
+              borderRadius: "8px",
+              fontWeight: "600",
+              fontSize: "0.85rem",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              border: "1px solid #CBD5E1",
+              backgroundColor:
+                mesSelecionado === "Ano" ? "var(--cor-primaria)" : "#FFFFFF",
+              color: mesSelecionado === "Ano" ? "#FFFFFF" : "var(--cor-texto)",
+              boxShadow:
+                mesSelecionado === "Ano"
+                  ? "0 4px 12px rgba(199, 75, 103, 0.2)"
+                  : "none",
+            }}
+          >
+            Ano Todo
+          </button>
+
           <select
             value={anoSelecionado}
             onChange={(e) => setAnoSelecionado(e.target.value)}
@@ -434,13 +462,10 @@ export function Financeiro() {
               </option>
             ))}
           </select>
-          <button className="btn-acao-primaria">
-            <Plus size={18} />
-            <span>Registrar Pagamento</span>
-          </button>
         </div>
       </div>
 
+      {/* MESES LIMPOS DE JAN A DEZ */}
       <div className="meses-grid">
         {meses.map((mes) => (
           <button
@@ -456,7 +481,9 @@ export function Financeiro() {
       <div className="metrics-grid">
         <div className="metric-card destaque">
           <div className="metric-info">
-            <span>TOTAL FATURADO (MÊS)</span>
+            <span>
+              TOTAL FATURADO ({mesSelecionado === "Ano" ? "ANO" : "MÊS"})
+            </span>
             <h2>{loading ? "..." : formatarMoeda(metricas.total)}</h2>
           </div>
           <div className="metric-icon primary">
@@ -495,7 +522,7 @@ export function Financeiro() {
         </div>
       </div>
 
-      {/* SEÇÃO: DESEMPENHO POR PROFISSIONAL COM FILTRO SEMANA/MÊS */}
+      {/* SEÇÃO: DESEMPENHO POR PROFISSIONAL */}
       <div className="section-box mb-15">
         <div
           className="section-header-clickable"
@@ -516,7 +543,9 @@ export function Financeiro() {
                 (
                 {filtroDesempenho === "semana"
                   ? "Semana Atual"
-                  : `${mesSelecionado}/${anoSelecionado}`}
+                  : mesSelecionado === "Ano"
+                    ? anoSelecionado
+                    : `${mesSelecionado}/${anoSelecionado}`}
                 )
               </span>
             </h3>
@@ -578,7 +607,7 @@ export function Financeiro() {
                       : "none",
                 }}
               >
-                Mês Selecionado
+                {mesSelecionado === "Ano" ? "Ano Completo" : "Mês Selecionado"}
               </button>
             </div>
 
@@ -842,8 +871,10 @@ export function Financeiro() {
           <div className="section-title">
             <Calendar size={20} />
             <h3>
-              Histórico Geral de Recebimentos - {mesSelecionado}/
-              {anoSelecionado}
+              Histórico Geral de Recebimentos -{" "}
+              {mesSelecionado === "Ano"
+                ? anoSelecionado
+                : `${mesSelecionado}/${anoSelecionado}`}
             </h3>
           </div>
           {expandirHistorico ? (
