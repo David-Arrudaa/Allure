@@ -6,9 +6,13 @@
   border-radius: var(--raio-borda);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
   padding: 1.5rem;
-  height: calc(100vh - 3rem);
+
+  /* Trava a tela principal para a rolagem ocorrer só na tabela */
+  height: 100%;
+  max-height: calc(100vh - 3rem);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .agenda-topbar {
@@ -72,7 +76,6 @@
   box-shadow: 0 6px 16px rgba(199, 75, 103, 0.3);
 }
 
-/* BOTÕES DE NAVEGAÇÃO DE DIAS */
 .agenda-botoes-nav {
   display: flex;
   gap: 0.25rem;
@@ -99,7 +102,6 @@
   color: var(--cor-primaria);
 }
 
-/* INPUT DE CALENDÁRIO INVISÍVEL */
 .btn-calendario-icon {
   cursor: pointer;
   color: var(--cor-primaria);
@@ -131,13 +133,16 @@
    2. O MOTOR DA RÉGUA E ROLAGEM
    ========================================= */
 .agenda-wrapper {
-  display: flex;
+  display: flex !important; /* Mantém o relógio lado a lado com a agenda */
+  flex: 1;
+  min-height: 0; /* Segredo do Flexbox para rolar perfeitamente */
   position: relative;
   background-color: #f8fafc;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
-  max-height: 70vh;
-  overflow-y: auto;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
 }
 
 .agenda-wrapper::-webkit-scrollbar {
@@ -154,16 +159,31 @@
 }
 
 /* =========================================
-   3. COLUNA LATERAL DE HORÁRIOS
+   3. COLUNA LATERAL DE HORÁRIOS (RELÓGIO)
    ========================================= */
 .coluna-horarios {
   width: 60px;
   flex-shrink: 0;
   background-color: #ffffff;
   border-right: 1px solid #e2e8f0;
-  position: sticky;
-  left: 0;
-  z-index: 10;
+
+  /* Gruda na esquerda ao rolar lateralmente */
+  position: -webkit-sticky !important;
+  position: sticky !important;
+  left: 0 !important;
+  z-index: 5 !important; /* Camada baixa para respeitar o menu */
+}
+
+.espaco-cabecalho-horarios {
+  /* Gruda no Topo E na Esquerda ao mesmo tempo */
+  position: -webkit-sticky !important;
+  position: sticky !important;
+  top: 0 !important;
+  left: 0 !important;
+  height: 74px;
+  z-index: 15 !important; /* Maior que os cards (2) e nomes (10), mas menor que o Menu (30) */
+  background-color: #ffffff !important;
+  border-bottom: 2px solid #e2e8f0;
 }
 
 .horario-label {
@@ -204,19 +224,25 @@
   position: relative;
   background-image: linear-gradient(#e2e8f0 1px, transparent 1px);
   background-size: 100% 60px;
-  min-height: 1750px;
-  flex-wrap: nowrap !important; /* Proíbe as colunas de caírem para a linha de baixo */
+
+  /* ALTURA MATEMÁTICA: 24 horas x 120px = 2880px */
+  min-height: 2900px !important;
+
+  flex-wrap: nowrap !important;
   width: 100% !important;
+  overflow: visible !important;
 }
 
 .coluna-profissional {
-  flex: 1 1 0 !important; /* Divide a tela em fatias iguais e obriga a encolher */
-  min-width: 0 !important; /* Trava mágica que deixa a coluna ficar fininha sem quebrar a tela */
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
   border-right: 1px solid #e2e8f0;
   position: relative;
-  min-height: 1750px;
+  min-height: 2900px !important;
+  overflow: visible !important;
 }
 
+/* --- O CABEÇALHO GRUDENTO DOS PROFISSIONAIS --- */
 .profissional-header {
   display: flex;
   flex-direction: row;
@@ -226,15 +252,17 @@
   background-color: #fdf2f4;
   padding: 1rem;
   border-bottom: 2px solid #fbcfe8;
-  position: sticky;
-  top: 0;
-  z-index: 150 !important; /* Garante que o cabeçalho fique por cima dos cartões de agendamento */
-}
 
-.espaco-cabecalho-horarios {
-  position: sticky;
-  top: 0;
-  z-index: 150 !important;
+  /* Gruda no topo */
+  position: -webkit-sticky !important;
+  position: sticky !important;
+  top: 0 !important;
+
+  /* Camada ajustada para não sobrepor o menu lateral do sistema */
+  z-index: 10 !important;
+  margin-top: 0 !important;
+  height: 74px;
+  box-sizing: border-box;
 }
 
 .profissional-header-info {
@@ -250,14 +278,14 @@
   white-space: nowrap;
 }
 
-/* Avatares */
 .avatar-img-agenda,
 .avatar-placeholder-agenda {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 40px !important;
+  height: 40px !important;
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  object-fit: cover;
 }
 
 .avatar-placeholder-agenda {
@@ -289,16 +317,15 @@
     height 0.2s ease-in-out,
     box-shadow 0.2s ease,
     z-index 0s;
-  z-index: 2;
+  z-index: 2; /* Fica abaixo dos cabeçalhos */
 }
 
-/* Cresce para baixo e permite que os botões quebrem de linha */
 .cartao-agendamento:hover {
   height: max-content !important;
   min-height: fit-content;
   width: 100% !important;
   min-width: unset !important;
-  z-index: 100 !important;
+  z-index: 18 !important; /* Abre abaixo do menu, mas acima do resto da agenda */
   box-shadow:
     0 10px 25px -5px rgba(0, 0, 0, 0.2),
     0 8px 10px -6px rgba(0, 0, 0, 0.1);
@@ -377,7 +404,6 @@
   transition: all 0.2s ease;
   text-decoration: none;
 }
-
 .btn-wpp-card:hover {
   background-color: #128c7e;
   transform: scale(1.05);
@@ -395,14 +421,12 @@
   transition: all 0.2s ease;
   color: #ffffff;
 }
-
 .btn-status-tick.status-pendente {
   background-color: #f59e0b;
 }
 .btn-status-tick.status-confirmado {
   background-color: #10b981;
 }
-
 .btn-status-tick:hover {
   transform: scale(1.15);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -417,7 +441,7 @@
   right: 0;
   height: 2px;
   background-color: #ef4444;
-  z-index: 200;
+  z-index: 1 !important; /* Rebaixa a linha para o fundo da grade, atrás do menu */
   pointer-events: none;
 }
 
@@ -429,6 +453,7 @@
   position: absolute;
   left: -5px;
   top: -4px;
+  z-index: 1 !important; /* Rebaixa a bolinha também */
   pointer-events: none;
 }
 
@@ -447,7 +472,6 @@
   border: none;
   cursor: pointer;
 }
-
 .btn-delete-card:hover {
   background-color: #ef4444;
   color: #ffffff;
@@ -459,25 +483,21 @@
   padding: 1.5rem !important;
   text-align: center;
 }
-
 .modal-exclusao h3 {
   color: #334155;
   margin-bottom: 0.5rem;
   font-size: 1.2rem;
 }
-
 .modal-exclusao p {
   color: #64748b;
   font-size: 0.95rem;
   margin-bottom: 1.5rem;
 }
-
 .modal-exclusao-acoes {
   display: flex;
   justify-content: center;
   gap: 1rem;
 }
-
 .btn-cancelar {
   background-color: #f1f5f9;
   color: #64748b;
@@ -488,11 +508,9 @@
   cursor: pointer;
   transition: 0.2s;
 }
-
 .btn-cancelar:hover {
   background-color: #e2e8f0;
 }
-
 .btn-confirmar-exclusao {
   background-color: #ef4444;
   color: #ffffff;
@@ -503,7 +521,46 @@
   cursor: pointer;
   transition: 0.2s;
 }
-
 .btn-confirmar-exclusao:hover {
   background-color: #dc2626;
+}
+
+/* =========================================
+   RESPONSIVIDADE (CELULARES E TABLETS)
+   ========================================= */
+@media (max-width: 768px) {
+  .agenda-container {
+    padding: 1rem;
+    height: calc(100vh - 80px); /* Desconto do cabeçalho do celular */
+  }
+
+  .agenda-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .agenda-info-navegacao {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .btn-novo {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .grade-profissionais {
+    width: max-content !important;
+  }
+
+  .coluna-profissional {
+    flex: 0 0 140px !important;
+    min-width: 140px !important;
+  }
+
+  .profissional-header-info h3 {
+    font-size: 0.85rem;
+    white-space: normal;
+    text-align: center;
+  }
 }

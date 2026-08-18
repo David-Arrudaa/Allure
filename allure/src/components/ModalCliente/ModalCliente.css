@@ -1,3 +1,6 @@
+/* =========================================
+   ESTILOS PADRÃO (DESKTOP)
+   ========================================= */
 .form-cliente {
   display: flex;
   flex-direction: column;
@@ -17,10 +20,26 @@
   min-height: 80px;
   font-family: inherit;
   transition: all 0.2s;
+  width: 100%;
 }
 
 .form-cliente textarea:focus {
   border-color: var(--cor-primaria);
   background-color: #ffffff;
   box-shadow: 0 0 0 3px rgba(199, 75, 103, 0.1);
+}
+
+/* =========================================
+   RESPONSIVIDADE (TABLETS E CELULARES)
+   ========================================= */
+@media (max-width: 768px) {
+  .form-cliente {
+    gap: 1rem; /* Reduz um pouco o espaçamento entre os campos para caber melhor na tela */
+  }
+
+  .form-cliente textarea {
+    padding: 0.7rem 0.8rem;
+    font-size: 1rem; /* No iOS (iPhone), se a fonte for menor que 16px (1rem), a tela dá zoom ao digitar. 1rem evita isso. */
+    min-height: 60px; /* Reduz a altura mínima no celular */
+  }
 }
