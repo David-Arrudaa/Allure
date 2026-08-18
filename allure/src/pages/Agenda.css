@@ -564,3 +564,189 @@
     text-align: center;
   }
 }
+
+/* =========================================
+   MENU DE AÇÕES MOBILE (HAMBÚRGUER NO CARD)
+   ========================================= */
+.btn-menu-card-mobile {
+  display: none; /* Escondido por padrão no PC */
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  padding: 4px;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-acoes-flutuante {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* No celular, esconde os botões soltos de ação do topo */
+  .card-acoes-topo .acoes-desktop-only {
+    display: none !important;
+  }
+
+  /* Mostra o botão de menu hambúrguer */
+  .btn-menu-card-mobile {
+    display: flex !important;
+  }
+
+  /* Estilo do menu flutuante que abre ao clicar */
+  .menu-acoes-flutuante {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    right: 8px;
+    top: 35px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    padding: 6px;
+    z-index: 30;
+    gap: 4px;
+    min-width: 160px;
+    animation: fadeInMenu 0.15s ease-out;
+  }
+
+  .menu-acoes-flutuante button,
+  .menu-acoes-flutuante a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #334155;
+    text-decoration: none;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .menu-acoes-flutuante button:hover,
+  .menu-acoes-flutuante a:hover {
+    background-color: #f1f5f9;
+  }
+}
+
+@keyframes fadeInMenu {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* =========================================
+   RESPONSIVIDADE (MENU HAMBÚRGUER NO CELULAR)
+   ========================================= */
+@media (max-width: 768px) {
+  .agenda-container {
+    padding: 1rem;
+    height: calc(100vh - 80px);
+  }
+
+  .agenda-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .agenda-info-navegacao {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .btn-novo {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .grade-profissionais {
+    width: max-content !important;
+  }
+
+  .coluna-profissional {
+    flex: 0 0 140px !important;
+    min-width: 140px !important;
+  }
+
+  .profissional-header-info h3 {
+    font-size: 0.85rem;
+    white-space: normal;
+    text-align: center;
+  }
+
+  /* --- REGRAS DO CARD E MENU NO CELULAR --- */
+  .cartao-agendamento {
+    overflow: visible !important;
+    z-index: 20 !important;
+  }
+
+  /* Esconde os botões soltos dentro do card no celular */
+  .card-acoes-topo .acoes-desktop-only {
+    display: none !important;
+  }
+
+  /* Mostra o botão hambúrguer com uma área de toque confortável */
+  .btn-menu-card-mobile {
+    display: flex !important;
+    width: 36px !important;
+    height: 36px !important;
+    background-color: #f1f5f9 !important;
+    border-radius: 8px !important;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  /* Estiliza o menu flutuante para listar as ações perfeitamente */
+  .menu-acoes-flutuante {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    right: 4px;
+    top: 38px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    padding: 8px;
+    z-index: 9999 !important;
+    gap: 6px;
+    min-width: 180px;
+  }
+
+  .menu-acoes-flutuante button,
+  .menu-acoes-flutuante a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+    text-decoration: none;
+    cursor: pointer;
+    text-align: left;
+    box-sizing: border-box;
+  }
+
+  .menu-acoes-flutuante button:hover,
+  .menu-acoes-flutuante a:hover {
+    background-color: #f1f5f9;
+  }
+}
