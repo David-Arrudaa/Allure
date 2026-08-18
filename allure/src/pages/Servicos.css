@@ -119,3 +119,52 @@
   display: flex;
   gap: 0.5rem;
 }
+
+/* =========================================
+   RESPONSIVIDADE (CELULARES E TABLETS)
+   ========================================= */
+@media (max-width: 768px) {
+  .servicos-container {
+    padding: 1rem;
+    height: calc(
+      100vh - 80px
+    ); /* Dá desconto para o menu superior do celular */
+  }
+
+  /* Transforma a linha do topo em coluna para não amassar os elementos */
+  .servicos-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+
+  /* Estica o botão para preencher a tela e facilitar o clique */
+  .servicos-topbar button,
+  .servicos-topbar a {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Faz a barra de pesquisa usar 100% da largura da tela */
+  .busca-container {
+    max-width: 100%;
+  }
+
+  /* --- TABELA SEM SCROLL HORIZONTAL --- */
+  .tabela-container {
+    overflow-x: hidden !important; /* Mata a barra de rolagem horizontal */
+    width: 100%;
+  }
+
+  .tabela-servicos {
+    min-width: 0 !important; /* Remove a trava que forçava a tabela a vazar */
+    width: 100%;
+  }
+
+  .tabela-servicos th,
+  .tabela-servicos td {
+    padding: 0.8rem 0.4rem; /* Diminui os espaços laterais internos das células */
+    font-size: 0.85rem; /* Dá uma leve reduzida na fonte para caber melhor */
+    white-space: normal; /* Permite que os nomes grandes (ex: Manicure e Pedicure) quebrem de linha naturalmente */
+  }
+}

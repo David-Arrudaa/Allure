@@ -313,3 +313,52 @@
   font-size: 0.75rem;
   color: #94a3b8;
 }
+
+/* =========================================
+   RESPONSIVIDADE (APENAS CELULARES E TABLETS)
+   ========================================= */
+@media (max-width: 768px) {
+  .equipe-container {
+    padding: 1rem;
+    min-height: calc(100vh - 80px);
+  }
+
+  /* Aplica o mesmo espaçamento padrão de serviços apenas em telas menores */
+  .equipe-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+
+  .equipe-header-acoes {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 1rem;
+  }
+
+  .equipe-header button,
+  .equipe-header a {
+    width: 100% !important;
+    justify-content: center;
+  }
+
+  .busca-container,
+  div[class*="busca"],
+  div[class*="search"],
+  input[type="text"],
+  input[type="search"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .equipe-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-content {
+    margin: 1rem;
+    max-width: calc(100% - 2rem);
+  }
+}
