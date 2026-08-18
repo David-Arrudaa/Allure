@@ -696,9 +696,10 @@ export function Agenda() {
                     </div>
 
                     <div className="cartao-servico">
-                      <span>{ag.servico}</span>
-                      <span className="cartao-valor">
-                        {ag.valor !== "-" && `R$ ${ag.valor}`}
+                      <span
+                        style={{ overflow: "hidden", textOverflow: "ellipsis" }}
+                      >
+                        {ag.servico}
                       </span>
                     </div>
                   </div>
