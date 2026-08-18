@@ -133,9 +133,9 @@
    2. O MOTOR DA RÉGUA E ROLAGEM
    ========================================= */
 .agenda-wrapper {
-  display: flex !important; /* Mantém o relógio lado a lado com a agenda */
+  display: flex !important;
   flex: 1;
-  min-height: 0; /* Segredo do Flexbox para rolar perfeitamente */
+  min-height: 0;
   position: relative;
   background-color: #f8fafc;
   border-radius: 12px;
@@ -166,22 +166,19 @@
   flex-shrink: 0;
   background-color: #ffffff;
   border-right: 1px solid #e2e8f0;
-
-  /* Gruda na esquerda ao rolar lateralmente */
   position: -webkit-sticky !important;
   position: sticky !important;
   left: 0 !important;
-  z-index: 5 !important; /* Camada baixa para respeitar o menu */
+  z-index: 5 !important;
 }
 
 .espaco-cabecalho-horarios {
-  /* Gruda no Topo E na Esquerda ao mesmo tempo */
   position: -webkit-sticky !important;
   position: sticky !important;
   top: 0 !important;
   left: 0 !important;
   height: 74px;
-  z-index: 15 !important; /* Maior que os cards (2) e nomes (10), mas menor que o Menu (30) */
+  z-index: 15 !important;
   background-color: #ffffff !important;
   border-bottom: 2px solid #e2e8f0;
 }
@@ -224,10 +221,7 @@
   position: relative;
   background-image: linear-gradient(#e2e8f0 1px, transparent 1px);
   background-size: 100% 60px;
-
-  /* ALTURA MATEMÁTICA: 24 horas x 120px = 2880px */
   min-height: 2900px !important;
-
   flex-wrap: nowrap !important;
   width: 100% !important;
   overflow: visible !important;
@@ -242,7 +236,6 @@
   overflow: visible !important;
 }
 
-/* --- O CABEÇALHO GRUDENTO DOS PROFISSIONAIS --- */
 .profissional-header {
   display: flex;
   flex-direction: row;
@@ -252,13 +245,9 @@
   background-color: #fdf2f4;
   padding: 1rem;
   border-bottom: 2px solid #fbcfe8;
-
-  /* Gruda no topo */
   position: -webkit-sticky !important;
   position: sticky !important;
   top: 0 !important;
-
-  /* Camada ajustada para não sobrepor o menu lateral do sistema */
   z-index: 10 !important;
   margin-top: 0 !important;
   height: 74px;
@@ -299,7 +288,7 @@
 }
 
 /* =========================================
-   5. O CARD FLUTUANTE E EFEITO SANFONA VERTICAL
+   5. O CARTÃO FLUTUANTE (AGENDAMENTO)
    ========================================= */
 .cartao-agendamento {
   position: absolute;
@@ -312,54 +301,66 @@
   display: flex;
   flex-direction: column;
   border-left: 4px solid var(--cor-primaria);
-  overflow: hidden;
+  overflow: visible !important; /* Essencial para o menu não cortar */
   transition:
-    height 0.2s ease-in-out,
     box-shadow 0.2s ease,
     z-index 0s;
-  z-index: 2; /* Fica abaixo dos cabeçalhos */
+  z-index: 2;
+  cursor: pointer; /* O card todo é clicável */
 }
 
+/* Efeito ao passar o mouse: Sobe o z-index e ajusta altura apenas se o conteúdo exigir */
 .cartao-agendamento:hover {
   height: max-content !important;
   min-height: fit-content;
-  width: 100% !important;
-  min-width: unset !important;
-  z-index: 18 !important; /* Abre abaixo do menu, mas acima do resto da agenda */
+  z-index: 18 !important;
   box-shadow:
     0 10px 25px -5px rgba(0, 0, 0, 0.2),
     0 8px 10px -6px rgba(0, 0, 0, 0.1);
-  border-bottom: 1px solid #e2e8f0;
 }
 
+.card-header,
 .cartao-agendamento:hover .card-header {
-  flex-wrap: wrap !important;
-  height: auto !important;
-}
-
-.cartao-agendamento:hover .card-acoes-topo {
-  flex-wrap: wrap !important;
-  margin-top: 4px;
-  justify-content: flex-start !important;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  display: flex !important;
+  flex-wrap: nowrap !important; /* Impede quebra de linha indesejada */
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  gap: 8px;
   margin-bottom: 0.5rem;
 }
 
 .cliente-info-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  flex: 1;
+  min-width: 0;
 }
 
 .cartao-cliente {
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* Limita o nome a 2 linhas */
+  line-clamp: 2; /* Adicione isso para tentar calar o aviso do VS Code */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis; /* Reticências se o nome for longo */
+  word-break: break-word;
+  line-height: 1.2;
   font-weight: 600;
   color: var(--cor-texto);
   font-size: 0.95rem;
+}
+
+.card-acoes-topo,
+.cartao-agendamento:hover .card-acoes-topo {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  margin-top: 0 !important;
+  justify-content: flex-end !important;
+  flex-shrink: 0; /* Impede que o botão seja espremido */
+}
+
+/* Esconde permanentemente os botões horizontais antigos */
+.acoes-desktop-only {
+  display: none !important;
 }
 
 .cartao-horario {
@@ -370,12 +371,6 @@
   margin-top: 2px;
 }
 
-.card-acoes-topo {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
 .cartao-servico {
   font-size: 0.85rem;
   color: #64748b;
@@ -383,6 +378,8 @@
   justify-content: space-between;
   align-items: center;
   margin-top: auto;
+  white-space: nowrap; /* Trava o serviço e valor em uma única linha */
+  overflow: hidden;
 }
 
 .cartao-valor {
@@ -391,45 +388,72 @@
 }
 
 /* =========================================
-   6. BOTÕES DE AÇÃO E STATUS
+   6. MENU HAMBÚRGUER E AÇÕES (UNIFICADO)
    ========================================= */
-.btn-wpp-card {
+
+/* O botão de três pontinhos */
+.btn-menu-card {
   display: flex;
+  width: 30px;
+  height: 30px;
+  background-color: transparent;
+  border-radius: 8px;
   align-items: center;
   justify-content: center;
-  background-color: #25d366;
-  color: #ffffff;
-  border-radius: 6px;
-  padding: 4px;
+  cursor: pointer;
+  border: none;
+  color: #64748b;
   transition: all 0.2s ease;
-  text-decoration: none;
-}
-.btn-wpp-card:hover {
-  background-color: #128c7e;
-  transform: scale(1.05);
 }
 
-.btn-status-tick {
+.btn-menu-card:hover {
+  background-color: #f1f5f9;
+  color: #334155;
+}
+
+/* O Menu Flutuante que lista as ações */
+.menu-acoes-flutuante {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: 32px;
+  right: 0 !important;
+  left: auto !important;
+  transform: none !important;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  padding: 6px;
+  z-index: 9999 !important;
+  gap: 4px;
+  min-width: 180px;
+  animation: fadeInMenu 0.15s ease-out;
+}
+
+.menu-acoes-flutuante button,
+.menu-acoes-flutuante a {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: none;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+  text-decoration: none;
   cursor: pointer;
-  transition: all 0.2s ease;
-  color: #ffffff;
+  text-align: left;
+  box-sizing: border-box;
+  transition: background 0.2s ease;
 }
-.btn-status-tick.status-pendente {
-  background-color: #f59e0b;
-}
-.btn-status-tick.status-confirmado {
-  background-color: #10b981;
-}
-.btn-status-tick:hover {
-  transform: scale(1.15);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+.menu-acoes-flutuante button:hover,
+.menu-acoes-flutuante a:hover {
+  background-color: #f1f5f9;
 }
 
 /* =========================================
@@ -441,7 +465,7 @@
   right: 0;
   height: 2px;
   background-color: #ef4444;
-  z-index: 1 !important; /* Rebaixa a linha para o fundo da grade, atrás do menu */
+  z-index: 1 !important;
   pointer-events: none;
 }
 
@@ -453,31 +477,13 @@
   position: absolute;
   left: -5px;
   top: -4px;
-  z-index: 1 !important; /* Rebaixa a bolinha também */
+  z-index: 1 !important;
   pointer-events: none;
 }
 
 /* =========================================
-   8. BOTÃO E MODAL DE EXCLUSÃO
+   8. MODAL DE EXCLUSÃO GERAL
    ========================================= */
-.btn-delete-card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #fee2e2;
-  color: #ef4444;
-  border-radius: 6px;
-  padding: 4px;
-  transition: all 0.2s ease;
-  border: none;
-  cursor: pointer;
-}
-.btn-delete-card:hover {
-  background-color: #ef4444;
-  color: #ffffff;
-  transform: scale(1.05);
-}
-
 .modal-exclusao {
   max-width: 350px !important;
   padding: 1.5rem !important;
@@ -526,129 +532,7 @@
 }
 
 /* =========================================
-   RESPONSIVIDADE (CELULARES E TABLETS)
-   ========================================= */
-@media (max-width: 768px) {
-  .agenda-container {
-    padding: 1rem;
-    height: calc(100vh - 80px); /* Desconto do cabeçalho do celular */
-  }
-
-  .agenda-topbar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .agenda-info-navegacao {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .btn-novo {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .grade-profissionais {
-    width: max-content !important;
-  }
-
-  .coluna-profissional {
-    flex: 0 0 140px !important;
-    min-width: 140px !important;
-  }
-
-  .profissional-header-info h3 {
-    font-size: 0.85rem;
-    white-space: normal;
-    text-align: center;
-  }
-}
-
-/* =========================================
-   MENU DE AÇÕES MOBILE (HAMBÚRGUER NO CARD)
-   ========================================= */
-.btn-menu-card-mobile {
-  display: none; /* Escondido por padrão no PC */
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: #64748b;
-  padding: 4px;
-  border-radius: 6px;
-  align-items: center;
-  justify-content: center;
-}
-
-.menu-acoes-flutuante {
-  display: none;
-}
-
-@media (max-width: 768px) {
-  /* No celular, esconde os botões soltos de ação do topo */
-  .card-acoes-topo .acoes-desktop-only {
-    display: none !important;
-  }
-
-  /* Mostra o botão de menu hambúrguer */
-  .btn-menu-card-mobile {
-    display: flex !important;
-  }
-
-  /* Estilo do menu flutuante que abre ao clicar */
-  .menu-acoes-flutuante {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    right: 8px;
-    top: 35px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-    padding: 6px;
-    z-index: 30;
-    gap: 4px;
-    min-width: 160px;
-    animation: fadeInMenu 0.15s ease-out;
-  }
-
-  .menu-acoes-flutuante button,
-  .menu-acoes-flutuante a {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    padding: 8px 10px;
-    background: transparent;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: #334155;
-    text-decoration: none;
-    cursor: pointer;
-    text-align: left;
-  }
-
-  .menu-acoes-flutuante button:hover,
-  .menu-acoes-flutuante a:hover {
-    background-color: #f1f5f9;
-  }
-}
-
-@keyframes fadeInMenu {
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-/* =========================================
-   RESPONSIVIDADE (MENU HAMBÚRGUER NO CELULAR)
+   9. RESPONSIVIDADE CELULARES E TABLETS
    ========================================= */
 @media (max-width: 768px) {
   .agenda-container {
@@ -686,67 +570,28 @@
     text-align: center;
   }
 
-  /* --- REGRAS DO CARD E MENU NO CELULAR --- */
+  /* Ajustes finos do cartão para caber tudo na tela pequena */
   .cartao-agendamento {
-    overflow: visible !important;
-    z-index: 20 !important;
+    padding: 0.4rem 0.5rem !important;
   }
 
-  /* Esconde os botões soltos dentro do card no celular */
-  .card-acoes-topo .acoes-desktop-only {
-    display: none !important;
-  }
-
-  /* Mostra o botão hambúrguer com uma área de toque confortável */
-  .btn-menu-card-mobile {
-    display: flex !important;
-    width: 36px !important;
-    height: 36px !important;
-    background-color: #f1f5f9 !important;
-    border-radius: 8px !important;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-  }
-
-  /* Estiliza o menu flutuante para listar as ações perfeitamente */
-  .menu-acoes-flutuante {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    right: 4px;
-    top: 38px;
-    background: #ffffff;
-    border: 1px solid #cbd5e1;
-    border-radius: 10px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-    padding: 8px;
-    z-index: 9999 !important;
-    gap: 6px;
-    min-width: 180px;
-  }
-
-  .menu-acoes-flutuante button,
-  .menu-acoes-flutuante a {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 8px 12px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
+  .cartao-cliente {
     font-size: 0.85rem;
-    font-weight: 600;
-    color: #334155;
-    text-decoration: none;
-    cursor: pointer;
-    text-align: left;
-    box-sizing: border-box;
   }
 
-  .menu-acoes-flutuante button:hover,
-  .menu-acoes-flutuante a:hover {
-    background-color: #f1f5f9;
+  .btn-menu-card {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+@keyframes fadeInMenu {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

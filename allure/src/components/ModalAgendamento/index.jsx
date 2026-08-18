@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, RefreshCw, AlertTriangle, Clock, ListChecks } from "lucide-react";
 import { supabase } from "../../services/supabase";
 import "./ModalAgendamento.css";
@@ -9,7 +9,8 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const [buscaCliente, setBuscaCliente] = useState("");
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
   const [listaClientesBanco, setListaClientesBanco] = useState([]);
-  const [isBuscando, setIsBuscando] = useState(false); // <-- NOVO ESTADO DE BUSCA
+  const [isBuscando, setIsBuscando] = useState(false);
+  const [digitandoPeloUsuario, setDigitandoPeloUsuario] = useState(false); // <-- TRAVA ANTI-BUSCA AUTOMÁTICA
 
   // Estados para carregar do banco
   const [listaProfissionais, setListaProfissionais] = useState([]);
@@ -63,6 +64,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
   useEffect(() => {
     if (agendamento) {
+      setDigitandoPeloUsuario(false); // Desativa a busca ao carregar dados existentes
       setBuscaCliente(agendamento.cliente);
       setProfissionalId(agendamento.profissionalId || "");
       setServico(agendamento.servico);
@@ -75,6 +77,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       setIntervalo(21);
       setDataFim("");
     } else {
+      setDigitandoPeloUsuario(true); // Novo agendamento permite busca imediata se digitar
       setBuscaCliente("");
       setClienteSelecionado(null);
       setDataAgendamento(dataHoje);
@@ -96,15 +99,16 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
     setIsBuscando(false);
   }, [agendamento, isOpen, dataHoje]);
 
-  // BUSCADOR APRIMORADO COM FEEDBACK VISUAL
+  // BUSCADOR APRIMORADO COM TRAVA DE DIGITAÇÃO DO USUÁRIO
   useEffect(() => {
     const buscarClientesNoBanco = async () => {
       if (
+        digitandoPeloUsuario &&
         buscaCliente.trim().length >= 3 &&
         !clienteSelecionado &&
         !isBloqueio
       ) {
-        setIsBuscando(true); // Ativa o aviso de buscando
+        setIsBuscando(true);
         try {
           const { data, error } = await supabase
             .from("customers")
@@ -117,7 +121,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         } catch (error) {
           console.error("Erro ao buscar clientes:", error.message);
         } finally {
-          setIsBuscando(false); // Desativa o aviso de buscando ao terminar
+          setIsBuscando(false);
         }
       } else {
         setListaClientesBanco([]);
@@ -127,7 +131,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
     const timer = setTimeout(() => buscarClientesNoBanco(), 300);
     return () => clearTimeout(timer);
-  }, [buscaCliente, clienteSelecionado, isBloqueio]);
+  }, [buscaCliente, clienteSelecionado, isBloqueio, digitandoPeloUsuario]);
 
   if (!isOpen) return null;
 
@@ -395,14 +399,16 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                 clienteSelecionado ? clienteSelecionado.nome : buscaCliente
               }
               onChange={(e) => {
+                setDigitandoPeloUsuario(true); // Libera a busca apenas quando o usuário alterar algo
                 setBuscaCliente(e.target.value);
                 setClienteSelecionado(null);
               }}
               required
             />
 
-            {/* CAIXA DE SUGESTÕES MELHORADA */}
+            {/* CAIXA DE SUGESTÕES ATIVADA APENAS SE O USUÁRIO DIGITAR */}
             {!isBloqueio &&
+              digitandoPeloUsuario &&
               buscaCliente.trim().length >= 3 &&
               !clienteSelecionado && (
                 <div
