@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import logoAllure from "../assets/logo.png";
 import "./Login.css";
 
 export function Login() {
@@ -33,11 +34,37 @@ export function Login() {
       {/* LADO ESQUERDO */}
       <div className="login-left-panel">
         <div className="login-overlay"></div>{" "}
-        {/* A camada de cor transparente */}
-        {/* A caixa com efeito de vidro fosco */}
-        <div className="login-brand-info">
-          <h1>Allure</h1>
-          <p>Gestão Inteligente</p>
+        <div
+          className="login-brand-info"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          <img
+            src={logoAllure}
+            alt="Logo Allure"
+            style={{
+              width: "220px",
+              marginBottom: "0.5rem", // Reduzi um pouco para aproximar o texto do logo
+              filter: "brightness(0) invert(1)",
+            }}
+          />
+
+          {/* ESTILO PREMIUM PARA O SUBTÍTULO */}
+          <p
+            style={{
+              textTransform: "uppercase", // Letras maiúsculas
+              letterSpacing: "4px", // Espaçamento largo entre as letras
+              fontSize: "0.85rem", // Fonte um pouco mais delicada
+              fontWeight: "500", // Peso médio
+              color: "rgba(255, 255, 255, 0.8)", // Branco levemente suavizado para não ofuscar o logo
+              margin: "0",
+            }}
+          >
+            Gestão Inteligente
+          </p>
         </div>
       </div>
 
