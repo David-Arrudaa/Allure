@@ -14,6 +14,7 @@ import {
   Percent,
 } from "lucide-react";
 import { supabase } from "../../services/supabase";
+import { Skeleton } from "../ui/Skeleton"; // <-- IMPORTAÇÃO DO NOSSO SKELETON
 import "./Financeiro.css";
 
 export function Financeiro() {
@@ -425,10 +426,10 @@ export function Financeiro() {
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               className="input-busca"
+              disabled={loading} // Trava a busca enquanto carrega
             />
           </div>
 
-          {/* BOTÃO ANO TODO AO LADO DO SELECT DE ANO */}
           <button
             onClick={() => setMesSelecionado("Ano")}
             style={{
@@ -465,7 +466,6 @@ export function Financeiro() {
         </div>
       </div>
 
-      {/* MESES LIMPOS DE JAN A DEZ */}
       <div className="meses-grid">
         {meses.map((mes) => (
           <button
@@ -478,13 +478,20 @@ export function Financeiro() {
         ))}
       </div>
 
+      {/* SKELETONS NOS CARDS DE MÉTRICAS */}
       <div className="metrics-grid">
         <div className="metric-card destaque">
           <div className="metric-info">
             <span>
               TOTAL FATURADO ({mesSelecionado === "Ano" ? "ANO" : "MÊS"})
             </span>
-            <h2>{loading ? "..." : formatarMoeda(metricas.total)}</h2>
+            <h2>
+              {loading ? (
+                <Skeleton width="120px" height="36px" />
+              ) : (
+                formatarMoeda(metricas.total)
+              )}
+            </h2>
           </div>
           <div className="metric-icon primary">
             <DollarSign size={24} />
@@ -494,7 +501,13 @@ export function Financeiro() {
         <div className="metric-card">
           <div className="metric-info">
             <span>ENTRADAS VIA PIX</span>
-            <h2>{loading ? "..." : formatarMoeda(metricas.pix)}</h2>
+            <h2>
+              {loading ? (
+                <Skeleton width="100px" height="36px" />
+              ) : (
+                formatarMoeda(metricas.pix)
+              )}
+            </h2>
           </div>
           <div className="metric-icon green">
             <QrCode size={24} />
@@ -504,7 +517,13 @@ export function Financeiro() {
         <div className="metric-card">
           <div className="metric-info">
             <span>ENTRADAS EM DINHEIRO</span>
-            <h2>{loading ? "..." : formatarMoeda(metricas.dinheiro)}</h2>
+            <h2>
+              {loading ? (
+                <Skeleton width="100px" height="36px" />
+              ) : (
+                formatarMoeda(metricas.dinheiro)
+              )}
+            </h2>
           </div>
           <div className="metric-icon blue">
             <Wallet size={24} />
@@ -514,7 +533,13 @@ export function Financeiro() {
         <div className="metric-card">
           <div className="metric-info">
             <span>ENTRADAS EM CARTÃO</span>
-            <h2>{loading ? "..." : formatarMoeda(metricas.cartao)}</h2>
+            <h2>
+              {loading ? (
+                <Skeleton width="100px" height="36px" />
+              ) : (
+                formatarMoeda(metricas.cartao)
+              )}
+            </h2>
           </div>
           <div className="metric-icon purple">
             <CreditCard size={24} />
@@ -621,15 +646,40 @@ export function Financeiro() {
 
         {expandirDesempenho && (
           <div className="section-content">
+            {/* SKELETONS NOS CARDS DE EQUIPE */}
             {loadingEquipe ? (
-              <div
-                style={{
-                  padding: "2rem",
-                  textAlign: "center",
-                  color: "#64748B",
-                }}
-              >
-                Calculando comissões...
+              <div className="prof-cards-grid">
+                {[1, 2, 3].map((item) => (
+                  <div
+                    key={`skel-prof-${item}`}
+                    className="prof-card"
+                    style={{ pointerEvents: "none" }}
+                  >
+                    <div
+                      className="prof-card-info"
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                      }}
+                    >
+                      <Skeleton width="120px" height="20px" />
+                      <Skeleton width="180px" height="14px" />
+                    </div>
+                    <div
+                      className="prof-card-valor"
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-end",
+                        gap: "4px",
+                      }}
+                    >
+                      <Skeleton width="80px" height="12px" />
+                      <Skeleton width="100px" height="24px" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : funcionarias.length > 0 ? (
               <div className="prof-cards-grid">
@@ -886,9 +936,33 @@ export function Financeiro() {
 
         {expandirHistorico && (
           <div className="section-content">
+            {/* SKELETONS NA TABELA GERAL */}
             {loading ? (
-              <div className="estado-vazio" style={{ padding: "3rem" }}>
-                <p>Calculando caixa...</p>
+              <div className="tabela-financeira">
+                <div className="tabela-cabecalho geral-table">
+                  <span>Cliente</span>
+                  <span>Serviço</span>
+                  <span>Forma de Pagto.</span>
+                  <span>Data</span>
+                  <span>Valor</span>
+                </div>
+                {[1, 2, 3, 4, 5].map((item) => (
+                  <div
+                    key={`skel-historico-${item}`}
+                    className="tabela-linha geral-table"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1.5fr 1.5fr 1fr 1fr 1fr",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Skeleton width="70%" height="20px" />
+                    <Skeleton width="60%" height="20px" />
+                    <Skeleton width="80px" height="24px" borderRadius="12px" />
+                    <Skeleton width="90px" height="20px" />
+                    <Skeleton width="80%" height="20px" />
+                  </div>
+                ))}
               </div>
             ) : historicoPagamentos.length > 0 ? (
               <div className="tabela-financeira">

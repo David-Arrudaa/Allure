@@ -2,11 +2,15 @@ import React, { useState, useEffect } from "react";
 import { Plus, Search, Edit2, Trash2 } from "lucide-react";
 import { ModalServico } from "../components/ModalServico";
 import { supabase } from "../services/supabase";
+import { Skeleton } from "../components/ui/Skeleton"; // <-- IMPORTAÇÃO DO SKELETON
 import "./Servicos.css";
 
 export function Servicos() {
   const [busca, setBusca] = useState("");
   const [modalAberto, setModalAberto] = useState(false);
+
+  // <-- ESTADO DE CARREGAMENTO -->
+  const [isLoading, setIsLoading] = useState(true);
 
   // Novos estados para o banco de dados
   const [servicos, setServicos] = useState([]);
@@ -15,6 +19,7 @@ export function Servicos() {
 
   // Busca os serviços direto do Supabase
   const buscarServicos = async () => {
+    setIsLoading(true); // Começa a carregar
     try {
       const { data, error } = await supabase
         .from("servicos")
@@ -25,6 +30,8 @@ export function Servicos() {
       if (data) setServicos(data);
     } catch (error) {
       console.error("Erro ao buscar serviços:", error.message);
+    } finally {
+      setIsLoading(false); // Termina de carregar
     }
   };
 
@@ -74,6 +81,7 @@ export function Servicos() {
             setServicoEditando(null); // Garante que abra o modal limpo
             setModalAberto(true);
           }}
+          disabled={isLoading} // Desabilita o botão enquanto carrega
         >
           <Plus size={18} strokeWidth={2.5} />
           Novo Serviço
@@ -89,6 +97,7 @@ export function Servicos() {
               placeholder="Buscar serviço por nome..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
+              disabled={isLoading} // Trava a busca enquanto carrega
             />
           </div>
         </div>
@@ -103,7 +112,38 @@ export function Servicos() {
               </tr>
             </thead>
             <tbody>
-              {servicosFiltrados.length > 0 ? (
+              {/* ========================================================= */}
+              {/* SKELETONS - TABELA FANTASMA                               */}
+              {/* ========================================================= */}
+              {isLoading ? (
+                [1, 2, 3, 4, 5].map((item) => (
+                  <tr key={`skel-${item}`}>
+                    <td>
+                      <Skeleton width="60%" height="20px" />
+                    </td>
+                    <td>
+                      <Skeleton width="80px" height="20px" />
+                    </td>
+                    <td>
+                      <div
+                        className="acoes-tabela"
+                        style={{ display: "flex", gap: "6px" }}
+                      >
+                        <Skeleton
+                          width="32px"
+                          height="32px"
+                          borderRadius="6px"
+                        />
+                        <Skeleton
+                          width="32px"
+                          height="32px"
+                          borderRadius="6px"
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : servicosFiltrados.length > 0 ? (
                 servicosFiltrados.map((servico) => (
                   <tr key={servico.id}>
                     <td>
