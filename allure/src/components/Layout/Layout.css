@@ -18,12 +18,12 @@
 
 /* --- SIDEBAR (Menu Lateral) --- */
 .sidebar {
-  width: 260px;
+  width: 180px; /* <-- Reduzimos de 260px para 200px aqui */
   background-color: #ffffff;
   border-right: 1px solid var(--cor-borda);
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 1rem;
+  padding: 1.5rem 0.8rem; /* <-- Diminuímos levemente o padding lateral para os botões encaixarem melhor */
   z-index: 40;
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.02);
   transition: transform 0.3s ease-in-out;
