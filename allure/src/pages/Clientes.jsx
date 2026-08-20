@@ -24,8 +24,6 @@ export function Clientes() {
   const [clienteParaExcluir, setClienteParaExcluir] = useState(null);
 
   const [clientes, setClientes] = useState([]);
-
-  // <-- CRIAMOS O ESTADO DE CARREGAMENTO AQUI -->
   const [isLoading, setIsLoading] = useState(true);
 
   const [paginaAtual, setPaginaAtual] = useState(1);
@@ -34,15 +32,23 @@ export function Clientes() {
 
   useEffect(() => {
     async function carregarClientes() {
-      // Começamos avisando que a tela vai carregar
+      const termoBusca = busca.trim();
+
+      // Se o usuário digitou 1 ou 2 caracteres, não disparamos busca nem ativamos skeleton para não perder o foco
+      if (termoBusca.length > 0 && termoBusca.length < 3) {
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
 
       try {
         let countQuery = supabase
           .from("customers")
           .select("*", { count: "exact", head: true });
-        if (busca.trim().length > 0) {
-          countQuery = countQuery.ilike("nome", `%${busca.trim()}%`);
+
+        if (termoBusca.length >= 3) {
+          countQuery = countQuery.ilike("nome", `%${termoBusca}%`);
         }
         const { count } = await countQuery;
         setTotalClientes(count || 0);
@@ -56,8 +62,8 @@ export function Clientes() {
           .order("nome", { ascending: true })
           .range(inicio, fim);
 
-        if (busca.trim().length > 0) {
-          query = query.ilike("nome", `%${busca.trim()}%`);
+        if (termoBusca.length >= 3) {
+          query = query.ilike("nome", `%${termoBusca}%`);
         }
 
         const { data, error } = await query;
@@ -98,7 +104,6 @@ export function Clientes() {
       } catch (error) {
         console.error("Erro ao buscar clientes:", error.message);
       } finally {
-        // Ao terminar (com sucesso ou erro), desligamos o carregamento
         setIsLoading(false);
       }
     }
@@ -142,7 +147,6 @@ export function Clientes() {
       <div className="clientes-topbar">
         <div className="clientes-info">
           <h2>Gestão de Clientes</h2>
-          {/* Escondemos a contagem enquanto carrega para não piscar um "0" falso */}
           <p>
             {isLoading ? (
               <Skeleton width="200px" height="16px" />
@@ -158,7 +162,7 @@ export function Clientes() {
             setClienteEditando(null);
             setModalAberto(true);
           }}
-          disabled={isLoading} // Desabilita o botão enquanto carrega
+          disabled={isLoading}
         >
           <Plus size={18} strokeWidth={2.5} />
           Nova Cliente
@@ -174,7 +178,6 @@ export function Clientes() {
               placeholder="Buscar por nome..."
               value={busca}
               onChange={handleBuscaChange}
-              disabled={isLoading} // Trava a busca enquanto carrega
             />
           </div>
         </div>
@@ -190,9 +193,6 @@ export function Clientes() {
               </tr>
             </thead>
             <tbody>
-              {/* ========================================================= */}
-              {/* MÁGICA DOS SKELETONS - TABELA FANTASMA                   */}
-              {/* ========================================================= */}
               {isLoading ? (
                 [1, 2, 3, 4, 5, 6].map((item) => (
                   <tr key={`skel-${item}`}>
@@ -282,7 +282,9 @@ export function Clientes() {
                       color: "#94A3B8",
                     }}
                   >
-                    Nenhuma cliente encontrada com a busca "{busca}".
+                    {busca.length > 0 && busca.length < 3
+                      ? "Digite pelo menos 3 letras para buscar..."
+                      : `Nenhuma cliente encontrada com a busca "${busca}".`}
                   </td>
                 </tr>
               )}
@@ -290,7 +292,6 @@ export function Clientes() {
           </table>
         </div>
 
-        {/* Esconde a paginação enquanto estiver carregando */}
         {!isLoading && totalPaginas > 1 && (
           <div
             style={{
