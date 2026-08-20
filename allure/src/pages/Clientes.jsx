@@ -11,6 +11,7 @@ import {
 import { ModalCliente } from "../components/ModalCliente";
 import { ModalHistorico } from "../components/ModalHistorico";
 import { supabase } from "../services/supabase";
+import { Skeleton } from "../components/ui/Skeleton";
 import "./Clientes.css";
 
 export function Clientes() {
@@ -24,12 +25,18 @@ export function Clientes() {
 
   const [clientes, setClientes] = useState([]);
 
+  // <-- CRIAMOS O ESTADO DE CARREGAMENTO AQUI -->
+  const [isLoading, setIsLoading] = useState(true);
+
   const [paginaAtual, setPaginaAtual] = useState(1);
   const itensPorPagina = 25;
   const [totalClientes, setTotalClientes] = useState(0);
 
   useEffect(() => {
     async function carregarClientes() {
+      // Começamos avisando que a tela vai carregar
+      setIsLoading(true);
+
       try {
         let countQuery = supabase
           .from("customers")
@@ -87,10 +94,12 @@ export function Clientes() {
           setClientes(listaFormatada);
         }
 
-        // FAZ A TELA VOLTAR PARA O TOPO SUAVEMENTE AO MUDAR DE PÁGINA OU BUSCAR
         window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (error) {
         console.error("Erro ao buscar clientes:", error.message);
+      } finally {
+        // Ao terminar (com sucesso ou erro), desligamos o carregamento
+        setIsLoading(false);
       }
     }
 
@@ -133,9 +142,13 @@ export function Clientes() {
       <div className="clientes-topbar">
         <div className="clientes-info">
           <h2>Gestão de Clientes</h2>
+          {/* Escondemos a contagem enquanto carrega para não piscar um "0" falso */}
           <p>
-            Visualize e gerencie as clientes do salão ({totalClientes}{" "}
-            cadastradas)
+            {isLoading ? (
+              <Skeleton width="200px" height="16px" />
+            ) : (
+              `Visualize e gerencie as clientes do salão (${totalClientes} cadastradas)`
+            )}
           </p>
         </div>
 
@@ -145,6 +158,7 @@ export function Clientes() {
             setClienteEditando(null);
             setModalAberto(true);
           }}
+          disabled={isLoading} // Desabilita o botão enquanto carrega
         >
           <Plus size={18} strokeWidth={2.5} />
           Nova Cliente
@@ -160,6 +174,7 @@ export function Clientes() {
               placeholder="Buscar por nome..."
               value={busca}
               onChange={handleBuscaChange}
+              disabled={isLoading} // Trava a busca enquanto carrega
             />
           </div>
         </div>
@@ -175,7 +190,46 @@ export function Clientes() {
               </tr>
             </thead>
             <tbody>
-              {clientes.length > 0 ? (
+              {/* ========================================================= */}
+              {/* MÁGICA DOS SKELETONS - TABELA FANTASMA                   */}
+              {/* ========================================================= */}
+              {isLoading ? (
+                [1, 2, 3, 4, 5, 6].map((item) => (
+                  <tr key={`skel-${item}`}>
+                    <td>
+                      <Skeleton width="60%" height="20px" />
+                    </td>
+                    <td>
+                      <Skeleton width="110px" height="20px" />
+                    </td>
+                    <td>
+                      <Skeleton width="90px" height="20px" />
+                    </td>
+                    <td>
+                      <div
+                        className="acoes-tabela"
+                        style={{ display: "flex", gap: "6px" }}
+                      >
+                        <Skeleton
+                          width="32px"
+                          height="32px"
+                          borderRadius="6px"
+                        />
+                        <Skeleton
+                          width="32px"
+                          height="32px"
+                          borderRadius="6px"
+                        />
+                        <Skeleton
+                          width="32px"
+                          height="32px"
+                          borderRadius="6px"
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : clientes.length > 0 ? (
                 clientes.map((cliente) => (
                   <tr key={cliente.id}>
                     <td>
@@ -236,7 +290,8 @@ export function Clientes() {
           </table>
         </div>
 
-        {totalPaginas > 1 && (
+        {/* Esconde a paginação enquanto estiver carregando */}
+        {!isLoading && totalPaginas > 1 && (
           <div
             style={{
               display: "flex",

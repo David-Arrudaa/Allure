@@ -12,16 +12,17 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { supabase } from "../../services/supabase";
+import { Skeleton } from "../ui/Skeleton"; // <-- IMPORTAÇÃO DO SKELETON
 import "./Home.css";
 
 export function Home() {
   const navigate = useNavigate();
-
   // Função para pegar a data de hoje no formato YYYY-MM-DD para os inputs de data
   const hojeFormatoInput = new Date().toISOString().split("T")[0];
 
   const [loading, setLoading] = useState(true);
-  const [filtroPeriodo, setFiltroPeriodo] = useState("mes"); // hoje, semana, mes, personalizado
+  const [filtroPeriodo, setFiltroPeriodo] = useState("mes");
+  // hoje, semana, mes, personalizado
   const [dataCustomInicio, setDataCustomInicio] = useState(hojeFormatoInput);
   const [dataCustomFim, setDataCustomFim] = useState(hojeFormatoInput);
 
@@ -55,6 +56,7 @@ export function Home() {
         hoje.getMonth(),
         hoje.getDate(),
       ).toISOString();
+
       const fimHojeStr = new Date(
         hoje.getFullYear(),
         hoje.getMonth(),
@@ -70,7 +72,8 @@ export function Home() {
         dataInicio = inicioHojeStr;
         dataFim = fimHojeStr;
       } else if (filtroPeriodo === "semana") {
-        const diaSemana = hoje.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+        const diaSemana = hoje.getDay();
+        // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
         const dataDomingo = new Date(
           hoje.getFullYear(),
           hoje.getMonth(),
@@ -81,7 +84,6 @@ export function Home() {
           dataDomingo.getMonth(),
           dataDomingo.getDate() + 6,
         );
-
         dataInicio = new Date(
           dataDomingo.getFullYear(),
           dataDomingo.getMonth(),
@@ -117,7 +119,6 @@ export function Home() {
         if (!dataCustomInicio || !dataCustomFim) return;
         const [anoI, mesI, diaI] = dataCustomInicio.split("-");
         const [anoF, mesF, diaF] = dataCustomFim.split("-");
-
         dataInicio = new Date(anoI, mesI - 1, diaI, 0, 0, 0).toISOString();
         dataFim = new Date(anoF, mesF - 1, diaF, 23, 59, 59).toISOString();
       }
@@ -492,11 +493,18 @@ export function Home() {
         </div>
       )}
 
+      {/* CARDS DE MÉTRICAS COM SKELETONS */}
       <div className="metrics-grid">
         <div className="metric-card">
           <div className="metric-info">
             <span>ATENDIMENTOS ({labelPeriodo})</span>
-            <h2>{loading ? "..." : metricas.totalAtendimentos}</h2>
+            <h2>
+              {loading ? (
+                <Skeleton width="80px" height="36px" />
+              ) : (
+                metricas.totalAtendimentos
+              )}
+            </h2>
           </div>
           <div className="metric-icon blue">
             <Calendar size={24} />
@@ -506,7 +514,13 @@ export function Home() {
         <div className="metric-card">
           <div className="metric-info">
             <span>FATURAMENTO ({labelPeriodo})</span>
-            <h2>{loading ? "..." : formatarMoeda(metricas.faturamento)}</h2>
+            <h2>
+              {loading ? (
+                <Skeleton width="140px" height="36px" />
+              ) : (
+                formatarMoeda(metricas.faturamento)
+              )}
+            </h2>
           </div>
           <div className="metric-icon green">
             <DollarSign size={24} />
@@ -516,7 +530,13 @@ export function Home() {
         <div className="metric-card">
           <div className="metric-info">
             <span>TICKET MÉDIO</span>
-            <h2>{loading ? "..." : formatarMoeda(metricas.ticketMedio)}</h2>
+            <h2>
+              {loading ? (
+                <Skeleton width="100px" height="36px" />
+              ) : (
+                formatarMoeda(metricas.ticketMedio)
+              )}
+            </h2>
           </div>
           <div className="metric-icon purple">
             <TrendingUp size={24} />
@@ -549,6 +569,7 @@ export function Home() {
       </div>
 
       <div className="home-sections-grid">
+        {/* RANKING DE PROFISSIONAIS COM SKELETONS */}
         <div className="section-box">
           <div className="section-title">
             <Users size={20} />
@@ -556,9 +577,22 @@ export function Home() {
           </div>
           <div className="ranking-list">
             {loading ? (
-              <p style={{ color: "#64748b", fontSize: "0.9rem" }}>
-                Carregando dados...
-              </p>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "12px",
+                }}
+              >
+                {[1, 2, 3].map((i) => (
+                  <Skeleton
+                    key={i}
+                    width="100%"
+                    height="56px"
+                    borderRadius="10px"
+                  />
+                ))}
+              </div>
             ) : rankingProfissionais.length === 0 ? (
               <p style={{ color: "#64748b", fontSize: "0.9rem" }}>
                 Nenhum atendimento pago encontrado.
@@ -576,6 +610,7 @@ export function Home() {
           </div>
         </div>
 
+        {/* RANKING DE SERVIÇOS COM SKELETONS */}
         <div className="section-box">
           <div className="section-title">
             <TrendingUp size={20} />
@@ -583,9 +618,22 @@ export function Home() {
           </div>
           <div className="ranking-list">
             {loading ? (
-              <p style={{ color: "#64748b", fontSize: "0.9rem" }}>
-                Carregando dados...
-              </p>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "12px",
+                }}
+              >
+                {[1, 2, 3].map((i) => (
+                  <Skeleton
+                    key={i}
+                    width="100%"
+                    height="56px"
+                    borderRadius="10px"
+                  />
+                ))}
+              </div>
             ) : rankingServicos.length === 0 ? (
               <p style={{ color: "#64748b", fontSize: "0.9rem" }}>
                 Nenhum serviço pago registrado.
@@ -607,7 +655,7 @@ export function Home() {
         </div>
       </div>
 
-      {/* MODAL DE BAIXA DE ATRASADOS */}
+      {/* MODAL DE BAIXA DE ATRASADOS CONTINUA NORMAL... */}
       {isModalPendentesAberto && (
         <div
           className="modal-overlay"

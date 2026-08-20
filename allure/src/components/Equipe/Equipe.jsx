@@ -10,6 +10,7 @@ import {
   Camera,
 } from "lucide-react";
 import { supabase } from "../../services/supabase"; // Importação do banco de dados
+import { Skeleton } from "../ui/Skeleton"; // <-- IMPORTAÇÃO DO SKELETON (Ajuste a pasta se precisar)
 import "./Equipe.css";
 
 export function Equipe() {
@@ -63,14 +64,11 @@ export function Equipe() {
     });
   };
 
-  // Abre modal para NOVA profissional (Calcula a próxima ordem automática)
+  // Abre modal para NOVA profissional
   const abrirModalCadastro = () => {
     setEditandoId(null);
-
-    // Calcula o próximo número com base na lista atual
     const proximaOrdem =
       equipe.length > 0 ? Math.max(...equipe.map((p) => p.ordem || 0)) + 1 : 1;
-
     setFormFunc({
       nome: "",
       especialidade: "",
@@ -97,7 +95,7 @@ export function Equipe() {
     setModalAberto(true);
   };
 
-  // Lida com o upload da imagem (Limite de 5MB)
+  // Lida com o upload da imagem
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -105,7 +103,6 @@ export function Equipe() {
         alert("A imagem é muito grande. Escolha uma foto com menos de 5MB.");
         return;
       }
-
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormFunc({ ...formFunc, foto: reader.result });
@@ -114,7 +111,7 @@ export function Equipe() {
     }
   };
 
-  // 2. SALVAR COM REORDENAÇÃO INTELIGENTE EM CASCATA
+  // 2. SALVAR COM REORDENAÇÃO INTELIGENTE
   const handleSalvar = async (e) => {
     e.preventDefault();
     if (!formFunc.nome || !formFunc.especialidade) return;
@@ -174,13 +171,11 @@ export function Equipe() {
           .from("profissionais")
           .update(dadosParaSalvar)
           .eq("id", editandoId);
-
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("profissionais")
           .insert([dadosParaSalvar]);
-
         if (error) throw error;
       }
 
@@ -201,15 +196,12 @@ export function Equipe() {
 
   const confirmarExclusao = async () => {
     if (!profParaExcluir) return;
-
     try {
       const { error } = await supabase
         .from("profissionais")
         .delete()
         .eq("id", profParaExcluir);
-
       if (error) throw error;
-
       setModalExcluirAberto(false);
       setProfParaExcluir(null);
       buscarProfissionais();
@@ -257,16 +249,47 @@ export function Equipe() {
 
       <div className="equipe-grid">
         {carregandoDados ? (
-          <div
-            style={{
-              padding: "2rem",
-              color: "#64748B",
-              width: "100%",
-              textAlign: "center",
-            }}
-          >
-            Carregando equipe...
-          </div>
+          /* ========================================================= */
+          /* MÁGICA DOS SKELETONS AQUI - GERANDO 6 CARTÕES FANTASMAS   */
+          /* ========================================================= */
+          [1, 2, 3, 4, 5, 6].map((item) => (
+            <div
+              key={item}
+              className="equipe-card"
+              style={{ pointerEvents: "none" }}
+            >
+              <div className="equipe-card-info">
+                {/* Foto Fantasma */}
+                <Skeleton width="48px" height="48px" borderRadius="50%" />
+
+                <div
+                  className="info-textos"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px",
+                    marginLeft: "8px",
+                  }}
+                >
+                  {/* Nome Fantasma */}
+                  <Skeleton width="130px" height="18px" />
+                  {/* Especialidade Fantasma */}
+                  <Skeleton width="90px" height="14px" />
+                  {/* Telefone Fantasma */}
+                  <Skeleton width="100px" height="14px" />
+                </div>
+              </div>
+
+              <div
+                className="equipe-card-acoes"
+                style={{ display: "flex", gap: "8px" }}
+              >
+                {/* Botões de Ação Fantasmas */}
+                <Skeleton width="32px" height="32px" borderRadius="8px" />
+                <Skeleton width="32px" height="32px" borderRadius="8px" />
+              </div>
+            </div>
+          ))
         ) : equipeFiltrada.length > 0 ? (
           equipeFiltrada.map((prof) => (
             <div key={prof.id} className="equipe-card">
@@ -337,7 +360,8 @@ export function Equipe() {
         )}
       </div>
 
-      {/* Modal de Cadastro / Edição com rolagem interna para não quebrar a tela */}
+      {/* Modais continuam normais daqui para baixo... */}
+      {/* Modal de Cadastro / Edição */}
       {modalAberto && (
         <div className="modal-overlay">
           <div
