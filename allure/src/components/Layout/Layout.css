@@ -18,15 +18,16 @@
 
 /* --- SIDEBAR (Menu Lateral) --- */
 .sidebar {
-  width: 180px; /* <-- Reduzimos de 260px para 200px aqui */
+  width: 180px;
   background-color: #ffffff;
   border-right: 1px solid var(--cor-borda);
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 0.8rem; /* <-- Diminuímos levemente o padding lateral para os botões encaixarem melhor */
+  padding: 1.5rem 0.8rem;
   z-index: 40;
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.02);
   transition: transform 0.3s ease-in-out;
+  box-sizing: border-box; /* <-- MÁGICA: Evita que o padding aumente o tamanho da barra */
 }
 
 .sidebar-logo {
@@ -186,7 +187,6 @@
     justify-content: center;
   }
 
-  /* Oculta a logo de dentro do menu, pois ela já está no cabeçalho */
   .sidebar-logo {
     display: none;
   }
@@ -196,30 +196,31 @@
     position: fixed;
     top: 0;
     left: 0;
-    height: 100vh;
-    transform: translateX(-100%); /* Esconde fora da tela na esquerda */
-    padding-top: 2rem;
+    /* 100dvh respeita a barra inferior do Android/iPhone e não corta o rodapé */
+    height: 100dvh;
+    transform: translateX(-100%);
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem; /* Dá um respiro pro botão de sair no fim da tela */
+    box-sizing: border-box; /* Garante que o tamanho não estoure */
   }
 
-  /* Quando o estado React adiciona a classe "aberto", o menu entra na tela */
   .sidebar.aberto {
     transform: translateX(0);
   }
 
-  /* Fundo escuro atrás do menu */
   .mobile-overlay {
     display: block;
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
-    height: 100vh;
+    height: 100dvh;
     background-color: rgba(0, 0, 0, 0.4);
     z-index: 30;
     backdrop-filter: blur(2px);
   }
 
   .main-content {
-    padding: 1rem; /* Margem um pouco menor no celular */
+    padding: 1rem;
   }
 }

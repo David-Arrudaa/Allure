@@ -301,10 +301,16 @@ export function Agenda() {
 
   useEffect(() => {
     if (mostrarLinhaTempo && linhaTempoRef.current) {
-      linhaTempoRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+      const container = linhaTempoRef.current.closest(".agenda-wrapper");
+
+      if (container) {
+        // Isso força a rolagem ser apenas vertical e mantem o scroll horizontal travado na esquerda (left: 0)
+        container.scrollTo({
+          top: linhaTempoRef.current.offsetTop - container.clientHeight / 2,
+          left: 0,
+          behavior: "smooth",
+        });
+      }
     }
   }, [dataSelecionada, mostrarLinhaTempo]);
 
