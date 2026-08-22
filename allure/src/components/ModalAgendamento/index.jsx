@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, RefreshCw, AlertTriangle, Clock, ListChecks } from "lucide-react";
+import { X, RefreshCw, AlertTriangle, ListChecks, Lock } from "lucide-react";
 import { supabase } from "../../services/supabase";
 import "./ModalAgendamento.css";
 
@@ -10,7 +10,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
   const [listaClientesBanco, setListaClientesBanco] = useState([]);
   const [isBuscando, setIsBuscando] = useState(false);
-  const [digitandoPeloUsuario, setDigitandoPeloUsuario] = useState(false); // <-- TRAVA ANTI-BUSCA AUTOMÁTICA
+  const [digitandoPeloUsuario, setDigitandoPeloUsuario] = useState(false);
 
   // Estados para carregar do banco
   const [listaProfissionais, setListaProfissionais] = useState([]);
@@ -41,6 +41,12 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const [pacotesPendentes, setPacotesPendentes] = useState([]);
   const [conflitosDetalhados, setConflitosDetalhados] = useState([]);
 
+  // NOVO: ESTADOS DO MODAL DE SENHA PARA RETROATIVOS
+  const [showSenhaModal, setShowSenhaModal] = useState(false);
+  const [senhaDigitada, setSenhaDigitada] = useState("");
+  const [erroSenha, setErroSenha] = useState("");
+  const [pacotesPendentesSenha, setPacotesPendentesSenha] = useState([]);
+
   useEffect(() => {
     async function carregarDadosIniciais() {
       try {
@@ -63,9 +69,9 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   }, [isOpen]);
 
   useEffect(() => {
-if (agendamento) {
+    if (agendamento) {
       // eslint-disable-next-line
-      setDigitandoPeloUsuario(false); // Desativa a busca ao carregar dados existentes
+      setDigitandoPeloUsuario(false);
       setBuscaCliente(agendamento.cliente);
       setProfissionalId(agendamento.profissionalId || "");
       setServico(agendamento.servico);
@@ -78,7 +84,7 @@ if (agendamento) {
       setIntervalo(21);
       setDataFim("");
     } else {
-      setDigitandoPeloUsuario(true); // Novo agendamento permite busca imediata se digitar
+      setDigitandoPeloUsuario(true);
       setBuscaCliente("");
       setClienteSelecionado(null);
       setDataAgendamento(dataHoje);
@@ -96,11 +102,17 @@ if (agendamento) {
     setShowConflictModal(false);
     setPacotesPendentes([]);
     setConflitosDetalhados([]);
+    
+    // Reseta os estados de senha sempre que abrir o modal
+    setShowSenhaModal(false);
+    setSenhaDigitada("");
+    setErroSenha("");
+    setPacotesPendentesSenha([]);
+    
     setIsSaving(false);
     setIsBuscando(false);
   }, [agendamento, isOpen, dataHoje]);
 
-  // BUSCADOR APRIMORADO COM TRAVA DE DIGITAÇÃO DO USUÁRIO
   useEffect(() => {
     const buscarClientesNoBanco = async () => {
       if (
@@ -159,16 +171,6 @@ if (agendamento) {
     );
     const agora = new Date();
 
-    if (dataHoraEscolhida < agora) {
-      setConflictInfo({
-        tipo: "passado",
-        horario: `${horario} do dia ${dataAgendamento.split("-").reverse().join("/")}`,
-      });
-      setShowConflictModal(true);
-      setIsSaving(false);
-      return;
-    }
-
     let pacotesIniciais = [{ dataStr: dataAgendamento, horaStr: horario }];
 
     if (!agendamento && isRecorrente && dataFim) {
@@ -186,7 +188,33 @@ if (agendamento) {
       }
     }
 
+    // NOVA LÓGICA: Se for no passado, barra aqui e abre o modal de senha
+    if (dataHoraEscolhida < agora) {
+      setPacotesPendentesSenha(pacotesIniciais);
+      setShowSenhaModal(true);
+      setIsSaving(false);
+      return;
+    }
+
+    // Se for no futuro, segue a vida normal
     validarESalvar(pacotesIniciais);
+  };
+
+  // FUNÇÃO DE VALIDAÇÃO DE SENHA
+  const handleConfirmarSenha = (e) => {
+    e.preventDefault();
+    
+    // AQUI VOCÊ DEFINE A SENHA PADRÃO DO SISTEMA
+    const SENHA_PADRAO = "admin123"; 
+
+    if (senhaDigitada === SENHA_PADRAO) {
+      setErroSenha("");
+      setShowSenhaModal(false);
+      setIsSaving(true);
+      validarESalvar(pacotesPendentesSenha); // Continua o fluxo de salvamento
+    } else {
+      setErroSenha("Senha incorreta. Tente novamente.");
+    }
   };
 
   const validarESalvar = async (pacotes) => {
@@ -330,7 +358,8 @@ if (agendamento) {
     validarESalvar(pacotesAtualizados);
   };
 
-  return (<div className="modal-overlay">
+  return (
+    <div className="modal-overlay">
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div
           className="modal-header"
@@ -399,14 +428,13 @@ if (agendamento) {
                 clienteSelecionado ? clienteSelecionado.nome : buscaCliente
               }
               onChange={(e) => {
-                setDigitandoPeloUsuario(true); // Libera a busca apenas quando o usuário alterar algo
+                setDigitandoPeloUsuario(true);
                 setBuscaCliente(e.target.value);
                 setClienteSelecionado(null);
               }}
               required
             />
 
-            {/* CAIXA DE SUGESTÕES ATIVADA APENAS SE O USUÁRIO DIGITAR */}
             {!isBloqueio &&
               digitandoPeloUsuario &&
               buscaCliente.trim().length >= 3 &&
@@ -763,6 +791,115 @@ if (agendamento) {
         </form>
       </div>
 
+      {/* --- NOVO MODAL DE SENHA PARA AGENDAMENTO RETROATIVO --- */}
+      {showSenhaModal && (
+        <div
+          className="modal-overlay"
+          style={{ zIndex: 1200, backgroundColor: "rgba(15, 23, 42, 0.7)" }}
+        >
+          <div
+            className="modal-box"
+            style={{
+              maxWidth: "400px",
+              textAlign: "center",
+              padding: "2rem 1.5rem",
+              borderRadius: "16px",
+            }}
+          >
+            <div
+              style={{
+                width: "56px",
+                height: "56px",
+                borderRadius: "50%",
+                margin: "0 auto 1.25rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "#FFFBEB",
+                color: "#D97706",
+              }}
+            >
+              <Lock size={28} strokeWidth={2.3} />
+            </div>
+
+            <h3 style={{ fontSize: "1.25rem", color: "#1E293B", margin: "0 0 0.5rem 0" }}>
+              Agendamento Retroativo
+            </h3>
+            
+            <p style={{ fontSize: "0.95rem", color: "#64748B", marginBottom: "1.5rem", lineHeight: "1.5" }}>
+              Você está tentando salvar um horário que já passou. Insira a senha de autorização para prosseguir.
+            </p>
+
+            <form onSubmit={handleConfirmarSenha}>
+              <input
+                type="password"
+                placeholder="Digite a senha..."
+                value={senhaDigitada}
+                onChange={(e) => {
+                  setSenhaDigitada(e.target.value);
+                  setErroSenha("");
+                }}
+                style={{
+                  width: "100%",
+                  padding: "0.8rem",
+                  borderRadius: "8px",
+                  border: `1px solid ${erroSenha ? "#EF4444" : "#CBD5E1"}`,
+                  fontSize: "1rem",
+                  textAlign: "center",
+                  letterSpacing: "2px",
+                  marginBottom: erroSenha ? "0.5rem" : "1.5rem",
+                }}
+                autoFocus
+              />
+              {erroSenha && (
+                <div style={{ color: "#EF4444", fontSize: "0.85rem", marginBottom: "1rem", fontWeight: "500" }}>
+                  {erroSenha}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSenhaModal(false);
+                    setSenhaDigitada("");
+                    setErroSenha("");
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "0.8rem",
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                    backgroundColor: "#FFFFFF",
+                    color: "#475569",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    flex: 1,
+                    padding: "0.8rem",
+                    borderRadius: "8px",
+                    border: "none",
+                    backgroundColor: "var(--cor-primaria)",
+                    color: "#FFFFFF",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  Autorizar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* -------------------------------------------------------- */}
+
       {showConflictModal && (
         <div
           className="modal-overlay"
@@ -790,23 +927,11 @@ if (agendamento) {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor:
-                  conflictInfo.tipo === "passado"
-                    ? "#FFFBEB"
-                    : conflictInfo.tipo === "conflito_multiplo"
-                      ? "#E0F2FE"
-                      : "#FEE2E2",
-                color:
-                  conflictInfo.tipo === "passado"
-                    ? "#D97706"
-                    : conflictInfo.tipo === "conflito_multiplo"
-                      ? "#0284C7"
-                      : "#E11D48",
+                backgroundColor: conflictInfo.tipo === "conflito_multiplo" ? "#E0F2FE" : "#FEE2E2",
+                color: conflictInfo.tipo === "conflito_multiplo" ? "#0284C7" : "#E11D48",
               }}
             >
-              {conflictInfo.tipo === "passado" ? (
-                <Clock size={28} strokeWidth={2.3} />
-              ) : conflictInfo.tipo === "conflito_multiplo" ? (
+              {conflictInfo.tipo === "conflito_multiplo" ? (
                 <ListChecks size={28} strokeWidth={2.3} />
               ) : (
                 <AlertTriangle size={28} strokeWidth={2.3} />
@@ -821,9 +946,7 @@ if (agendamento) {
                 margin: "0 0 0.5rem 0",
               }}
             >
-              {conflictInfo.tipo === "passado"
-                ? "Horário no Passado"
-                : conflictInfo.tipo === "conflito_multiplo"
+              {conflictInfo.tipo === "conflito_multiplo"
                   ? "Ajustar Divergências"
                   : "Horário Indisponível"}
             </h3>
@@ -837,19 +960,9 @@ if (agendamento) {
                   margin: "0 0 1.5rem 0",
                 }}
               >
-                {conflictInfo.tipo === "passado" ? (
-                  <>
-                    Não é possível criar um agendamento para as{" "}
-                    <strong>{conflictInfo.horario}</strong>, pois este horário
-                    já passou.
-                  </>
-                ) : (
-                  <>
-                    <strong>{conflictInfo.profissionalNome}</strong> já possui
-                    um serviço ocupando o período de{" "}
-                    <strong>{conflictInfo.horario}</strong>.
-                  </>
-                )}
+                <strong>{conflictInfo.profissionalNome}</strong> já possui
+                um serviço ocupando o período de{" "}
+                <strong>{conflictInfo.horario}</strong>.
               </p>
             )}
 
