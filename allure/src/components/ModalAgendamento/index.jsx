@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { X, RefreshCw, AlertTriangle, Clock, ListChecks } from "lucide-react";
 import { supabase } from "../../services/supabase";
 import "./ModalAgendamento.css";
@@ -63,7 +63,8 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   }, [isOpen]);
 
   useEffect(() => {
-    if (agendamento) {
+if (agendamento) {
+      // eslint-disable-next-line
       setDigitandoPeloUsuario(false); // Desativa a busca ao carregar dados existentes
       setBuscaCliente(agendamento.cliente);
       setProfissionalId(agendamento.profissionalId || "");
@@ -329,8 +330,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
     validarESalvar(pacotesAtualizados);
   };
 
-  return (
-    <div className="modal-overlay" onClick={onClose}>
+  return (<div className="modal-overlay">
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div
           className="modal-header"
