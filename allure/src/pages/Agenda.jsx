@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import {
   Plus,
@@ -137,6 +137,7 @@ export function Agenda() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line
     carregarDadosAgenda();
   }, []);
 
@@ -153,8 +154,9 @@ export function Agenda() {
   useEffect(() => {
     if (location.state && location.state.dataAlvo) {
       const novaData = new Date(location.state.dataAlvo);
+      // eslint-disable-next-line
       setDataSelecionada(novaData);
-
+      
       if (location.state.abrirAgendamentoId && agendamentos.length > 0) {
         const agFoco = agendamentos.find(
           (ag) => ag.id === location.state.abrirAgendamentoId,
@@ -274,7 +276,7 @@ export function Agenda() {
   const calcularPosicao = (horarioString) => {
     const [hora, minuto] = horarioString.split(":").map(Number);
     const minutosDesde00h = hora * 60 + minuto;
-    return minutosDesde00h * 2;
+    return (minutosDesde00h * 2) + 74; // Adiciona os 74px do cabeçalho
   };
 
   const calcularHoraFim = (horaInicio, duracaoMinutos) => {
@@ -295,9 +297,9 @@ export function Agenda() {
     dataSelecionada.getFullYear() === hoje.getFullYear();
 
   const minutosAtuais = horaAtual.getHours() * 60 + horaAtual.getMinutes();
-  const posicaoLinhaTempo = minutosAtuais * 2;
+  const posicaoLinhaTempo = (minutosAtuais * 2) + 74; // Adiciona os 74px do cabeçalho
   const mostrarLinhaTempo =
-    isHoje && posicaoLinhaTempo >= 0 && posicaoLinhaTempo <= 24 * 60 * 2;
+    isHoje && posicaoLinhaTempo >= 74 && posicaoLinhaTempo <= (24 * 60 * 2) + 74;
 
   useEffect(() => {
     if (mostrarLinhaTempo && linhaTempoRef.current) {
