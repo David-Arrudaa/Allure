@@ -14,10 +14,14 @@ import {
   Percent,
 } from "lucide-react";
 import { supabase } from "../../services/supabase";
-import { Skeleton } from "../ui/Skeleton"; // <-- IMPORTAÇÃO DO NOSSO SKELETON
+import { Skeleton } from "../../components/ui/Skeleton";
+import { Pagination } from "../../components/ui/Pagination";
+import { ModalRecebimentoAvulso } from "../../components/domain/ModalRecebimentoAvulso";
+import { useAuth } from "../../contexts/AuthContext";
 import "./Financeiro.css";
 
 export function Financeiro() {
+  const { profile } = useAuth();
   const meses = [
     "Jan",
     "Fev",
@@ -41,7 +45,10 @@ export function Financeiro() {
     dataAtual.getFullYear().toString(),
   );
   const [busca, setBusca] = useState("");
+  const [filtroFuncionariaGeral, setFiltroFuncionariaGeral] = useState("");
   const [loading, setLoading] = useState(true);
+  
+  const [isModalAvulsoOpen, setIsModalAvulsoOpen] = useState(false);
 
   // ESTADOS DE PAGINAÇÃO (Limite de 20)
   const [paginaGeral, setPaginaGeral] = useState(1);
@@ -72,7 +79,7 @@ export function Financeiro() {
   useEffect(() => {
     setPaginaGeral(1);
     carregarMetricasGerais();
-  }, [mesSelecionado, anoSelecionado, busca]);
+  }, [mesSelecionado, anoSelecionado, busca, filtroFuncionariaGeral]);
 
   useEffect(() => {
     setProfSelecionada(null);
@@ -101,16 +108,22 @@ export function Financeiro() {
         fimFiltro = `${anoNum}-${mesFormatado}-${String(ultimoDiaMes).padStart(2, "0")}T23:59:59`;
       }
 
-      const { data, error } = await supabase
+      let queryGeral = supabase
         .from("appointments")
         .select(
-          `id, valor, servico, data_horario, forma_pagamento, customers ( nome )`,
+          `id, valor, servico, data_horario, forma_pagamento, customers ( nome ), profissionais ( id, nome )`,
         )
         .gte("data_horario", inicioFiltro)
         .lte("data_horario", fimFiltro)
         .eq("pagamento", "pago")
         .neq("status", "bloqueio")
         .neq("status", "cancelado");
+
+      if (!profile?.is_admin) {
+        queryGeral = queryGeral.eq("profissional_id", profile.id);
+      }
+
+      const { data, error } = await queryGeral;
 
       if (error) throw error;
 
@@ -124,6 +137,9 @@ export function Financeiro() {
         data.forEach((item) => {
           const clienteNome = item.customers?.nome || "Cliente Removido";
           if (busca && !clienteNome.toLowerCase().includes(busca.toLowerCase()))
+            return;
+          
+          if (filtroFuncionariaGeral && item.profissionais?.id !== filtroFuncionariaGeral)
             return;
 
           const valorNum = Number(item.valor) || 0;
@@ -354,61 +370,6 @@ export function Financeiro() {
     paginaProf * itensPorPagina,
   );
 
-  const ControlesPaginacao = ({ paginaAtual, totalPaginas, setPagina }) => {
-    if (totalPaginas <= 1) return null;
-    return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          padding: "1rem",
-          gap: "1rem",
-          borderTop: "1px solid #E2E8F0",
-          marginTop: "10px",
-        }}
-      >
-        <button
-          onClick={() => setPagina((p) => Math.max(1, p - 1))}
-          disabled={paginaAtual === 1}
-          style={{
-            padding: "6px 12px",
-            borderRadius: "6px",
-            border: "1px solid #CBD5E1",
-            backgroundColor: paginaAtual === 1 ? "#F1F5F9" : "#FFFFFF",
-            cursor: paginaAtual === 1 ? "not-allowed" : "pointer",
-            color: "#475569",
-            fontWeight: "600",
-            fontSize: "0.85rem",
-          }}
-        >
-          Anterior
-        </button>
-        <span
-          style={{ fontSize: "0.85rem", color: "#64748B", fontWeight: "500" }}
-        >
-          Página {paginaAtual} de {totalPaginas}
-        </span>
-        <button
-          onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-          disabled={paginaAtual === totalPaginas}
-          style={{
-            padding: "6px 12px",
-            borderRadius: "6px",
-            border: "1px solid #CBD5E1",
-            backgroundColor:
-              paginaAtual === totalPaginas ? "#F1F5F9" : "#FFFFFF",
-            cursor: paginaAtual === totalPaginas ? "not-allowed" : "pointer",
-            color: "#475569",
-            fontWeight: "600",
-            fontSize: "0.85rem",
-          }}
-        >
-          Próxima
-        </button>
-      </div>
-    );
-  };
 
   return (
     <div className="financeiro-container">
@@ -463,6 +424,25 @@ export function Financeiro() {
               </option>
             ))}
           </select>
+          <button
+            onClick={() => setIsModalAvulsoOpen(true)}
+            style={{
+              padding: "0.6rem 1rem",
+              borderRadius: "8px",
+              fontWeight: "600",
+              fontSize: "0.85rem",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              border: "none",
+              backgroundColor: "#22C55E",
+              color: "#FFFFFF",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px"
+            }}
+          >
+            <Plus size={16} /> Nova Venda
+          </button>
         </div>
       </div>
 
@@ -548,369 +528,375 @@ export function Financeiro() {
       </div>
 
       {/* SEÇÃO: DESEMPENHO POR PROFISSIONAL */}
-      <div className="section-box mb-15">
-        <div
-          className="section-header-clickable"
-          onClick={() => setExpandirDesempenho(!expandirDesempenho)}
-        >
-          <div className="section-title">
-            <User size={20} />
-            <h3>
-              Comissão e Desempenho
-              <span
-                style={{
-                  fontSize: "0.85rem",
-                  color: "#64748B",
-                  marginLeft: "8px",
-                  fontWeight: "500",
-                }}
-              >
-                (
-                {filtroDesempenho === "semana"
-                  ? "Semana Atual"
-                  : mesSelecionado === "Ano"
-                    ? anoSelecionado
-                    : `${mesSelecionado}/${anoSelecionado}`}
-                )
-              </span>
-            </h3>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <div
-              style={{
-                display: "flex",
-                gap: "4px",
-                backgroundColor: "#F1F5F9",
-                padding: "4px",
-                borderRadius: "8px",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={() => setFiltroDesempenho("semana")}
-                style={{
-                  border: "none",
-                  padding: "4px 10px",
-                  borderRadius: "6px",
-                  fontSize: "0.8rem",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  backgroundColor:
-                    filtroDesempenho === "semana" ? "#FFFFFF" : "transparent",
-                  color:
-                    filtroDesempenho === "semana"
-                      ? "var(--cor-primaria)"
-                      : "#64748B",
-                  boxShadow:
-                    filtroDesempenho === "semana"
-                      ? "0 1px 3px rgba(0,0,0,0.1)"
-                      : "none",
-                }}
-              >
-                Semana Atual
-              </button>
-              <button
-                onClick={() => setFiltroDesempenho("mes")}
-                style={{
-                  border: "none",
-                  padding: "4px 10px",
-                  borderRadius: "6px",
-                  fontSize: "0.8rem",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  backgroundColor:
-                    filtroDesempenho === "mes" ? "#FFFFFF" : "transparent",
-                  color:
-                    filtroDesempenho === "mes"
-                      ? "var(--cor-primaria)"
-                      : "#64748B",
-                  boxShadow:
-                    filtroDesempenho === "mes"
-                      ? "0 1px 3px rgba(0,0,0,0.1)"
-                      : "none",
-                }}
-              >
-                {mesSelecionado === "Ano" ? "Ano Completo" : "Mês Selecionado"}
-              </button>
-            </div>
-
-            {expandirDesempenho ? (
-              <ChevronUp size={20} className="chevron-icon" />
-            ) : (
-              <ChevronDown size={20} className="chevron-icon" />
-            )}
-          </div>
-        </div>
-
-        {expandirDesempenho && (
-          <div className="section-content">
-            {/* SKELETONS NOS CARDS DE EQUIPE */}
-            {loadingEquipe ? (
-              <div className="prof-cards-grid">
-                {[1, 2, 3].map((item) => (
-                  <div
-                    key={`skel-prof-${item}`}
-                    className="prof-card"
-                    style={{ pointerEvents: "none" }}
-                  >
-                    <div
-                      className="prof-card-info"
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
-                      }}
-                    >
-                      <Skeleton width="120px" height="20px" />
-                      <Skeleton width="180px" height="14px" />
-                    </div>
-                    <div
-                      className="prof-card-valor"
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "flex-end",
-                        gap: "4px",
-                      }}
-                    >
-                      <Skeleton width="80px" height="12px" />
-                      <Skeleton width="100px" height="24px" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : funcionarias.length > 0 ? (
-              <div className="prof-cards-grid">
-                {funcionarias.map((prof) => (
-                  <div
-                    key={prof.id}
-                    className={`prof-card ${profSelecionada === prof.id ? "ativo" : ""}`}
-                    onClick={() =>
-                      setProfSelecionada(
-                        profSelecionada === prof.id ? null : prof.id,
-                      )
-                    }
-                  >
-                    <div className="prof-card-info">
-                      <strong>{prof.nome}</strong>
-                      <span
-                        style={{
-                          display: "flex",
-                          gap: "6px",
-                          flexWrap: "wrap",
-                          alignItems: "center",
-                        }}
-                      >
-                        {prof.atendimentos}{" "}
-                        {prof.atendimentos === 1
-                          ? "atendimento"
-                          : "atendimentos"}
-                        <span
-                          style={{
-                            width: "4px",
-                            height: "4px",
-                            borderRadius: "50%",
-                            backgroundColor: "#CBD5E1",
-                          }}
-                        ></span>
-                        Caixa: {prof.totalProduzido}
-                      </span>
-                    </div>
-                    <div
-                      className="prof-card-valor"
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "flex-end",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "#64748B",
-                          fontWeight: "600",
-                        }}
-                      >
-                        A RECEBER ({prof.comissaoPct}%)
-                      </span>
-                      <strong
-                        style={{
-                          color: "#059669",
-                          fontSize: "1.2rem",
-                          marginTop: "2px",
-                        }}
-                      >
-                        {prof.valorReceber}
-                      </strong>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div
-                className="estado-vazio"
-                style={{ padding: "2rem 0", color: "#64748B" }}
-              >
-                <p>
-                  Nenhum atendimento pago registrado neste período para a
-                  equipe.
-                </p>
-              </div>
-            )}
-
-            {profSelecionada && (
-              <div className="prof-detalhes-container">
-                <div
-                  className="prof-detalhes-header"
+      {/* SEÇÃO: DESEMPENHO POR PROFISSIONAL (SOMENTE ADMIN) */}
+      {profile?.is_admin && (
+        <div className="section-box mb-15">
+          <div
+            className="section-header-clickable"
+            onClick={() => setExpandirDesempenho(!expandirDesempenho)}
+          >
+            <div className="section-title">
+              <User size={20} />
+              <h3>
+                Comissão e Desempenho
+                <span
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
+                    fontSize: "0.85rem",
+                    color: "#64748B",
+                    marginLeft: "8px",
+                    fontWeight: "500",
                   }}
                 >
-                  <div>
-                    <h4>
-                      Histórico Detalhado:{" "}
-                      {funcionarias.find((f) => f.id === profSelecionada)?.nome}
-                    </h4>
-
+                  (
+                  {filtroDesempenho === "semana"
+                    ? "Semana Atual"
+                    : mesSelecionado === "Ano"
+                      ? anoSelecionado
+                      : `${mesSelecionado}/${anoSelecionado}`}
+                  )
+                </span>
+              </h3>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "4px",
+                  backgroundColor: "#F1F5F9",
+                  padding: "4px",
+                  borderRadius: "8px",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setFiltroDesempenho("semana")}
+                  style={{
+                    border: "none",
+                    padding: "4px 10px",
+                    borderRadius: "6px",
+                    fontSize: "0.8rem",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    backgroundColor:
+                      filtroDesempenho === "semana" ? "#FFFFFF" : "transparent",
+                    color:
+                      filtroDesempenho === "semana"
+                        ? "var(--cor-primaria)"
+                        : "#64748B",
+                    boxShadow:
+                      filtroDesempenho === "semana"
+                        ? "0 1px 3px rgba(0,0,0,0.1)"
+                        : "none",
+                  }}
+                >
+                  Semana Atual
+                </button>
+                <button
+                  onClick={() => setFiltroDesempenho("mes")}
+                  style={{
+                    border: "none",
+                    padding: "4px 10px",
+                    borderRadius: "6px",
+                    fontSize: "0.8rem",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    backgroundColor:
+                      filtroDesempenho === "mes" ? "#FFFFFF" : "transparent",
+                    color:
+                      filtroDesempenho === "mes"
+                        ? "var(--cor-primaria)"
+                        : "#64748B",
+                    boxShadow:
+                      filtroDesempenho === "mes"
+                        ? "0 1px 3px rgba(0,0,0,0.1)"
+                        : "none",
+                  }}
+                >
+                  {mesSelecionado === "Ano" ? "Ano Completo" : "Mês Selecionado"}
+                </button>
+              </div>
+  
+              {expandirDesempenho ? (
+                <ChevronUp size={20} className="chevron-icon" />
+              ) : (
+                <ChevronDown size={20} className="chevron-icon" />
+              )}
+            </div>
+          </div>
+  
+          {expandirDesempenho && (
+            <div className="section-content">
+              {/* SKELETONS NOS CARDS DE EQUIPE */}
+              {loadingEquipe ? (
+                <div className="prof-cards-grid">
+                  {[1, 2, 3].map((item) => (
                     <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        marginTop: "12px",
-                        backgroundColor: "#F8FAFC",
-                        padding: "8px 12px",
-                        borderRadius: "8px",
-                        border: "1px solid #E2E8F0",
-                        width: "fit-content",
-                      }}
+                      key={`skel-prof-${item}`}
+                      className="prof-card"
+                      style={{ pointerEvents: "none" }}
                     >
-                      <Percent size={16} color="#64748B" />
-                      <label
-                        style={{
-                          fontSize: "0.85rem",
-                          fontWeight: "600",
-                          color: "#475569",
-                        }}
-                      >
-                        Porcentagem de Comissão:
-                      </label>
                       <div
+                        className="prof-card-info"
                         style={{
                           display: "flex",
-                          alignItems: "center",
+                          flexDirection: "column",
+                          gap: "8px",
+                        }}
+                      >
+                        <Skeleton width="120px" height="20px" />
+                        <Skeleton width="180px" height="14px" />
+                      </div>
+                      <div
+                        className="prof-card-valor"
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "flex-end",
                           gap: "4px",
                         }}
                       >
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          defaultValue={
-                            funcionarias.find((f) => f.id === profSelecionada)
-                              ?.comissaoPct
-                          }
-                          onBlur={(e) =>
-                            handleAtualizarComissao(
-                              profSelecionada,
-                              e.target.value,
-                            )
-                          }
+                        <Skeleton width="80px" height="12px" />
+                        <Skeleton width="100px" height="24px" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : funcionarias.length > 0 ? (
+                <div className="prof-cards-grid">
+                  {funcionarias.map((prof) => (
+                    <div
+                      key={prof.id}
+                      className={`prof-card ${profSelecionada === prof.id ? "ativo" : ""}`}
+                      onClick={() =>
+                        setProfSelecionada(
+                          profSelecionada === prof.id ? null : prof.id,
+                        )
+                      }
+                    >
+                      <div className="prof-card-info">
+                        <strong>{prof.nome}</strong>
+                        <span
                           style={{
-                            width: "60px",
-                            padding: "6px",
-                            borderRadius: "6px",
-                            border: "1px solid #CBD5E1",
-                            textAlign: "center",
-                            fontWeight: "700",
-                            color: "var(--cor-primaria)",
+                            display: "flex",
+                            gap: "6px",
+                            flexWrap: "wrap",
+                            alignItems: "center",
                           }}
-                        />
-                        <span style={{ fontWeight: "700", color: "#64748B" }}>
-                          %
+                        >
+                          {prof.atendimentos}{" "}
+                          {prof.atendimentos === 1
+                            ? "atendimento"
+                            : "atendimentos"}
+                          <span
+                            style={{
+                              width: "4px",
+                              height: "4px",
+                              borderRadius: "50%",
+                              backgroundColor: "#CBD5E1",
+                            }}
+                          ></span>
+                          Caixa: {prof.totalProduzido}
                         </span>
                       </div>
-                      <span
+                      <div
+                        className="prof-card-valor"
                         style={{
-                          fontSize: "0.75rem",
-                          color: "#94A3B8",
-                          marginLeft: "8px",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "flex-end",
+                          justifyContent: "center",
                         }}
                       >
-                        (Edite e clique fora para salvar)
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    className="btn-fechar"
-                    onClick={() => setProfSelecionada(null)}
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-
-                <div className="prof-resumo-tags">
-                  <span className="resumo-label">Serviços realizados:</span>
-                  {calcularResumoTipos(profSelecionada).map(
-                    ([tipo, quantidade]) => (
-                      <div key={tipo} className="prof-tag">
-                        <strong>{quantidade}</strong> {tipo}
+                        <span
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#64748B",
+                            fontWeight: "600",
+                          }}
+                        >
+                          A RECEBER ({prof.comissaoPct}%)
+                        </span>
+                        <strong
+                          style={{
+                            color: "#059669",
+                            fontSize: "1.2rem",
+                            marginTop: "2px",
+                          }}
+                        >
+                          {prof.valorReceber}
+                        </strong>
                       </div>
-                    ),
-                  )}
-                </div>
-
-                {atendimentosDaProf.length > 0 && (
-                  <div className="tabela-financeira mt-10">
-                    <div
-                      className="tabela-cabecalho prof-table"
-                      style={{ gridTemplateColumns: "1fr 2fr 2fr 1fr" }}
-                    >
-                      <span>Data</span>
-                      <span>Cliente</span>
-                      <span>Serviço</span>
-                      <span style={{ textAlign: "right" }}>
-                        Valor Produzido
-                      </span>
                     </div>
-                    {profPaginado.map((item) => (
+                  ))}
+                </div>
+              ) : (
+                <div
+                  className="estado-vazio"
+                  style={{ padding: "2rem 0", color: "#64748B" }}
+                >
+                  <p>
+                    Nenhum atendimento pago registrado neste período para a
+                    equipe.
+                  </p>
+                </div>
+              )}
+  
+              {profSelecionada && (
+                <div className="prof-detalhes-container">
+                  <div
+                    className="prof-detalhes-header"
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <div>
+                      <h4>
+                        Histórico Detalhado:{" "}
+                        {funcionarias.find((f) => f.id === profSelecionada)?.nome}
+                      </h4>
+  
                       <div
-                        key={item.id}
-                        className="tabela-linha prof-table"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          marginTop: "12px",
+                          backgroundColor: "#F8FAFC",
+                          padding: "8px 12px",
+                          borderRadius: "8px",
+                          border: "1px solid #E2E8F0",
+                          width: "fit-content",
+                        }}
+                      >
+                        <Percent size={16} color="#64748B" />
+                        <label
+                          style={{
+                            fontSize: "0.85rem",
+                            fontWeight: "600",
+                            color: "#475569",
+                          }}
+                        >
+                          Porcentagem de Comissão:
+                        </label>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            defaultValue={
+                              funcionarias.find((f) => f.id === profSelecionada)
+                                ?.comissaoPct
+                            }
+                            onBlur={(e) =>
+                              handleAtualizarComissao(
+                                profSelecionada,
+                                e.target.value,
+                              )
+                            }
+                            style={{
+                              width: "60px",
+                              padding: "6px",
+                              borderRadius: "6px",
+                              border: "1px solid #CBD5E1",
+                              textAlign: "center",
+                              fontWeight: "700",
+                              color: "var(--cor-primaria)",
+                            }}
+                          />
+                          <span style={{ fontWeight: "700", color: "#64748B" }}>
+                            %
+                          </span>
+                        </div>
+                        <span
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#94A3B8",
+                            marginLeft: "8px",
+                          }}
+                        >
+                          (Edite e clique fora para salvar)
+                        </span>
+                      </div>
+                    </div>
+  
+                    <button
+                      className="btn-fechar"
+                      onClick={() => setProfSelecionada(null)}
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+  
+                  <div className="prof-resumo-tags">
+                    <span className="resumo-label">Serviços realizados:</span>
+                    {calcularResumoTipos(profSelecionada).map(
+                      ([tipo, quantidade]) => (
+                        <div key={tipo} className="prof-tag">
+                          <strong>{quantidade}</strong> {tipo}
+                        </div>
+                      ),
+                    )}
+                  </div>
+  
+                  {atendimentosDaProf.length > 0 && (
+                    <div className="tabela-financeira mt-10">
+                      <div
+                        className="tabela-cabecalho prof-table"
                         style={{ gridTemplateColumns: "1fr 2fr 2fr 1fr" }}
                       >
-                        <span className="texto-secundario">{item.data}</span>
-                        <strong>{item.cliente}</strong>
-                        <span>
-                          <span className="tag-forma">{item.servico}</span>
-                        </span>
-                        <span
-                          className="valor-recebido"
-                          style={{ textAlign: "right" }}
-                        >
-                          {item.valor}
+                        <span>Data</span>
+                        <span>Cliente</span>
+                        <span>Serviço</span>
+                        <span style={{ textAlign: "right" }}>
+                          Valor Produzido
                         </span>
                       </div>
-                    ))}
-
-                    <ControlesPaginacao
-                      paginaAtual={paginaProf}
-                      totalPaginas={totalPaginasProf}
-                      setPagina={setPaginaProf}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+                      {profPaginado.map((item) => (
+                        <div
+                          key={item.id}
+                          className="tabela-linha prof-table"
+                          style={{ gridTemplateColumns: "1fr 2fr 2fr 1fr" }}
+                        >
+                          <span className="texto-secundario">{item.data}</span>
+                          <strong>{item.cliente}</strong>
+                          <span>
+                            <span className="tag-forma">{item.servico}</span>
+                          </span>
+                          <span
+                            className="valor-recebido"
+                            style={{ textAlign: "right" }}
+                          >
+                            {item.valor}
+                          </span>
+                        </div>
+                      ))}
+  
+                      {totalPaginasProf > 1 && (
+                        <Pagination
+                          paginaAtual={paginaProf}
+                          setPaginaAtual={setPaginaProf}
+                          totalPaginas={totalPaginasProf}
+                          totalItems={atendimentosDaProf.length}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* SEÇÃO: HISTÓRICO GERAL */}
       <div className="section-box">
@@ -927,11 +913,28 @@ export function Financeiro() {
                 : `${mesSelecionado}/${anoSelecionado}`}
             </h3>
           </div>
-          {expandirHistorico ? (
-            <ChevronUp size={20} className="chevron-icon" />
-          ) : (
-            <ChevronDown size={20} className="chevron-icon" />
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <select
+              value={filtroFuncionariaGeral}
+              onChange={(e) => {
+                e.stopPropagation();
+                setFiltroFuncionariaGeral(e.target.value);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="select-ano"
+              style={{ fontSize: "0.85rem", padding: "0.4rem 0.6rem" }}
+            >
+              <option value="">Todas as funcionárias</option>
+              {funcionarias.map(f => (
+                <option key={f.id} value={f.id}>{f.nome}</option>
+              ))}
+            </select>
+            {expandirHistorico ? (
+              <ChevronUp size={20} className="chevron-icon" />
+            ) : (
+              <ChevronDown size={20} className="chevron-icon" />
+            )}
+          </div>
         </div>
 
         {expandirHistorico && (
@@ -985,11 +988,14 @@ export function Financeiro() {
                   </div>
                 ))}
 
-                <ControlesPaginacao
-                  paginaAtual={paginaGeral}
-                  totalPaginas={totalPaginasGeral}
-                  setPagina={setPaginaGeral}
-                />
+                {totalPaginasGeral > 1 && (
+                  <Pagination
+                    paginaAtual={paginaGeral}
+                    setPaginaAtual={setPaginaGeral}
+                    totalPaginas={totalPaginasGeral}
+                    totalItems={historicoPagamentos.length}
+                  />
+                )}
               </div>
             ) : (
               <div className="estado-vazio">
@@ -1000,6 +1006,15 @@ export function Financeiro() {
           </div>
         )}
       </div>
+
+      <ModalRecebimentoAvulso 
+        isOpen={isModalAvulsoOpen} 
+        onClose={() => setIsModalAvulsoOpen(false)}
+        onSave={() => {
+          setIsModalAvulsoOpen(false);
+          carregarMetricasGerais();
+        }}
+      />
     </div>
   );
 }

@@ -12,11 +12,13 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { supabase } from "../../services/supabase";
-import { Skeleton } from "../ui/Skeleton"; // <-- IMPORTAÇÃO DO SKELETON
-import "./Home.css";
+import { useAuth } from "../../contexts/AuthContext";
+import { Skeleton } from "../../components/ui/Skeleton";
+import "./Dashboard.css";
 
-export function Home() {
+export function Dashboard() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   // Função para pegar a data de hoje no formato YYYY-MM-DD para os inputs de data
   const hojeFormatoInput = new Date().toISOString().split("T")[0];
 
@@ -123,34 +125,40 @@ export function Home() {
         dataFim = new Date(anoF, mesF - 1, diaF, 23, 59, 59).toISOString();
       }
 
-      // 1. Busca os dados de faturamento baseados no filtro selecionado
-      const { data: agendamentos, error } = await supabase
+      let queryAgendamentos = supabase
         .from("appointments")
         .select(
-          `
-          id, valor, servico, status, pagamento, data_horario, profissionais ( nome )
-        `,
+          `id, valor, servico, status, pagamento, data_horario, profissionais ( nome )`,
         )
         .gte("data_horario", dataInicio)
         .lte("data_horario", dataFim)
         .neq("status", "bloqueio")
         .neq("status", "cancelado");
 
+      if (!profile?.is_admin) {
+        queryAgendamentos = queryAgendamentos.eq("profissional_id", profile.id);
+      }
+
+      const { data: agendamentos, error } = await queryAgendamentos;
+
       if (error) throw error;
 
-      // 2. Busca ESPECIFICAMENTE os pagamentos atrasados (pendentes E anteriores a hoje)
-      const { data: pendentesPassados, error: errPendentes } = await supabase
+      let queryPendentes = supabase
         .from("appointments")
         .select(
-          `
-          id, valor, servico, data_horario, customers ( nome )
-        `,
+          `id, valor, servico, data_horario, customers ( nome )`,
         )
         .lt("data_horario", inicioHojeStr) // Estritamente antes de hoje
         .eq("pagamento", "pendente")
         .neq("status", "bloqueio")
         .neq("status", "cancelado")
         .order("data_horario", { ascending: true });
+
+      if (!profile?.is_admin) {
+        queryPendentes = queryPendentes.eq("profissional_id", profile.id);
+      }
+
+      const { data: pendentesPassados, error: errPendentes } = await queryPendentes;
 
       if (errPendentes) throw errPendentes;
 

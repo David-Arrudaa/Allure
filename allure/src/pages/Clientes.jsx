@@ -1,17 +1,10 @@
-import React, { useState, useEffect } from "react";
-import {
-  Plus,
-  Search,
-  Edit2,
-  Trash2,
-  ClipboardList,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import { ModalCliente } from "../components/ModalCliente";
-import { ModalHistorico } from "../components/ModalHistorico";
-import { supabase } from "../services/supabase";
+import React, { useState } from "react";
+import { Plus, Search, Edit2, Trash2, ClipboardList } from "lucide-react";
+import { ModalCliente } from "../components/domain/ModalCliente";
+import { ModalHistorico } from "../components/domain/ModalHistorico";
 import { Skeleton } from "../components/ui/Skeleton";
+import { Pagination } from "../components/ui/Pagination";
+import { useClientes } from "../hooks/useClientes";
 import "./Clientes.css";
 
 export function Clientes() {
@@ -23,97 +16,10 @@ export function Clientes() {
   const [clienteParaHistorico, setClienteParaHistorico] = useState(null);
   const [clienteParaExcluir, setClienteParaExcluir] = useState(null);
 
-  const [clientes, setClientes] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-
   const [paginaAtual, setPaginaAtual] = useState(1);
   const itensPorPagina = 25;
-  const [totalClientes, setTotalClientes] = useState(0);
 
-  useEffect(() => {
-    async function carregarClientes() {
-      const termoBusca = busca.trim();
-
-      // Se o usuário digitou 1 ou 2 caracteres, não disparamos busca nem ativamos skeleton para não perder o foco
-      if (termoBusca.length > 0 && termoBusca.length < 3) {
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-
-      try {
-        let countQuery = supabase
-          .from("customers")
-          .select("*", { count: "exact", head: true });
-
-        if (termoBusca.length >= 3) {
-          countQuery = countQuery.ilike("nome", `%${termoBusca}%`);
-        }
-        const { count } = await countQuery;
-        setTotalClientes(count || 0);
-
-        const inicio = (paginaAtual - 1) * itensPorPagina;
-        const fim = inicio + itensPorPagina - 1;
-
-        let query = supabase
-          .from("customers")
-          .select("id, nome, telefone, appointments(data_horario, status)")
-          .order("nome", { ascending: true })
-          .range(inicio, fim);
-
-        if (termoBusca.length >= 3) {
-          query = query.ilike("nome", `%${termoBusca}%`);
-        }
-
-        const { data, error } = await query;
-
-        if (error) throw error;
-
-        if (data) {
-          const listaFormatada = data.map((item) => {
-            let ultimaVisitaStr = "A definir";
-            if (item.appointments && item.appointments.length > 0) {
-              const hoje = new Date();
-              const passados = item.appointments
-                .filter(
-                  (a) =>
-                    new Date(a.data_horario) <= hoje &&
-                    a.status !== "cancelado" &&
-                    a.status !== "bloqueio",
-                )
-                .map((a) => new Date(a.data_horario));
-
-              if (passados.length > 0) {
-                const maxDate = new Date(Math.max(...passados));
-                ultimaVisitaStr = `${String(maxDate.getDate()).padStart(2, "0")}/${String(maxDate.getMonth() + 1).padStart(2, "0")}/${maxDate.getFullYear()}`;
-              }
-            }
-
-            return {
-              id: item.id,
-              nome: item.nome || "Cliente sem nome",
-              telefone: item.telefone || "Não informado",
-              ultimaVisita: ultimaVisitaStr,
-            };
-          });
-          setClientes(listaFormatada);
-        }
-
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      } catch (error) {
-        console.error("Erro ao buscar clientes:", error.message);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    const timer = setTimeout(() => {
-      carregarClientes();
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [busca, paginaAtual]);
+  const { clientes, totalClientes, isLoading, excluirCliente, isSalvando } = useClientes(paginaAtual, itensPorPagina, busca);
 
   const handleBuscaChange = (e) => {
     setBusca(e.target.value);
@@ -122,20 +28,11 @@ export function Clientes() {
 
   const confirmarExclusao = async () => {
     if (!clienteParaExcluir) return;
-
     try {
-      const { error } = await supabase
-        .from("customers")
-        .delete()
-        .eq("id", clienteParaExcluir.id);
-
-      if (error) throw error;
-
+      await excluirCliente(clienteParaExcluir.id);
       setClienteParaExcluir(null);
-      setBusca("");
-      setPaginaAtual(1);
     } catch (error) {
-      console.error("Erro ao excluir cliente:", error.message);
+      console.error("Erro ao excluir cliente:", error);
       alert("Não foi possível excluir esta cliente.");
     }
   };
@@ -293,62 +190,12 @@ export function Clientes() {
         </div>
 
         {!isLoading && totalPaginas > 1 && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "1rem 0",
-            }}
-          >
-            <span style={{ fontSize: "0.9rem", color: "#64748B" }}>
-              Página <strong>{paginaAtual}</strong> de{" "}
-              <strong>{totalPaginas}</strong> ({totalClientes} registros)
-            </span>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                onClick={() => setPaginaAtual((prev) => Math.max(prev - 1, 1))}
-                disabled={paginaAtual === 1}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  padding: "6px 12px",
-                  borderRadius: "6px",
-                  border: "1px solid #CBD5E1",
-                  backgroundColor: paginaAtual === 1 ? "#F1F5F9" : "#FFFFFF",
-                  color: paginaAtual === 1 ? "#94A3B8" : "#334155",
-                  cursor: paginaAtual === 1 ? "not-allowed" : "pointer",
-                  fontWeight: "500",
-                }}
-              >
-                <ChevronLeft size={16} /> Anterior
-              </button>
-
-              <button
-                onClick={() =>
-                  setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas))
-                }
-                disabled={paginaAtual === totalPaginas}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  padding: "6px 12px",
-                  borderRadius: "6px",
-                  border: "1px solid #CBD5E1",
-                  backgroundColor:
-                    paginaAtual === totalPaginas ? "#F1F5F9" : "#FFFFFF",
-                  color: paginaAtual === totalPaginas ? "#94A3B8" : "#334155",
-                  cursor:
-                    paginaAtual === totalPaginas ? "not-allowed" : "pointer",
-                  fontWeight: "500",
-                }}
-              >
-                Próxima <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
+          <Pagination
+            paginaAtual={paginaAtual}
+            setPaginaAtual={setPaginaAtual}
+            totalPaginas={totalPaginas}
+            totalItems={totalClientes}
+          />
         )}
       </div>
 
@@ -358,8 +205,6 @@ export function Clientes() {
         onClose={() => {
           setModalAberto(false);
           setClienteEditando(null);
-          setBusca("");
-          setPaginaAtual(1);
         }}
       />
 
@@ -393,6 +238,7 @@ export function Clientes() {
               <button
                 className="btn-confirmar-exclusao"
                 onClick={confirmarExclusao}
+                disabled={isSalvando}
               >
                 Sim, apagar
               </button>

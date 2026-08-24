@@ -1,16 +1,42 @@
-# React + Vite
+# Allure - SaaS Multi-tenant de Beleza e Bem-estar
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Allure é um SaaS (Software as a Service) multi-tenant focado no gerenciamento de salões de beleza, clínicas de estética e barbearias. O sistema é desenvolvido utilizando React, Vite e Supabase.
 
-Currently, two official plugins are available:
+## Arquitetura e Tecnologias
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Front-end:** React 19, Vite, TailwindCSS (v4), React Query, React Hook Form, Zod.
+- **Back-end & Banco de Dados:** Supabase (PostgreSQL) com Row Level Security (RLS) para isolamento multi-tenant (função `current_tenant_id()`).
+- **Autenticação:** Supabase GoTrue (Email e Senha).
+- **Testes (E2E):** Playwright.
 
-## React Compiler
+## Requisitos
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Node.js (Recomendado v20 ou superior)
+- NVM (Node Version Manager) instalado no sistema
 
-## Expanding the ESLint configuration
+## Como Rodar Localmente
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+**Atenção para usuários de Windows (PowerShell):** Devido a políticas de execução restritas de scripts no PowerShell, recomenda-se iniciar o servidor Vite ou instalar pacotes invocando o `cmd.exe` e setando o PATH para o binário do Node.
+
+### Passo 1: Instalação de Dependências
+Abra o seu terminal na pasta do projeto e rode:
+```bash
+cmd.exe /c "set PATH=C:\Users\alann\AppData\Local\nvm\v24.19.0;%PATH% && npm install"
+```
+
+### Passo 2: Executar o Servidor de Desenvolvimento
+Para iniciar o projeto localmente com Hot Module Replacement (HMR), rode:
+```bash
+cmd.exe /c "set PATH=C:\Users\alann\AppData\Local\nvm\v24.19.0;%PATH% && npm run dev"
+```
+
+O servidor abrirá por padrão em `http://localhost:5173`.
+
+## Estrutura Principal
+
+- `/src/pages`: Componentes de páginas principais (ex: Clientes, Agenda, Servicos).
+- `/src/components/ui`: Componentes de UI genéricos (Button, Input, Skeleton).
+- `/src/components/domain`: Componentes e Modais específicos de domínio de negócio.
+- `/src/services`: Abstração de chamadas para o banco de dados via cliente Supabase.
+- `/src/hooks`: Custom hooks (geralmente wrappers do React Query).
+- `/supabase/migrations`: Scripts de definição de RLS e esquemas do banco.

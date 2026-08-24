@@ -13,8 +13,8 @@ import {
   AlertOctagon,
   MoreVertical,
 } from "lucide-react";
-import { ModalAgendamento } from "../components/ModalAgendamento";
-import { ModalPagamento } from "../components/ModalPagamento/ModalPagamento";
+import { ModalAgendamento } from "../components/domain/ModalAgendamento";
+import { ModalPagamento } from "../components/domain/ModalPagamento/ModalPagamento";
 import { supabase } from "../services/supabase";
 import { Skeleton } from "../components/ui/Skeleton"; // <-- IMPORTAÇÃO DO SKELETON
 import "./Agenda.css";
@@ -141,11 +141,15 @@ export function Agenda() {
     carregarDadosAgenda();
   }, []);
 
-  const gerarLinkWhatsapp = (ag) => {
+  const gerarLinkWhatsapp = (ag, template = 1) => {
     const telefoneLimpo = ag.telefone ? ag.telefone.replace(/\D/g, "") : "";
-    const mensagem = encodeURIComponent(
-      `Olá ${ag.cliente}, tudo bem? Seu agendamento de ${ag.servico} está marcado para hoje às ${ag.horarioInicio}!`,
-    );
+    let texto = "";
+    if (template === 1) {
+      texto = `Olá ${ag.cliente}, tudo bem? Seu agendamento de ${ag.servico} está marcado para hoje às ${ag.horarioInicio}!`;
+    } else if (template === 2) {
+      texto = `Olá ${ag.cliente}, passando para confirmar seu agendamento de ${ag.servico} hoje às ${ag.horarioInicio}. O valor é R$ ${ag.valor}. Te aguardamos!`;
+    }
+    const mensagem = encodeURIComponent(texto);
     return telefoneLimpo
       ? `https://wa.me/55${telefoneLimpo}?text=${mensagem}`
       : `https://wa.me/?text=${mensagem}`;
@@ -279,6 +283,23 @@ export function Agenda() {
     return (minutosDesde00h * 2) + 74; // Adiciona os 74px do cabeçalho
   };
 
+  const determinarCoresAgendamento = (ag) => {
+    if (ag.status === "bloqueio") {
+      return { bg: "#F1F5F9", border: "#94A3B8", text: "#64748B" }; // Cinza
+    }
+    if (ag.status === "cancelado") {
+      return { bg: "#FEF2F2", border: "#EF4444", text: "#991B1B" }; // Vermelho/Cancelado
+    }
+    if (ag.pagamento === "pago") {
+      return { bg: "#F5F3FF", border: "#8B5CF6", text: "#5B21B6" }; // Roxo/Pago
+    }
+    if (ag.status === "confirmado") {
+      return { bg: "#F0FDF4", border: "#22C55E", text: "#166534" }; // Verde/Confirmado
+    }
+    // Default: Agendado / Pendente
+    return { bg: "#EFF6FF", border: "#3B82F6", text: "#1E40AF" }; // Azul/Pendente
+  };
+
   const calcularHoraFim = (horaInicio, duracaoMinutos) => {
     if (!horaInicio) return "";
     const [horas, minutos] = horaInicio.split(":").map(Number);
@@ -321,8 +342,7 @@ export function Agenda() {
     (_, i) => `${String(i).padStart(2, "0")}:00`,
   );
 
-  const alternarStatus = async (id, statusAtual) => {
-    const novoStatus = statusAtual === "pendente" ? "confirmado" : "pendente";
+  const alterarStatus = async (id, novoStatus) => {
     try {
       const { error } = await supabase
         .from("appointments")
@@ -330,11 +350,7 @@ export function Agenda() {
         .eq("id", id);
       if (error) throw error;
       carregarDadosAgenda();
-      mostrarNotificacao(
-        novoStatus === "confirmado"
-          ? "Agendamento concluído!"
-          : "Status alterado para pendente.",
-      );
+      mostrarNotificacao(`Agendamento marcado como ${novoStatus}!`);
     } catch (error) {
       console.error("Erro ao alterar status:", error.message);
     }
@@ -470,16 +486,37 @@ export function Agenda() {
           </div>
         </div>
 
-        <button
-          className="btn-novo"
-          onClick={() => {
-            setAgendamentoEditando(null);
-            setIsModalOpen(true);
-          }}
-          disabled={isLoading}
-        >
-          <Plus size={20} /> Novo Agendamento
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "12px" }}>
+          <button
+            className="btn-novo"
+            onClick={() => {
+              setAgendamentoEditando(null);
+              setIsModalOpen(true);
+            }}
+            disabled={isLoading}
+          >
+            <Plus size={20} /> Novo Agendamento
+          </button>
+          
+          <div style={{ display: "flex", gap: "12px", fontSize: "0.75rem", fontWeight: "600", color: "#64748B" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <div style={{ width: "12px", height: "12px", backgroundColor: "#EFF6FF", border: "1px solid #3B82F6", borderRadius: "50%" }}></div> 
+              Agendado
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <div style={{ width: "12px", height: "12px", backgroundColor: "#F0FDF4", border: "1px solid #22C55E", borderRadius: "50%" }}></div> 
+              Confirmado
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <div style={{ width: "12px", height: "12px", backgroundColor: "#F5F3FF", border: "1px solid #8B5CF6", borderRadius: "50%" }}></div> 
+              Pago
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <div style={{ width: "12px", height: "12px", backgroundColor: "#FEF2F2", border: "1px solid #EF4444", borderRadius: "50%" }}></div> 
+              Cancelado
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="agenda-wrapper">
@@ -555,19 +592,22 @@ export function Agenda() {
                         style={{
                           top: `${calcularPosicao(ag.horarioInicio)}px`,
                           height: `${ag.duracao * 2}px`,
-                          backgroundColor:
-                            ag.status === "bloqueio" ? "#F1F5F9" : "#FFFFFF",
-                          borderLeftColor:
-                            ag.status === "bloqueio"
-                              ? "#94A3B8"
-                              : "var(--cor-primaria)",
+                          backgroundColor: determinarCoresAgendamento(ag).bg,
+                          borderLeftColor: determinarCoresAgendamento(ag).border,
                           position: "absolute",
                           cursor: "pointer",
                         }}
                       >
                         <div className="card-header">
                           <div className="cliente-info-wrapper">
-                            <span className="cartao-cliente" title={ag.cliente}>
+                            <span 
+                              className="cartao-cliente" 
+                              title={ag.cliente}
+                              style={{ 
+                                color: determinarCoresAgendamento(ag).text,
+                                textDecoration: ag.status === "cancelado" ? "line-through" : "none" 
+                              }}
+                            >
                               {ag.cliente}
                             </span>
                           </div>
@@ -601,29 +641,31 @@ export function Agenda() {
                                 {menuAbertoId === ag.id && (
                                   <div className="menu-acoes-flutuante">
                                     <a
-                                      href={gerarLinkWhatsapp(ag)}
+                                      href={gerarLinkWhatsapp(ag, 1)}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       onClick={(e) => e.stopPropagation()}
+                                      style={{ display: "flex", alignItems: "center", gap: "8px" }}
                                     >
-                                      <span
-                                        style={{
-                                          color: "#22C55E",
-                                          display: "flex",
-                                        }}
-                                      >
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          width="16"
-                                          height="16"
-                                          viewBox="0 0 24 24"
-                                          fill="currentColor"
-                                        >
-                                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-                                        </svg>
+                                      <span style={{ color: "#22C55E", display: "flex" }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>
                                       </span>
-                                      WhatsApp
+                                      Enviar Lembrete
                                     </a>
+                                    <a
+                                      href={gerarLinkWhatsapp(ag, 2)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                                    >
+                                      <span style={{ color: "#22C55E", display: "flex" }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>
+                                      </span>
+                                      Enviar Cobrança
+                                    </a>
+
+                                    <div style={{ height: "1px", backgroundColor: "#E2E8F0", margin: "4px 0" }}></div>
 
                                     <button
                                       onClick={(e) => {
@@ -632,47 +674,37 @@ export function Agenda() {
                                         setMenuAbertoId(null);
                                       }}
                                     >
-                                      <CircleDollarSign
-                                        size={16}
-                                        color={
-                                          ag.pagamento === "pago"
-                                            ? "#3B82F6"
-                                            : "#EF4444"
-                                        }
-                                      />
-                                      {ag.pagamento === "pago"
-                                        ? "Estornar Pagamento"
-                                        : "Receber Pagamento"}
+                                      <CircleDollarSign size={16} color={ag.pagamento === "pago" ? "#64748B" : "#10B981"} />
+                                      {ag.pagamento === "pago" ? "Estornar Pagamento" : "Receber Pagamento"}
                                     </button>
+
+                                    {ag.status !== "cancelado" && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          alterarStatus(ag.id, ag.status === "confirmado" ? "pendente" : "confirmado");
+                                          setMenuAbertoId(null);
+                                        }}
+                                      >
+                                        <Check size={16} color={ag.status === "confirmado" ? "#F59E0B" : "#22C55E"} />
+                                        {ag.status === "confirmado" ? "Remover Confirmação" : "Confirmar Presença"}
+                                      </button>
+                                    )}
 
                                     <button
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        alternarStatus(ag.id, ag.status);
+                                        alterarStatus(ag.id, ag.status === "cancelado" ? "pendente" : "cancelado");
                                         setMenuAbertoId(null);
                                       }}
                                     >
-                                      <Check
-                                        size={16}
-                                        color={
-                                          ag.status === "confirmado"
-                                            ? "#22C55E"
-                                            : "#F59E0B"
-                                        }
-                                      />
-                                      {ag.status === "confirmado"
-                                        ? "Confirmado"
-                                        : "Pendente"}
+                                      <X size={16} color={ag.status === "cancelado" ? "#3B82F6" : "#EF4444"} />
+                                      {ag.status === "cancelado" ? "Restaurar Agendamento" : "Cancelar Agendamento"}
                                     </button>
 
-                                    <div
-                                      style={{
-                                        height: "1px",
-                                        backgroundColor: "#E2E8F0",
-                                        margin: "2px 0",
-                                      }}
-                                    ></div>
+                                    <div style={{ height: "1px", backgroundColor: "#E2E8F0", margin: "4px 0" }}></div>
 
                                     <button
                                       onClick={(e) => {
@@ -684,7 +716,7 @@ export function Agenda() {
                                       style={{ color: "#EF4444" }}
                                     >
                                       <Trash2 size={16} />
-                                      Excluir
+                                      Apagar do Sistema
                                     </button>
                                   </div>
                                 )}

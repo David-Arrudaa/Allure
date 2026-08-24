@@ -10,7 +10,7 @@ import {
   Camera,
 } from "lucide-react";
 import { supabase } from "../../services/supabase"; // Importação do banco de dados
-import { Skeleton } from "../ui/Skeleton"; // <-- IMPORTAÇÃO DO SKELETON (Ajuste a pasta se precisar)
+import { Skeleton } from "../../components/ui/Skeleton";
 import "./Equipe.css";
 
 export function Equipe() {
@@ -75,6 +75,9 @@ export function Equipe() {
       telefone: "",
       ordem: String(proximaOrdem),
       foto: "",
+      email: "",
+      senha: "",
+      is_admin: false,
     });
     setModalAberto(true);
   };
@@ -91,6 +94,9 @@ export function Equipe() {
           ? String(prof.ordem)
           : "1",
       foto: prof.foto || "",
+      email: prof.email || "",
+      senha: "", // Nunca carregamos a senha por segurança
+      is_admin: prof.is_admin || false,
     });
     setModalAberto(true);
   };
@@ -164,6 +170,8 @@ export function Equipe() {
         telefone: formFunc.telefone.trim() || null,
         ordem: novaOrdem,
         foto: formFunc.foto || null,
+        email: formFunc.email.trim(),
+        is_admin: formFunc.is_admin,
       };
 
       if (editandoId) {
@@ -173,6 +181,28 @@ export function Equipe() {
           .eq("id", editandoId);
         if (error) throw error;
       } else {
+        // Criar usuário no Auth (sem deslogar o admin)
+        // Isso requer que a confirmação de e-mail esteja desativada no Supabase (Autoconfirm)
+        if (formFunc.email && formFunc.senha) {
+          const { createClient } = await import("@supabase/supabase-js");
+          const adminAuthClient = createClient(
+            import.meta.env.VITE_SUPABASE_URL,
+            import.meta.env.VITE_SUPABASE_ANON_KEY,
+            { auth: { persistSession: false, autoRefreshToken: false } }
+          );
+
+          const { data: authData, error: authError } = await adminAuthClient.auth.signUp({
+            email: formFunc.email.trim(),
+            password: formFunc.senha,
+          });
+
+          if (authError) throw new Error("Erro ao criar login: " + authError.message);
+          
+          if (authData.user) {
+            dadosParaSalvar.id = authData.user.id; // Vincula ao mesmo UUID
+          }
+        }
+
         const { error } = await supabase
           .from("profissionais")
           .insert([dadosParaSalvar]);
@@ -445,6 +475,49 @@ export function Equipe() {
                     setFormFunc({ ...formFunc, telefone: e.target.value })
                   }
                 />
+              </div>
+
+              <div className="form-group">
+                <label>E-mail (Login) *</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="Ex: amanda@salao.com"
+                  value={formFunc.email}
+                  onChange={(e) =>
+                    setFormFunc({ ...formFunc, email: e.target.value })
+                  }
+                />
+              </div>
+
+              {!editandoId && (
+                <div className="form-group">
+                  <label>Senha Provisória *</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Mínimo 6 caracteres"
+                    value={formFunc.senha}
+                    onChange={(e) =>
+                      setFormFunc({ ...formFunc, senha: e.target.value })
+                    }
+                  />
+                </div>
+              )}
+
+              <div className="form-group" style={{ flexDirection: "row", alignItems: "center", gap: "8px", marginTop: "0.5rem" }}>
+                <input
+                  type="checkbox"
+                  id="isAdminCheckbox"
+                  checked={formFunc.is_admin}
+                  onChange={(e) =>
+                    setFormFunc({ ...formFunc, is_admin: e.target.checked })
+                  }
+                  style={{ width: "auto" }}
+                />
+                <label htmlFor="isAdminCheckbox" style={{ marginBottom: 0, cursor: "pointer", fontWeight: "normal" }}>
+                  Dar permissão de <strong>Administrador</strong> (Pode ver tudo)
+                </label>
               </div>
 
               <div className="form-group">
