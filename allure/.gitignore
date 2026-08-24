@@ -29,3 +29,8 @@ dist-ssr
 # Antigravity
 .agents/*
 .gemini/*
+
+# Antigravity & Agent Caches
+.agents/
+skills-lock.json
+.gemini/
