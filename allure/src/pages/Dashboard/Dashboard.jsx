@@ -14,7 +14,9 @@ import {
 import { supabase } from "../../services/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { ModalPagamento } from "../../components/domain/ModalPagamento/ModalPagamento";
 import "./Dashboard.css";
+
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -42,6 +44,8 @@ export function Dashboard() {
   // Estados para gerenciar os atrasados
   const [listaPendentes, setListaPendentes] = useState([]);
   const [isModalPendentesAberto, setIsModalPendentesAberto] = useState(false);
+  const [isModalPagamentoAberto, setIsModalPagamentoAberto] = useState(false);
+  const [agendamentoParaPagamento, setAgendamentoParaPagamento] = useState(null);
 
   useEffect(() => {
     carregarDadosPainel();
@@ -789,7 +793,14 @@ export function Dashboard() {
                       </span>
 
                       <button
-                        onClick={() => handleDarBaixa(ag.id)}
+                        onClick={() => {
+                          setAgendamentoParaPagamento({
+                            id: ag.id,
+                            cliente: ag.customers?.nome,
+                            valor: ag.valor
+                          });
+                          setIsModalPagamentoAberto(true);
+                        }}
                         style={{
                           display: "flex",
                           alignItems: "center",
@@ -821,6 +832,40 @@ export function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* MODAL DE PAGAMENTO */}
+      <ModalPagamento
+        isOpen={isModalPagamentoAberto}
+        onClose={() => setIsModalPagamentoAberto(false)}
+        dados={agendamentoParaPagamento}
+        onSave={async (pacotePagamento) => {
+          if (agendamentoParaPagamento) {
+            try {
+              const { error } = await supabase
+                .from("appointments")
+                .update({
+                  pagamento: "pago",
+                  status: "confirmado",
+                  forma_pagamento: pacotePagamento.metodoPagamento,
+                })
+                .eq("id", agendamentoParaPagamento.id);
+                
+              if (error) throw error;
+              
+              setIsModalPagamentoAberto(false);
+              
+              if (listaPendentes.length === 1) {
+                setIsModalPendentesAberto(false);
+              }
+              
+              carregarDadosPainel();
+            } catch (error) {
+              console.error("Erro ao registrar pagamento:", error.message);
+              alert("Erro ao registrar pagamento.");
+            }
+          }
+        }}
+      />
     </div>
   );
 }
