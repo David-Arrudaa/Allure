@@ -1,7 +1,19 @@
 import { useState, useEffect } from "react";
 import { X, RefreshCw, AlertTriangle, ListChecks, Lock } from "lucide-react";
-import { supabase } from "../../services/supabase";
+import { supabase } from "../../../services/supabase";
+import { useForm, Controller } from "react-hook-form";
+import { z } from "zod";
 import "./ModalAgendamento.css";
+
+const agendamentoSchema = z.object({
+  cliente: z.string().min(3, "Nome da cliente deve ter no mínimo 3 caracteres").max(255, "Máximo de 255 caracteres").optional(),
+  dataAgendamento: z.string(),
+  horario: z.string(),
+  profissionalId: z.string().min(1, "Selecione o profissional"),
+  servico: z.string().optional(),
+  duracao: z.number().min(1, "Duração inválida"),
+  valor: z.string().optional()
+});
 
 export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const dataHoje = new Date().toISOString().split("T")[0];
@@ -46,6 +58,8 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const [senhaDigitada, setSenhaDigitada] = useState("");
   const [erroSenha, setErroSenha] = useState("");
   const [pacotesPendentesSenha, setPacotesPendentesSenha] = useState([]);
+
+  const { register, handleSubmit, formState: { errors } } = useForm();
 
   useEffect(() => {
     async function carregarDadosIniciais() {
@@ -117,7 +131,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
     const buscarClientesNoBanco = async () => {
       if (
         digitandoPeloUsuario &&
-        buscaCliente.trim().length >= 3 &&
+        buscaCliente.trim().length >= 2 &&
         !clienteSelecionado &&
         !isBloqueio
       ) {
@@ -126,7 +140,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
           const { data, error } = await supabase
             .from("customers")
             .select("id, nome, telefone")
-            .ilike("nome", `%${buscaCliente.trim()}%`)
+            .or(`nome.ilike.%${buscaCliente.trim()}%,telefone.ilike.%${buscaCliente.trim()}%`)
             .limit(5);
 
           if (error) throw error;
@@ -161,10 +175,32 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
   const horaFim = calcularHoraFim(horario, duracao);
 
-  const prepararSalvamento = async (e) => {
-    e?.preventDefault();
+  const prepararSalvamento = async (dataRHF, e) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (isSaving) return;
     setIsSaving(true);
+
+    try {
+      if (!isBloqueio) {
+        agendamentoSchema.parse({
+          cliente: clienteSelecionado ? clienteSelecionado.nome : buscaCliente,
+          dataAgendamento,
+          horario,
+          profissionalId,
+          servico,
+          duracao: Number(duracao),
+          valor
+        });
+      }
+    } catch (err) {
+      if (err.errors) {
+        alert("Erros de validação:\n" + err.errors.map(e => e.message).join("\n"));
+      } else {
+        alert("Erro de validação.");
+      }
+      setIsSaving(false);
+      return;
+    }
 
     const dataHoraEscolhida = new Date(
       `${dataAgendamento.replace(/-/g, "/")} ${horario}`,
@@ -188,8 +224,12 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       }
     }
 
-    // NOVA LÓGICA: Se for no passado, barra aqui e abre o modal de senha
-    if (dataHoraEscolhida < agora) {
+    // NOVA LÓGICA: Permitir a hora atual. Removemos os minutos e segundos de 'agora' para que 22:41 permita 22:00
+    const agoraTruncado = new Date(agora);
+    agoraTruncado.setMinutes(0, 0, 0);
+
+    // Se for no passado (antes da hora atual), barra aqui e abre o modal de senha
+    if (dataHoraEscolhida < agoraTruncado) {
       setPacotesPendentesSenha(pacotesIniciais);
       setShowSenhaModal(true);
       setIsSaving(false);
@@ -412,7 +452,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
           </div>
         </div>
 
-        <form onSubmit={prepararSalvamento} className="form-agendamento">
+        <form onSubmit={handleSubmit(prepararSalvamento)} className="form-agendamento">
           <div className="form-grupo" style={{ position: "relative" }}>
             <label>
               {isBloqueio ? "Motivo do Bloqueio" : "Nome da Cliente"}
@@ -437,7 +477,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
             {!isBloqueio &&
               digitandoPeloUsuario &&
-              buscaCliente.trim().length >= 3 &&
+              buscaCliente.trim().length >= 2 &&
               !clienteSelecionado && (
                 <div
                   style={{

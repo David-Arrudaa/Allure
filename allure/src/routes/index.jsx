@@ -1,17 +1,25 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Login } from "../pages/Login";
-import { Home } from "../components/Home/Home";
-import { Financeiro } from "../components/Financeiro/Financeiro";
-import { Equipe } from "../components/Equipe/Equipe"; // <-- 1. Importação da Equipe adicionada aqui
+import { Dashboard as Home } from "../pages/Dashboard/Dashboard";
+import { Financeiro } from "../pages/Financeiro/Financeiro";
+import { Equipe } from "../pages/Equipe/Equipe";
 import { Agenda } from "../pages/Agenda";
 import { Clientes } from "../pages/Clientes";
 import { Servicos } from "../pages/Servicos";
+import { Produtos } from "../pages/Produtos/Produtos";
 import { PrivateRoute } from "./PrivateRoute";
 import { Layout } from "../components/Layout/index.jsx";
+import { useAuth } from "../contexts/AuthContext";
+import { AgendamentoPublico } from "../pages/AgendamentoPublico/AgendamentoPublico";
+import { Configuracoes } from "../pages/Configuracoes/Configuracoes";
 
-function Configuracoes() {
-  return <div>Tela de Configurações em construção...</div>;
+function AdminRoute({ children }) {
+  const { user } = useAuth();
+  if (!user?.is_admin) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
 }
 
 export function AppRoutes() {
@@ -19,6 +27,9 @@ export function AppRoutes() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        
+        {/* Rota pública de agendamento */}
+        <Route path="/agendar/:tenant_id" element={<AgendamentoPublico />} />
 
         <Route
           element={
@@ -32,10 +43,10 @@ export function AppRoutes() {
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/servicos" element={<Servicos />} />
+          <Route path="/produtos" element={<AdminRoute><Produtos /></AdminRoute>} />
           {/* Rotas de Finanças e Equipe */}
           <Route path="/financeiro" element={<Financeiro />} />
-          <Route path="/equipe" element={<Equipe />} />{" "}
-          {/* <-- 2. Rota da Equipe adicionada aqui */}
+          <Route path="/equipe" element={<AdminRoute><Equipe /></AdminRoute>} />
           <Route path="/configuracoes" element={<Configuracoes />} />
         </Route>
 

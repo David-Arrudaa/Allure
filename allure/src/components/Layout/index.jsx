@@ -9,10 +9,12 @@ import {
   LayoutDashboard,
   DollarSign,
   Briefcase,
+  Package,
   Menu, // <-- Ícone do hambúrguer
   X, // <-- Ícone para fechar o menu
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { ErrorBoundary } from "../ErrorBoundary";
 import "./Layout.css";
 
 export function Layout() {
@@ -73,26 +75,33 @@ export function Layout() {
             <span>Serviços</span>
           </NavLink>
 
-          <NavLink to="/equipe" className="nav-item" onClick={fecharMenu}>
-            <Briefcase size={20} />
-            <span>Equipe</span>
-          </NavLink>
+          {profile?.is_admin && (
+            <NavLink to="/produtos" className="nav-item" onClick={fecharMenu}>
+              <Package size={20} />
+              <span>Produtos</span>
+            </NavLink>
+          )}
+
+          {profile?.is_admin && (
+            <NavLink to="/equipe" className="nav-item" onClick={fecharMenu}>
+              <Briefcase size={20} />
+              <span>Gerenciamento</span>
+            </NavLink>
+          )}
 
           <NavLink to="/financeiro" className="nav-item" onClick={fecharMenu}>
             <DollarSign size={20} />
             <span>Financeiro</span>
           </NavLink>
 
-          {profile?.cargo === "admin" && (
-            <NavLink
-              to="/configuracoes"
-              className="nav-item"
-              onClick={fecharMenu}
-            >
-              <Settings size={20} />
-              <span>Configurações</span>
-            </NavLink>
-          )}
+          <NavLink
+            to="/configuracoes"
+            className="nav-item"
+            onClick={fecharMenu}
+          >
+            <Settings size={20} />
+            <span>Configurações</span>
+          </NavLink>
         </nav>
 
         {/* RODAPÉ DO MENU */}
@@ -115,7 +124,9 @@ export function Layout() {
       {/* ÁREA DIREITA (CONTEÚDO DAS TELAS) */}
       <div className="main-wrapper">
         <main className="main-content">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

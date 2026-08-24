@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Search, Edit2, Trash2 } from "lucide-react";
-import { ModalServico } from "../components/ModalServico";
+import { ModalServico } from "../components/domain/ModalServico";
 import { supabase } from "../services/supabase";
-import { Skeleton } from "../components/ui/Skeleton"; // <-- IMPORTAÇÃO DO SKELETON
+import { Skeleton } from "../components/ui/Skeleton";
+import { useAuth } from "../contexts/AuthContext";
 import "./Servicos.css";
 
 export function Servicos() {
+  const { profile } = useAuth();
   const [busca, setBusca] = useState("");
   const [modalAberto, setModalAberto] = useState(false);
 
@@ -75,17 +77,19 @@ export function Servicos() {
           <p>Cadastre e ajuste os valores dos serviços do salão</p>
         </div>
 
-        <button
-          className="btn-novo"
-          onClick={() => {
-            setServicoEditando(null); // Garante que abra o modal limpo
-            setModalAberto(true);
-          }}
-          disabled={isLoading} // Desabilita o botão enquanto carrega
-        >
-          <Plus size={18} strokeWidth={2.5} />
-          Novo Serviço
-        </button>
+        {profile?.is_admin && (
+          <button
+            className="btn-novo"
+            onClick={() => {
+              setServicoEditando(null); // Garante que abra o modal limpo
+              setModalAberto(true);
+            }}
+            disabled={isLoading} // Desabilita o botão enquanto carrega
+          >
+            <Plus size={18} strokeWidth={2.5} />
+            Novo Serviço
+          </button>
+        )}
       </div>
 
       <div className="servicos-conteudo">
@@ -153,23 +157,27 @@ export function Servicos() {
                     <td>R$ {String(servico.preco).replace(".", ",")}</td>
                     <td>
                       <div className="acoes-tabela">
-                        <button
-                          className="btn-acao editar"
-                          title="Editar Serviço"
-                          onClick={() => {
-                            setServicoEditando(servico);
-                            setModalAberto(true);
-                          }}
-                        >
-                          <Edit2 size={18} />
-                        </button>
-                        <button
-                          className="btn-acao excluir"
-                          title="Excluir Serviço"
-                          onClick={() => setServicoParaExcluir(servico)}
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                        {profile?.is_admin && (
+                          <>
+                            <button
+                              className="btn-acao editar"
+                              title="Editar Serviço"
+                              onClick={() => {
+                                setServicoEditando(servico);
+                                setModalAberto(true);
+                              }}
+                            >
+                              <Edit2 size={18} />
+                            </button>
+                            <button
+                              className="btn-acao excluir"
+                              title="Excluir Serviço"
+                              onClick={() => setServicoParaExcluir(servico)}
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

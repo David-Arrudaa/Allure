@@ -454,3 +454,18 @@
     transform: translateY(0);
   }
 }
+
+@media print {
+  .financeiro-header-acoes, .meses-grid, .btn-acao-primaria, .pagination-container, .filtro-busca-container, .section-header-clickable .chevron-icon, button, select, input {
+    display: none !important;
+  }
+  .financeiro-container, .section-box {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .metrics-grid {
+    page-break-inside: avoid;
+  }
+}

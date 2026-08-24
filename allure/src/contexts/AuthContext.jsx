@@ -12,19 +12,37 @@ export function AuthProvider({ children }) {
     if (profissionalSalva) {
       setUser(JSON.parse(profissionalSalva));
     }
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        setUser(null);
+        localStorage.removeItem("@Allure:profissional");
+      }
+    });
+
     setLoading(false);
+
+    return () => subscription?.unsubscribe();
   }, []);
 
   async function login(email, password) {
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (authError || !authData.user) {
+      throw new Error("E-mail ou senha incorretos.");
+    }
+
     const { data, error } = await supabase
       .from("profissionais")
-      .select("*")
+      .select("id, nome, email, tenant_id, is_admin")
       .eq("email", email)
-      .eq("senha", password)
       .single();
 
     if (error || !data) {
-      throw new Error("E-mail ou senha incorretos.");
+      throw new Error("Perfil não encontrado.");
     }
 
     setUser(data);
@@ -33,6 +51,7 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
+    await supabase.auth.signOut();
     setUser(null);
     localStorage.removeItem("@Allure:profissional");
   }
