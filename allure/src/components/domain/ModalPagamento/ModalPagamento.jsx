@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, CreditCard, Banknote, QrCode } from "lucide-react";
 import { supabase } from "../../../services/supabase";
+import CurrencyInput from "react-currency-input-field";
 import "./ModalPagamento.css";
 
 export function ModalPagamento({ isOpen, onClose, dados, onSave }) {
@@ -120,16 +121,26 @@ export function ModalPagamento({ isOpen, onClose, dados, onSave }) {
           {/* VALOR COBRADO */}
           <div className="form-grupo" style={{ marginTop: "1rem" }}>
             <label>Valor a Cobrar (R$)</label>
-            <input
-              type="text"
+            <CurrencyInput
+              id="valor"
+              name="valor"
               placeholder="Ex: 65,00"
+              decimalsLimit={2}
+              decimalSeparator=","
+              groupSeparator="."
+              prefix="R$ "
               value={valor}
-              onChange={(e) => setValor(e.target.value)}
+              onValueChange={(val) => setValor(val || "")}
               required
               style={{
                 fontSize: "1.2rem",
                 fontWeight: "bold",
                 color: "var(--cor-primaria)",
+                width: "100%",
+                padding: "0.8rem",
+                borderRadius: "8px",
+                border: "1px solid var(--cor-borda)",
+                fontFamily: "inherit"
               }}
             />
           </div>

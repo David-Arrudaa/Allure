@@ -3,6 +3,7 @@ import { X, RefreshCw, AlertTriangle, ListChecks, Lock } from "lucide-react";
 import { supabase } from "../../../services/supabase";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
+import CurrencyInput from "react-currency-input-field";
 import "./ModalAgendamento.css";
 
 const agendamentoSchema = z.object({
@@ -668,11 +669,16 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
             <div className="form-linha-dupla">
               <div className="form-grupo">
                 <label>Valor (R$)</label>
-                <input
-                  type="text"
+                <CurrencyInput
+                  id="valor"
+                  name="valor"
                   placeholder="Ex: 65,00"
+                  decimalsLimit={2}
+                  decimalSeparator=","
+                  groupSeparator="."
+                  prefix="R$ "
                   value={valor}
-                  onChange={(e) => setValor(e.target.value)}
+                  onValueChange={(val) => setValor(val || "")}
                   required={!isBloqueio}
                 />
               </div>

@@ -1,9 +1,10 @@
 import React, { useEffect } from "react";
 import { X } from "lucide-react";
 import { supabase } from "../../../services/supabase";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import CurrencyInput from "react-currency-input-field";
 import "../ModalAgendamento/ModalAgendamento.css";
 
 const servicoSchema = z.object({
@@ -21,6 +22,7 @@ export function ModalServico({ isOpen, onClose, servico }) {
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(servicoSchema),
@@ -127,10 +129,24 @@ export function ModalServico({ isOpen, onClose, servico }) {
 
           <div className="form-grupo" style={{ marginTop: "1rem" }}>
             <label>Valor (R$) *</label>
-            <input
-              type="text"
-              placeholder="Ex: 80,00"
-              {...register("preco")}
+            <Controller
+              name="preco"
+              control={control}
+              render={({ field: { onChange, onBlur, value, ref } }) => (
+                <CurrencyInput
+                  id="preco"
+                  name="preco"
+                  placeholder="Ex: 80,00"
+                  decimalsLimit={2}
+                  decimalSeparator=","
+                  groupSeparator="."
+                  prefix="R$ "
+                  value={value}
+                  onValueChange={(val) => onChange(val || "")}
+                  onBlur={onBlur}
+                  ref={ref}
+                />
+              )}
             />
             {errors.preco && <span className="erro" style={{ color: "red", fontSize: "0.85rem", marginTop: "4px", display: "block" }}>{errors.preco.message}</span>}
           </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { X, Save, ShoppingBag } from "lucide-react";
 import { supabase } from "../../../services/supabase";
 import { useTenant } from "../../../contexts/TenantContext";
+import CurrencyInput from "react-currency-input-field";
 import "./ModalRecebimentoAvulso.css"; // Create this file next
 
 export function ModalRecebimentoAvulso({ isOpen, onClose, onSave }) {
@@ -112,11 +113,16 @@ export function ModalRecebimentoAvulso({ isOpen, onClose, onSave }) {
           <div className="form-linha-dupla">
             <div className="form-grupo">
               <label>Valor (R$)</label>
-              <input
-                type="text"
+              <CurrencyInput
+                id="valor"
+                name="valor"
                 placeholder="Ex: 50,00"
+                decimalsLimit={2}
+                decimalSeparator=","
+                groupSeparator="."
+                prefix="R$ "
                 value={valor}
-                onChange={e => setValor(e.target.value)}
+                onValueChange={(val) => setValor(val || "")}
                 required
               />
             </div>
