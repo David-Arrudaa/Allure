@@ -311,14 +311,13 @@
   cursor: pointer; /* O card todo é clicável */
 }
 
-/* Efeito ao passar o mouse: Sobe o z-index e ajusta altura apenas se o conteúdo exigir */
+/* Efeito ao passar o mouse: Sobe o z-index e ajusta altura APENAS se o conteúdo não couber */
 .cartao-agendamento:hover {
-  height: max-content !important;
-  min-height: fit-content;
+  height: auto !important;
   z-index: 18 !important;
   box-shadow:
-    0 10px 25px -5px rgba(0, 0, 0, 0.2),
-    0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    0 10px 25px -5px rgba(0, 0, 0, 0.15),
+    0 8px 10px -6px rgba(0, 0, 0, 0.08);
 }
 
 .card-header,

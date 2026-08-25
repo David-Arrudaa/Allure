@@ -617,6 +617,7 @@ export function Agenda() {
                         style={{
                           top: `${calcularPosicao(ag.horarioInicio)}px`,
                           height: `${ag.duracao * 2}px`,
+                          minHeight: `${ag.duracao * 2}px`,
                           backgroundColor: determinarCoresAgendamento(ag).bg,
                           borderLeftColor: determinarCoresAgendamento(ag).border,
                           position: "absolute",
