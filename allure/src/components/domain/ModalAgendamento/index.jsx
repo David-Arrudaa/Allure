@@ -547,7 +547,11 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         valor: isBloqueio ? 0 : Number(String(valor).replace(",", ".")) || 0,
         data_horario: `${p.dataStr}T${p.horaStr}:00-03:00`,
         duracao: Number(duracao),
-        status: isBloqueio ? "bloqueio" : (agendamento?.status || "pendente"),
+        status: isBloqueio
+          ? "bloqueio"
+          : agendamento?.pagamento === "pago"
+            ? "confirmado"
+            : (agendamento?.status || "pendente"),
         pagamento: agendamento?.pagamento || "pendente",
         forma_pagamento: agendamento?.forma_pagamento || null,
         grupo_recorrencia: idGrupoRecorrencia,
