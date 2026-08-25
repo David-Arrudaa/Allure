@@ -20,7 +20,10 @@ import { Skeleton } from "../components/ui/Skeleton"; // <-- IMPORTAÇÃO DO SKE
 import "./Agenda.css";
 
 const formatarDataInput = (data) => {
-  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+  if (!data) return "";
+  const d = data instanceof Date ? data : new Date(data);
+  if (isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
 export function Agenda() {
@@ -248,6 +251,9 @@ export function Agenda() {
   };
 
   const formatarDataExibicao = (data) => {
+    if (!data) return "";
+    const d = data instanceof Date ? data : new Date(data);
+    if (isNaN(d.getTime())) return "";
     const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     const meses = [
       "Janeiro",
@@ -263,7 +269,7 @@ export function Agenda() {
       "Novembro",
       "Dezembro",
     ];
-    return `${dias[data.getDay()]}, ${String(data.getDate()).padStart(2, "0")} de ${meses[data.getMonth()]}`;
+    return `${dias[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")} de ${meses[d.getMonth()]}`;
   };
 
   const irParaHoje = () => setDataSelecionada(new Date());
