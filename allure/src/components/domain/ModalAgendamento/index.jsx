@@ -643,6 +643,12 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
               value={
                 clienteSelecionado ? clienteSelecionado.nome : buscaCliente
               }
+              onFocus={() => {
+                if (buscaCliente.trim().length >= 2) setDigitandoPeloUsuario(true);
+              }}
+              onBlur={() => {
+                setTimeout(() => setDigitandoPeloUsuario(false), 200);
+              }}
               onChange={(e) => {
                 setDigitandoPeloUsuario(true);
                 setBuscaCliente(e.target.value);
@@ -670,6 +676,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                     maxHeight: "150px",
                     overflowY: "auto",
                   }}
+                  onMouseDown={(e) => e.preventDefault()}
                 >
                   {isBuscando ? (
                     <div
@@ -696,6 +703,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                             setEWhatsApp(c.is_whatsapp ?? true);
                             setAniversarioCliente(niver || "");
                             setListaClientesBanco([]);
+                            setDigitandoPeloUsuario(false);
                           }}
                           style={{
                             padding: "0.6rem 1rem",
@@ -721,14 +729,37 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                   ) : (
                     <div
                       style={{
-                        padding: "0.8rem 1rem",
-                        fontSize: "0.85rem",
-                        color: "#64748B",
-                        textAlign: "center",
+                        padding: "0.6rem 0.8rem",
+                        fontSize: "0.82rem",
+                        color: "#475569",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "8px",
                         backgroundColor: "#F8FAFC",
                       }}
                     >
-                      ✨ Cliente não cadastrado. Preencha os dados abaixo para salvar.
+                      <span>✨ Cliente não cadastrado. Preencha os dados abaixo para salvar.</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDigitandoPeloUsuario(false);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#94A3B8",
+                          padding: "2px",
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                        title="Fechar aviso"
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
                   )}
                 </div>
