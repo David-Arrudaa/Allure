@@ -4,6 +4,7 @@ import { supabase } from "../../../services/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { ModalConfirmacaoRetroativo } from "../ModalConfirmacaoRetroativo";
 import "./ModalAgendamento.css";
 
 const agendamentoSchema = z.object({
@@ -95,6 +96,10 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const [erroSenha, setErroSenha] = useState("");
   const [pacotesPendentesSenha, setPacotesPendentesSenha] = useState([]);
 
+  // NOVO: ESTADO DO MODAL DE CONFIRMAÇÃO DE AGENDAMENTO RETROATIVO
+  const [showModalRetroativo, setShowModalRetroativo] = useState(false);
+  const [pacotesPendentesRetroativo, setPacotesPendentesRetroativo] = useState([]);
+
   const { handleSubmit } = useForm();
 
   useEffect(() => {
@@ -174,6 +179,10 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
     setSenhaDigitada("");
     setErroSenha("");
     setPacotesPendentesSenha([]);
+
+    // Reseta modal de retroativo
+    setShowModalRetroativo(false);
+    setPacotesPendentesRetroativo([]);
     
     setIsSaving(false);
     setIsBuscando(false);
@@ -313,20 +322,28 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       }
     }
 
-    // Se o horário já passou, avisa e solicita confirmação
+    // Se o horário já passou, abre o modal customizado de confirmação retroativa
     if (dataHoraEscolhida < agora) {
-      const dataFormatada = dataAgendamento.split("-").reverse().join("/");
-      const confirmar = window.confirm(
-        `⚠️ ATENÇÃO: O horário selecionado (${dataFormatada} às ${horario}) já se passou.\n\nDeseja confirmar este agendamento como retroativo?`
-      );
-      if (!confirmar) {
-        setIsSaving(false);
-        return;
-      }
+      setPacotesPendentesRetroativo(pacotesIniciais);
+      setShowModalRetroativo(true);
+      setIsSaving(false);
+      return;
     }
 
     // Segue o fluxo de salvamento
     validarESalvar(pacotesIniciais);
+  };
+
+  const handleConfirmarRetroativo = () => {
+    setShowModalRetroativo(false);
+    setIsSaving(true);
+    validarESalvar(pacotesPendentesRetroativo);
+  };
+
+  const handleCancelarRetroativo = () => {
+    setShowModalRetroativo(false);
+    setPacotesPendentesRetroativo([]);
+    setIsSaving(false);
   };
 
   // FUNÇÃO DE VALIDAÇÃO DE SENHA
@@ -1395,6 +1412,15 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
           </div>
         </div>
       )}
+
+      {/* --- MODAL DE CONFIRMAÇÃO DE AGENDAMENTO RETROATIVO --- */}
+      <ModalConfirmacaoRetroativo
+        isOpen={showModalRetroativo}
+        dataStr={dataAgendamento}
+        horaStr={horario}
+        onConfirmar={handleConfirmarRetroativo}
+        onCancelar={handleCancelarRetroativo}
+      />
     </div>
   );
 }
