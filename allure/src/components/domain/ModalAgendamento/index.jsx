@@ -16,6 +16,28 @@ const agendamentoSchema = z.object({
   valor: z.string().optional()
 });
 
+const extrairAniversario = (observacoes) => {
+  if (!observacoes) return "";
+  const match = observacoes.match(/(?:Nascimento|Anivers[áa]rio):\s*([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}\/[0-9]{2}\/[0-9]{4})/i);
+  if (match) {
+    const val = match[1];
+    if (val.includes("/")) {
+      const [d, m, y] = val.split("/");
+      return `${y}-${m}-${d}`;
+    }
+    return val;
+  }
+  return "";
+};
+
+const montarObservacoesComAniversario = (obsExistente, dataNasc) => {
+  const obsLimpa = (obsExistente || "")
+    .replace(/(?:\[)?(?:Nascimento|Anivers[áa]rio):\s*([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}\/[0-9]{2}\/[0-9]{4})(?:\])?\n?/gi, "")
+    .trim();
+  if (!dataNasc) return obsLimpa;
+  return obsLimpa ? `${obsLimpa}\nNascimento: ${dataNasc}` : `Nascimento: ${dataNasc}`;
+};
+
 const applyPhoneMask = (value) => {
   if (!value) return "";
   const clean = value.replace(/\D/g, "");
@@ -163,14 +185,15 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         try {
           const { data, error } = await supabase
             .from("customers")
-            .select("id, nome, telefone, aniversario, is_whatsapp")
+            .select("id, nome, telefone, is_whatsapp, observacoes")
             .eq("id", agendamento.customerId)
             .maybeSingle();
 
           if (data && !error) {
             setClienteSelecionado(data);
             if (data.telefone) setTelefoneCliente(applyPhoneMask(data.telefone));
-            if (data.aniversario) setAniversarioCliente(data.aniversario);
+            const niver = extrairAniversario(data.observacoes);
+            if (niver) setAniversarioCliente(niver);
             if (data.is_whatsapp !== undefined) setEWhatsApp(data.is_whatsapp);
           }
         } catch (err) {
@@ -195,18 +218,22 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         try {
           let queryClientes = supabase
             .from("customers")
-            .select("id, nome, telefone, aniversario, is_whatsapp")
-            .or(`nome.ilike.%${buscaCliente.trim()}%,telefone.ilike.%${buscaCliente.trim()}%`)
+            .select("id, nome, telefone, is_whatsapp, observacoes")
+            .ilike("nome", `%${buscaCliente.trim()}%`)
             .limit(5);
 
           if (profile?.tenant_id) {
-            queryClientes = queryClientes.eq("tenant_id", profile.tenant_id);
+            queryClientes = queryClientes.or(`tenant_id.eq.${profile.tenant_id},tenant_id.is.null`);
           }
 
           const { data, error } = await queryClientes;
 
-          if (error) throw error;
-          if (data) setListaClientesBanco(data);
+          if (error) {
+            console.error("Erro ao buscar clientes:", error.message);
+          }
+          if (data) {
+            setListaClientesBanco(data);
+          }
         } catch (error) {
           console.error("Erro ao buscar clientes:", error.message);
         } finally {
@@ -406,15 +433,17 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         if (telLimpo.length >= 10) {
           let queryVerificaTel = supabase
             .from("customers")
-            .select("id, nome, telefone, aniversario, is_whatsapp")
+            .select("id, nome, telefone, is_whatsapp, observacoes")
             .or(`telefone.eq.${telefoneCliente.trim()},telefone.eq.${telLimpo}`);
 
           if (profile?.tenant_id) {
-            queryVerificaTel = queryVerificaTel.eq("tenant_id", profile.tenant_id);
+            queryVerificaTel = queryVerificaTel.or(`tenant_id.eq.${profile.tenant_id},tenant_id.is.null`);
           }
 
           const { data: clientesComTel, error: errVerificaTel } = await queryVerificaTel;
-          if (errVerificaTel) throw errVerificaTel;
+          if (errVerificaTel) {
+            console.error("Erro ao verificar telefone duplicado:", errVerificaTel);
+          }
 
           if (clientesComTel && clientesComTel.length > 0) {
             const clienteComMesmoTel = clientesComTel[0];
@@ -454,14 +483,14 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
             nome: formatarNome(buscaCliente.trim()),
             telefone: telefoneCliente.trim() || null,
             is_whatsapp: eWhatsApp,
-            aniversario: aniversarioCliente || null,
+            observacoes: montarObservacoesComAniversario("", aniversarioCliente),
             ...(profile?.tenant_id ? { tenant_id: profile.tenant_id } : {}),
           };
 
           const { data: novoCliente, error: errCliente } = await supabase
             .from("customers")
             .insert([novoClientePayload])
-            .select("id, nome, telefone, aniversario, is_whatsapp");
+            .select("id, nome, telefone, is_whatsapp, observacoes");
 
           if (errCliente) throw errCliente;
           if (novoCliente && novoCliente.length > 0) {
@@ -470,12 +499,18 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
           }
         } else if (customerIdFinal && (telefoneCliente.trim() || aniversarioCliente)) {
           // Se já tem cadastro, atualiza telefone/aniversário caso tenham sido alterados/completados
+          const { data: clienteAtual } = await supabase
+            .from("customers")
+            .select("observacoes")
+            .eq("id", customerIdFinal)
+            .maybeSingle();
+
           await supabase
             .from("customers")
             .update({
               ...(telefoneCliente.trim() ? { telefone: telefoneCliente.trim() } : {}),
               is_whatsapp: eWhatsApp,
-              ...(aniversarioCliente ? { aniversario: aniversarioCliente } : {}),
+              observacoes: montarObservacoesComAniversario(clienteAtual?.observacoes, aniversarioCliente),
             })
             .eq("id", customerIdFinal);
         }
@@ -649,45 +684,51 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                       Buscando...
                     </div>
                   ) : listaClientesBanco.length > 0 ? (
-                    listaClientesBanco.map((c) => (
-                      <div
-                        key={c.id}
-                        onClick={() => {
-                          setClienteSelecionado(c);
-                          setBuscaCliente(c.nome);
-                          setListaClientesBanco([]);
-                        }}
-                        style={{
-                          padding: "0.6rem 1rem",
-                          cursor: "pointer",
-                          borderBottom: "1px solid #F1F5F9",
-                          fontSize: "0.9rem",
-                          color: "var(--cor-texto)",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#F8FAFC")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#FFFFFF")
-                        }
-                      >
-                        <strong>{c.nome}</strong> -{" "}
-                        <span style={{ color: "#64748B" }}>
-                          {c.telefone || "Sem telefone"}
-                        </span>
-                      </div>
-                    ))
+                    listaClientesBanco.map((c) => {
+                      const niver = extrairAniversario(c.observacoes);
+                      return (
+                        <div
+                          key={c.id}
+                          onClick={() => {
+                            setClienteSelecionado(c);
+                            setBuscaCliente(c.nome);
+                            setTelefoneCliente(c.telefone ? applyPhoneMask(c.telefone) : "");
+                            setEWhatsApp(c.is_whatsapp ?? true);
+                            setAniversarioCliente(niver || "");
+                            setListaClientesBanco([]);
+                          }}
+                          style={{
+                            padding: "0.6rem 1rem",
+                            cursor: "pointer",
+                            borderBottom: "1px solid #F1F5F9",
+                            fontSize: "0.9rem",
+                            color: "var(--cor-texto)",
+                          }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.backgroundColor = "#F8FAFC")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.backgroundColor = "#FFFFFF")
+                          }
+                        >
+                          <strong>{c.nome}</strong> -{" "}
+                          <span style={{ color: "#64748B" }}>
+                            {c.telefone ? applyPhoneMask(c.telefone) : "Sem telefone"}
+                          </span>
+                        </div>
+                      );
+                    })
                   ) : (
                     <div
                       style={{
                         padding: "0.8rem 1rem",
-                        fontSize: "0.9rem",
-                        color: "#EF4444",
+                        fontSize: "0.85rem",
+                        color: "#64748B",
                         textAlign: "center",
-                        fontWeight: "500",
+                        backgroundColor: "#F8FAFC",
                       }}
                     >
-                      Nenhum cliente encontrado.
+                      ✨ Cliente não cadastrado. Preencha os dados abaixo para salvar.
                     </div>
                   )}
                 </div>

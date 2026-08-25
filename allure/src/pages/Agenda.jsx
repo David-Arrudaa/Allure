@@ -19,6 +19,20 @@ import { supabase } from "../services/supabase";
 import { Skeleton } from "../components/ui/Skeleton"; // <-- IMPORTAÇÃO DO SKELETON
 import "./Agenda.css";
 
+const extrairAniversario = (observacoes) => {
+  if (!observacoes) return "";
+  const match = observacoes.match(/(?:Nascimento|Anivers[áa]rio):\s*([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}\/[0-9]{2}\/[0-9]{4})/i);
+  if (match) {
+    const val = match[1];
+    if (val.includes("/")) {
+      const [d, m, y] = val.split("/");
+      return `${y}-${m}-${d}`;
+    }
+    return val;
+  }
+  return "";
+};
+
 const formatarDataInput = (data) => {
   if (!data) return "";
   const d = data instanceof Date ? data : new Date(data);
@@ -97,7 +111,7 @@ export function Agenda() {
       // BUSCA O TELEFONE JUNTO COM O NOME DO CLIENTE NA TABELA CUSTOMERS
       const { data, error } = await supabase.from("appointments").select(`
           *,
-          customers ( id, nome, telefone, aniversario, is_whatsapp ),
+          customers ( id, nome, telefone, is_whatsapp, observacoes ),
           profissionais ( id, nome )
         `);
 
@@ -117,7 +131,7 @@ export function Agenda() {
             customerId: item.customer_id || item.customers?.id || null,
             cliente: item.customers?.nome || "Cliente",
             telefone: item.customers?.telefone || "",
-            aniversario: item.customers?.aniversario || "",
+            aniversario: extrairAniversario(item.customers?.observacoes),
             isWhatsApp: item.customers?.is_whatsapp ?? true,
             profissionalId: item.profissional_id,
             profissional: item.profissionais?.nome || "Profissional",
@@ -193,7 +207,7 @@ export function Agenda() {
 
       const { data, error } = await supabase
         .from("appointments")
-        .select("*, customers(id, nome, telefone, aniversario, is_whatsapp)")
+        .select("*, customers(id, nome, telefone, is_whatsapp, observacoes)")
         .eq("grupo_recorrencia", ag.grupo_recorrencia)
         .gte("data_horario", hojeStr)
         .order("data_horario", { ascending: true });
@@ -1102,7 +1116,7 @@ export function Agenda() {
                               customerId: item.customer_id || item.customers?.id || null,
                               cliente: item.customers?.nome,
                               telefone: item.customers?.telefone || "",
-                              aniversario: item.customers?.aniversario || "",
+                              aniversario: extrairAniversario(item.customers?.observacoes),
                               isWhatsApp: item.customers?.is_whatsapp ?? true,
                               profissionalId: item.profissional_id,
                               servico: item.servico,
