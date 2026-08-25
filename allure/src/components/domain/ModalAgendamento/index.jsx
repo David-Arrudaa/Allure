@@ -88,21 +88,11 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
     if (agendamento) {
       setDigitandoPeloUsuario(false);
       setBuscaCliente(agendamento.cliente || "");
-      setClienteSelecionado(
-        agendamento.customerId
-          ? { id: agendamento.customerId, nome: agendamento.cliente }
-          : null
-      );
-      setDataAgendamento(agendamento.data || dataHoje);
-      setProfissionalId(agendamento.profissionalId || "");
       setServico(agendamento.servico || "");
       setHorario(agendamento.horarioInicio || "09:00");
       setDuracao(agendamento.duracao || 60);
-      setValor(agendamento.valor || "");
-      setIsBloqueio(agendamento.status === "bloqueio");
 
       setIsRecorrente(false);
-      setIntervalo(21);
       setDataFim("");
     } else {
       setDigitandoPeloUsuario(true);
@@ -231,26 +221,25 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       }
     }
 
-    // NOVA LÓGICA: Permitir a hora atual. Removemos os minutos e segundos de 'agora' para que 22:41 permita 22:00
-    const agoraTruncado = new Date(agora);
-    agoraTruncado.setMinutes(0, 0, 0);
-
-    // Se for no passado (antes da hora atual), barra apenas para NOVO agendamento e se não for admin
-    if (!agendamento && dataHoraEscolhida < agoraTruncado && !profile?.is_admin) {
-      setPacotesPendentesSenha(pacotesIniciais);
-      setShowSenhaModal(true);
-      setIsSaving(false);
-      return;
+    // Se o horário já passou, avisa e solicita confirmação
+    if (dataHoraEscolhida < agora) {
+      const dataFormatada = dataAgendamento.split("-").reverse().join("/");
+      const confirmar = window.confirm(
+        `⚠️ ATENÇÃO: O horário selecionado (${dataFormatada} às ${horario}) já se passou.\n\nDeseja confirmar este agendamento como retroativo?`
+      );
+      if (!confirmar) {
+        setIsSaving(false);
+        return;
+      }
     }
 
-    // Se for no futuro ou edição, segue a vida normal
+    // Segue o fluxo de salvamento
     validarESalvar(pacotesIniciais);
   };
 
   // FUNÇÃO DE VALIDAÇÃO DE SENHA
   const handleConfirmarSenha = (e) => {
     e.preventDefault();
-    
     // AQUI VOCÊ DEFINE A SENHA PADRÃO DO SISTEMA
     const SENHA_PADRAO = "admin123"; 
 
@@ -357,7 +346,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         } else {
           const novoClientePayload = {
             nome: buscaCliente.trim(),
-            ...(profile?.tenant_id ? { tenant_id: profile.tenant_id } : {})
+            ...(profile?.tenant_id ? { tenant_id: profile.tenant_id } : {}),
           };
           const { data: novoCliente, error: errCliente } = await supabase
             .from("customers")
@@ -389,7 +378,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         pagamento: agendamento?.pagamento || "pendente",
         forma_pagamento: agendamento?.forma_pagamento || null,
         grupo_recorrencia: idGrupoRecorrencia,
-        ...(tenantIdFinal ? { tenant_id: tenantIdFinal } : {})
+        ...(tenantIdFinal ? { tenant_id: tenantIdFinal } : {}),
       }));
 
       let resSalvar;
@@ -614,6 +603,36 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
               />
             </div>
           </div>
+
+          {(() => {
+            const dataHora = new Date(`${dataAgendamento.replace(/-/g, "/")} ${horario}`);
+            const agora = new Date();
+            if (!isNaN(dataHora.getTime()) && dataHora < agora) {
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    padding: "10px 14px",
+                    backgroundColor: "#FFFBEB",
+                    border: "1px solid #FCD34D",
+                    borderRadius: "8px",
+                    color: "#92400E",
+                    fontSize: "0.85rem",
+                    fontWeight: "500",
+                    marginBottom: "1rem",
+                  }}
+                >
+                  <AlertTriangle size={18} color="#D97706" style={{ flexShrink: 0 }} />
+                  <span>
+                    <strong>Horário no passado:</strong> Este agendamento será registrado como retroativo.
+                  </span>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           <div className="form-linha-dupla">
             <div className="form-grupo">
