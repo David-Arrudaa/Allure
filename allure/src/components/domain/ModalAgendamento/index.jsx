@@ -738,7 +738,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
           {!isBloqueio && (
             <div className="form-linha-dupla">
               <div className="form-grupo">
-                <label>Telefone / WhatsApp</label>
+                <label>Telefone</label>
                 <input
                   type="text"
                   placeholder="(00) 00000-0000"
@@ -768,7 +768,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
               </div>
 
               <div className="form-grupo">
-                <label>Data de Nascimento / Aniversário</label>
+                <label>Data Nascimento</label>
                 <input
                   type="date"
                   value={aniversarioCliente}
