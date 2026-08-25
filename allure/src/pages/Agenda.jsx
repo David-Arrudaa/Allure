@@ -137,7 +137,6 @@ export function Agenda() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line
     carregarDadosAgenda();
   }, []);
 
@@ -158,7 +157,6 @@ export function Agenda() {
   useEffect(() => {
     if (location.state && location.state.dataAlvo) {
       const novaData = new Date(location.state.dataAlvo);
-      // eslint-disable-next-line
       setDataSelecionada(novaData);
       
       if (location.state.abrirAgendamentoId && agendamentos.length > 0) {

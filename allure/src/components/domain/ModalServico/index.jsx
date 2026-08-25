@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { supabase } from "../../../services/supabase";
 import { useForm } from "react-hook-form";
@@ -15,7 +15,7 @@ const servicoSchema = z.object({
 });
 
 export function ModalServico({ isOpen, onClose, servico }) {
-  const [carregando, setCarregando] = React.useState(false);
+  const [carregando, setCarregando] = useState(false);
 
   const {
     register,

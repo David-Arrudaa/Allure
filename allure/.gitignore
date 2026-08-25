@@ -25,6 +25,7 @@ dist-ssr
 .vercel
 .env
 .env*
+!.env.example
 
 # Antigravity
 .agents/*

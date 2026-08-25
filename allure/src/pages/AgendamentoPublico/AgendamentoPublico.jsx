@@ -1,9 +1,8 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Calendar, Clock, User, Scissors } from "lucide-react";
 
 const agendamentoSchema = z.object({
   serviceId: z.string().min(1, "Selecione um serviço"),
@@ -15,7 +14,7 @@ const agendamentoSchema = z.object({
 });
 
 export function AgendamentoPublico() {
-  const { tenant_id } = useParams();
+  const { tenant_id: _tenant_id } = useParams();
   const [step, setStep] = useState(1); // 1: Detalhes, 2: Dados Pessoais, 3: Confirmacao
   
   const { register, handleSubmit, formState: { errors }, trigger } = useForm({

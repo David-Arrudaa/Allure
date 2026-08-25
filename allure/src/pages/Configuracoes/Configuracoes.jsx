@@ -1,4 +1,3 @@
-import React from "react";
 import { Settings, MessageCircle, Save } from "lucide-react";
 
 export function Configuracoes() {

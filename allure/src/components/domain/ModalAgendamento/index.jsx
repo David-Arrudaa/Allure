@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { X, RefreshCw, AlertTriangle, ListChecks, Lock } from "lucide-react";
+import { X, RefreshCw, AlertTriangle, ListChecks } from "lucide-react";
 import { supabase } from "../../../services/supabase";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 import "./ModalAgendamento.css";
 
@@ -59,7 +59,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const [erroSenha, setErroSenha] = useState("");
   const [pacotesPendentesSenha, setPacotesPendentesSenha] = useState([]);
 
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const { handleSubmit } = useForm();
 
   useEffect(() => {
     async function carregarDadosIniciais() {
@@ -84,7 +84,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
   useEffect(() => {
     if (agendamento) {
-      // eslint-disable-next-line
       setDigitandoPeloUsuario(false);
       setBuscaCliente(agendamento.cliente);
       setProfissionalId(agendamento.profissionalId || "");

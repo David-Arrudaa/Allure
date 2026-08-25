@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, Outlet } from "react-router-dom";
 import {
   CalendarDays,
   Users,

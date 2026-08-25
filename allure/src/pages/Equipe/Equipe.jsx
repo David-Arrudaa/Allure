@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   UserPlus,
   Search,
@@ -9,6 +9,7 @@ import {
   Edit,
   Camera,
 } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../services/supabase"; // Importação do banco de dados
 import { Skeleton } from "../../components/ui/Skeleton";
 import "./Equipe.css";
@@ -184,7 +185,6 @@ export function Equipe() {
         // Criar usuário no Auth (sem deslogar o admin)
         // Isso requer que a confirmação de e-mail esteja desativada no Supabase (Autoconfirm)
         if (formFunc.email && formFunc.senha) {
-          const { createClient } = await import("@supabase/supabase-js");
           const adminAuthClient = createClient(
             import.meta.env.VITE_SUPABASE_URL,
             import.meta.env.VITE_SUPABASE_ANON_KEY,

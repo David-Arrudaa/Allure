@@ -1,4 +1,3 @@
-import React from "react";
 import { Package, Plus } from "lucide-react";
 
 export function Pacotes() {

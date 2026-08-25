@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Save, ShoppingBag } from "lucide-react";
+import { X } from "lucide-react";
 import { supabase } from "../../../services/supabase";
 import { useTenant } from "../../../contexts/TenantContext";
 import "./ModalRecebimentoAvulso.css"; // Create this file next

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,13 +9,13 @@ import './Produtos.css';
 import { Skeleton } from '../../components/ui/Skeleton';
 
 const produtoSchema = z.object({
-  nome: z.string().min(1, 'Nome È obrigatÛrio'),
-  preco: z.preprocess((val) => Number(val), z.number().min(0, 'O preÁo n„o pode ser negativo')),
-  estoque: z.preprocess((val) => Number(val), z.number().min(0, 'O estoque n„o pode ser negativo')),
+  nome: z.string().min(1, 'Nome √© obrigat√≥rio'),
+  preco: z.preprocess((val) => Number(val), z.number().min(0, 'O pre√ßo n√£o pode ser negativo')),
+  estoque: z.preprocess((val) => Number(val), z.number().min(0, 'O estoque n√£o pode ser negativo')),
 });
 
 export function Produtos() {
-  const { profile } = useAuth(); // Usando profile.tenant_id que È o UUID real
+  const { profile } = useAuth(); // Usando profile.tenant_id que √© o UUID real
   const [produtos, setProdutos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -122,8 +122,8 @@ export function Produtos() {
     <div className="produtos-container">
       <div className="produtos-topbar">
         <div className="produtos-info">
-          <h2><PackageOpen size={24} /> Cat·logo de Produtos</h2>
-          <p>Gerencie o estoque de produtos fÌsicos do sal„o</p>
+          <h2><PackageOpen size={24} /> Cat√°logo de Produtos</h2>
+          <p>Gerencie o estoque de produtos f√≠sicos do sal√£o</p>
         </div>
         <button className="btn-novo" onClick={() => abrirModal()}>
           <Plus size={18} strokeWidth={2.5} />
@@ -137,9 +137,9 @@ export function Produtos() {
             <thead>
               <tr>
                 <th>Produto</th>
-                <th>PreÁo</th>
+                <th>Pre√ßo</th>
                 <th>Estoque</th>
-                <th>AÁıes</th>
+                <th>A√ß√µes</th>
               </tr>
             </thead>
             <tbody>
@@ -198,7 +198,7 @@ export function Produtos() {
               </div>
               <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1 }}>
-                  <label>PreÁo (R$) *</label>
+                  <label>Pre√ßo (R$) *</label>
                   <input type="number" step="0.01" {...register('preco')} placeholder="0.00" />
                   {errors.preco && <span className="erro-validacao">{errors.preco.message}</span>}
                 </div>
