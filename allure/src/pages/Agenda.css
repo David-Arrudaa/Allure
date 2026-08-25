@@ -302,9 +302,8 @@
   padding: 0.5rem 0.8rem;
   display: flex;
   flex-direction: column;
-  border-left: 6px solid var(--cor-primaria);
+  border-left: 4px solid var(--cor-primaria);
   overflow: visible !important; /* Essencial para o menu não cortar */
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
   transition:
     box-shadow 0.2s ease,
     z-index 0s;

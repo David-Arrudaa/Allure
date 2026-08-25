@@ -308,21 +308,21 @@ export function Agenda() {
 
   const determinarCoresAgendamento = (ag) => {
     if (ag.status === "bloqueio") {
-      return { bg: "#E2E8F0", border: "#475569", text: "#1E293B" }; // Cinza/Bloqueio
+      return { bg: "#F1F5F9", border: "#94A3B8", text: "#475569" }; // Cinza/Bloqueio
     }
     if (ag.status === "cancelado") {
-      return { bg: "#FEE2E2", border: "#DC2626", text: "#7F1D1D" }; // Vermelho/Cancelado
+      return { bg: "#FEE2E2", border: "#EF4444", text: "#991B1B" }; // Vermelho/Cancelado
     }
-    // 1. Confirmado e com pagamento feito (Pago): Fundo Verde Vivo + Fitinha Azul Vibrante
+    // 1. Confirmado e Pago (ou ao receber pagamento): Verde Forte
     if (ag.pagamento === "pago") {
-      return { bg: "#DCFCE7", border: "#1D4ED8", text: "#14532D" }; // Verde vivo com fitinha Azul
+      return { bg: "#DCFCE7", border: "#16A34A", text: "#14532D" }; // Verde forte / Pago
     }
-    // 2. Confirmado mas pagamento pendente (Sem receber): Fundo Verde Vivo + Fitinha Vermelha Marcante
+    // 2. Confirmado sem receber pagamento: Azul
     if (ag.status === "confirmado") {
-      return { bg: "#DCFCE7", border: "#DC2626", text: "#14532D" }; // Verde vivo com fitinha Vermelha
+      return { bg: "#DBEAFE", border: "#3B82F6", text: "#1E40AF" }; // Azul / Confirmado sem pagar
     }
-    // 3. Agendado sem confirmação (Pendente): Roxo Vivo / Vibrante
-    return { bg: "#EDE9FE", border: "#7C3AED", text: "#4C1D95" }; // Roxo vivo/Pendente
+    // 3. Agendamento Pendente (sem confirmação): Amarelo Claro
+    return { bg: "#FEF9C3", border: "#EAB308", text: "#854D0E" }; // Amarelo claro / Pendente
   };
 
   const calcularHoraFim = (horaInicio, duracaoMinutos) => {
