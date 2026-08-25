@@ -240,7 +240,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   // FUNÇÃO DE VALIDAÇÃO DE SENHA
   const handleConfirmarSenha = (e) => {
     e.preventDefault();
-    // AQUI VOCÊ DEFINE A SENHA PADRÃO DO SISTEMA
     const SENHA_PADRAO = "admin123"; 
 
     if (senhaDigitada === SENHA_PADRAO) {
