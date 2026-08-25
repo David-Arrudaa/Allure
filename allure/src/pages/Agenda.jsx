@@ -94,7 +94,7 @@ export function Agenda() {
       // BUSCA O TELEFONE JUNTO COM O NOME DO CLIENTE NA TABELA CUSTOMERS
       const { data, error } = await supabase.from("appointments").select(`
           *,
-          customers ( nome, telefone ),
+          customers ( id, nome, telefone ),
           profissionais ( id, nome )
         `);
 
@@ -111,6 +111,7 @@ export function Agenda() {
 
           return {
             id: item.id,
+            customerId: item.customer_id || item.customers?.id || null,
             cliente: item.customers?.nome || "Cliente",
             telefone: item.customers?.telefone || "",
             profissionalId: item.profissional_id,
@@ -123,6 +124,8 @@ export function Agenda() {
             valor: item.valor ? String(item.valor).replace(".", ",") : "0,00",
             status: item.status || "pendente",
             pagamento: item.pagamento || "pendente",
+            forma_pagamento: item.forma_pagamento || null,
+            tenant_id: item.tenant_id || null,
             grupo_recorrencia: item.grupo_recorrencia,
           };
         });
@@ -1088,14 +1091,18 @@ export function Agenda() {
                           onClick={() => {
                             setAgendamentoEditando({
                               id: item.id,
+                              customerId: item.customer_id || item.customers?.id || null,
                               cliente: item.customers?.nome,
                               profissionalId: item.profissional_id,
                               servico: item.servico,
                               horarioInicio: horaFormatada,
                               data: formatarDataInput(dataObj),
-                              duracao: 60,
+                              duracao: item.duracao || 60,
                               valor: String(item.valor).replace(".", ","),
                               status: item.status,
+                              pagamento: item.pagamento,
+                              forma_pagamento: item.forma_pagamento,
+                              tenant_id: item.tenant_id,
                               grupo_recorrencia: item.grupo_recorrencia,
                             });
                             setIsModalRecorrenciaAberto(false);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, RefreshCw, AlertTriangle, ListChecks } from "lucide-react";
 import { supabase } from "../../../services/supabase";
+import { useAuth } from "../../../contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import "./ModalAgendamento.css";
@@ -16,6 +17,7 @@ const agendamentoSchema = z.object({
 });
 
 export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
+  const { profile } = useAuth();
   const dataHoje = new Date().toISOString().split("T")[0];
 
   const [buscaCliente, setBuscaCliente] = useState("");
@@ -85,12 +87,18 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   useEffect(() => {
     if (agendamento) {
       setDigitandoPeloUsuario(false);
-      setBuscaCliente(agendamento.cliente);
+      setBuscaCliente(agendamento.cliente || "");
+      setClienteSelecionado(
+        agendamento.customerId
+          ? { id: agendamento.customerId, nome: agendamento.cliente }
+          : null
+      );
+      setDataAgendamento(agendamento.data || dataHoje);
       setProfissionalId(agendamento.profissionalId || "");
-      setServico(agendamento.servico);
-      setHorario(agendamento.horarioInicio);
+      setServico(agendamento.servico || "");
+      setHorario(agendamento.horarioInicio || "09:00");
       setDuracao(agendamento.duracao || 60);
-      setValor(agendamento.valor);
+      setValor(agendamento.valor || "");
       setIsBloqueio(agendamento.status === "bloqueio");
 
       setIsRecorrente(false);
@@ -227,15 +235,15 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
     const agoraTruncado = new Date(agora);
     agoraTruncado.setMinutes(0, 0, 0);
 
-    // Se for no passado (antes da hora atual), barra aqui e abre o modal de senha
-    if (dataHoraEscolhida < agoraTruncado) {
+    // Se for no passado (antes da hora atual), barra apenas para NOVO agendamento e se não for admin
+    if (!agendamento && dataHoraEscolhida < agoraTruncado && !profile?.is_admin) {
       setPacotesPendentesSenha(pacotesIniciais);
       setShowSenhaModal(true);
       setIsSaving(false);
       return;
     }
 
-    // Se for no futuro, segue a vida normal
+    // Se for no futuro ou edição, segue a vida normal
     validarESalvar(pacotesIniciais);
   };
 
@@ -329,17 +337,37 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         return;
       }
 
-      let customerIdFinal = clienteSelecionado ? clienteSelecionado.id : null;
+      let customerIdFinal = clienteSelecionado ? clienteSelecionado.id : agendamento?.customerId || null;
 
       if (!isBloqueio && !customerIdFinal && buscaCliente.trim()) {
-        const { data: novoCliente, error: errCliente } = await supabase
+        let queryBusca = supabase
           .from("customers")
-          .insert([{ nome: buscaCliente.trim() }])
-          .select("id");
+          .select("id")
+          .ilike("nome", buscaCliente.trim())
+          .limit(1);
 
-        if (errCliente) throw errCliente;
-        if (novoCliente && novoCliente.length > 0) {
-          customerIdFinal = novoCliente[0].id;
+        if (profile?.tenant_id) {
+          queryBusca = queryBusca.eq("tenant_id", profile.tenant_id);
+        }
+
+        const { data: clienteExistente } = await queryBusca;
+
+        if (clienteExistente && clienteExistente.length > 0) {
+          customerIdFinal = clienteExistente[0].id;
+        } else {
+          const novoClientePayload = {
+            nome: buscaCliente.trim(),
+            ...(profile?.tenant_id ? { tenant_id: profile.tenant_id } : {})
+          };
+          const { data: novoCliente, error: errCliente } = await supabase
+            .from("customers")
+            .insert([novoClientePayload])
+            .select("id");
+
+          if (errCliente) throw errCliente;
+          if (novoCliente && novoCliente.length > 0) {
+            customerIdFinal = novoCliente[0].id;
+          }
         }
       }
 
@@ -348,6 +376,8 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
           ? `rec_${Date.now().toString(36)}_${Math.random().toString(36).substring(2)}`
           : agendamento?.grupo_recorrencia || null;
 
+      const tenantIdFinal = profile?.tenant_id || agendamento?.tenant_id || null;
+
       const pacotesSalvarBanco = pacotes.map((p) => ({
         customer_id: isBloqueio ? null : customerIdFinal,
         profissional_id: profissionalId,
@@ -355,9 +385,11 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         valor: isBloqueio ? 0 : Number(String(valor).replace(",", ".")) || 0,
         data_horario: `${p.dataStr}T${p.horaStr}:00-03:00`,
         duracao: Number(duracao),
-        status: isBloqueio ? "bloqueio" : "pendente",
-        pagamento: "pendente",
+        status: isBloqueio ? "bloqueio" : (agendamento?.status || "pendente"),
+        pagamento: agendamento?.pagamento || "pendente",
+        forma_pagamento: agendamento?.forma_pagamento || null,
         grupo_recorrencia: idGrupoRecorrencia,
+        ...(tenantIdFinal ? { tenant_id: tenantIdFinal } : {})
       }));
 
       let resSalvar;
