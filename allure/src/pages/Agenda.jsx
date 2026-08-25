@@ -97,7 +97,7 @@ export function Agenda() {
       // BUSCA O TELEFONE JUNTO COM O NOME DO CLIENTE NA TABELA CUSTOMERS
       const { data, error } = await supabase.from("appointments").select(`
           *,
-          customers ( id, nome, telefone ),
+          customers ( id, nome, telefone, aniversario, is_whatsapp ),
           profissionais ( id, nome )
         `);
 
@@ -117,6 +117,8 @@ export function Agenda() {
             customerId: item.customer_id || item.customers?.id || null,
             cliente: item.customers?.nome || "Cliente",
             telefone: item.customers?.telefone || "",
+            aniversario: item.customers?.aniversario || "",
+            isWhatsApp: item.customers?.is_whatsapp ?? true,
             profissionalId: item.profissional_id,
             profissional: item.profissionais?.nome || "Profissional",
             servico: item.servico,
@@ -191,7 +193,7 @@ export function Agenda() {
 
       const { data, error } = await supabase
         .from("appointments")
-        .select("*, customers(nome)")
+        .select("*, customers(id, nome, telefone, aniversario, is_whatsapp)")
         .eq("grupo_recorrencia", ag.grupo_recorrencia)
         .gte("data_horario", hojeStr)
         .order("data_horario", { ascending: true });
@@ -1099,6 +1101,9 @@ export function Agenda() {
                               id: item.id,
                               customerId: item.customer_id || item.customers?.id || null,
                               cliente: item.customers?.nome,
+                              telefone: item.customers?.telefone || "",
+                              aniversario: item.customers?.aniversario || "",
+                              isWhatsApp: item.customers?.is_whatsapp ?? true,
                               profissionalId: item.profissional_id,
                               servico: item.servico,
                               horarioInicio: horaFormatada,

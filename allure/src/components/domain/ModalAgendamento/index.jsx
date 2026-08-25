@@ -16,11 +16,23 @@ const agendamentoSchema = z.object({
   valor: z.string().optional()
 });
 
+const applyPhoneMask = (value) => {
+  if (!value) return "";
+  const clean = value.replace(/\D/g, "");
+  if (clean.length <= 2) return clean;
+  if (clean.length <= 6) return `(${clean.slice(0, 2)}) ${clean.slice(2)}`;
+  if (clean.length <= 10) return `(${clean.slice(0, 2)}) ${clean.slice(2, 6)}-${clean.slice(6)}`;
+  return `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7, 11)}`;
+};
+
 export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const { profile } = useAuth();
   const dataHoje = new Date().toISOString().split("T")[0];
 
   const [buscaCliente, setBuscaCliente] = useState("");
+  const [telefoneCliente, setTelefoneCliente] = useState("");
+  const [eWhatsApp, setEWhatsApp] = useState(true);
+  const [aniversarioCliente, setAniversarioCliente] = useState("");
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
   const [listaClientesBanco, setListaClientesBanco] = useState([]);
   const [isBuscando, setIsBuscando] = useState(false);
@@ -88,15 +100,36 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
     if (agendamento) {
       setDigitandoPeloUsuario(false);
       setBuscaCliente(agendamento.cliente || "");
+      setTelefoneCliente(agendamento.telefone ? applyPhoneMask(agendamento.telefone) : "");
+      setEWhatsApp(agendamento.isWhatsApp ?? true);
+      setAniversarioCliente(agendamento.aniversario || "");
+      setClienteSelecionado(
+        agendamento.customerId
+          ? {
+              id: agendamento.customerId,
+              nome: agendamento.cliente,
+              telefone: agendamento.telefone,
+              aniversario: agendamento.aniversario,
+              is_whatsapp: agendamento.isWhatsApp,
+            }
+          : null
+      );
+      setDataAgendamento(agendamento.data || dataHoje);
+      setProfissionalId(agendamento.profissionalId || "");
       setServico(agendamento.servico || "");
       setHorario(agendamento.horarioInicio || "09:00");
       setDuracao(agendamento.duracao || 60);
+      setValor(agendamento.valor || "");
+      setIsBloqueio(agendamento.status === "bloqueio");
 
       setIsRecorrente(false);
       setDataFim("");
     } else {
       setDigitandoPeloUsuario(true);
       setBuscaCliente("");
+      setTelefoneCliente("");
+      setEWhatsApp(true);
+      setAniversarioCliente("");
       setClienteSelecionado(null);
       setDataAgendamento(dataHoje);
       setHorario("09:00");
@@ -125,6 +158,32 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   }, [agendamento, isOpen, dataHoje]);
 
   useEffect(() => {
+    async function carregarDadosClienteEdicao() {
+      if (agendamento && agendamento.customerId) {
+        try {
+          const { data, error } = await supabase
+            .from("customers")
+            .select("id, nome, telefone, aniversario, is_whatsapp")
+            .eq("id", agendamento.customerId)
+            .maybeSingle();
+
+          if (data && !error) {
+            setClienteSelecionado(data);
+            if (data.telefone) setTelefoneCliente(applyPhoneMask(data.telefone));
+            if (data.aniversario) setAniversarioCliente(data.aniversario);
+            if (data.is_whatsapp !== undefined) setEWhatsApp(data.is_whatsapp);
+          }
+        } catch (err) {
+          console.error("Erro ao carregar dados do cliente:", err);
+        }
+      }
+    }
+    if (isOpen && agendamento) {
+      carregarDadosClienteEdicao();
+    }
+  }, [agendamento, isOpen]);
+
+  useEffect(() => {
     const buscarClientesNoBanco = async () => {
       if (
         digitandoPeloUsuario &&
@@ -134,11 +193,17 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       ) {
         setIsBuscando(true);
         try {
-          const { data, error } = await supabase
+          let queryClientes = supabase
             .from("customers")
-            .select("id, nome, telefone")
+            .select("id, nome, telefone, aniversario, is_whatsapp")
             .or(`nome.ilike.%${buscaCliente.trim()}%,telefone.ilike.%${buscaCliente.trim()}%`)
             .limit(5);
+
+          if (profile?.tenant_id) {
+            queryClientes = queryClientes.eq("tenant_id", profile.tenant_id);
+          }
+
+          const { data, error } = await queryClientes;
 
           if (error) throw error;
           if (data) setListaClientesBanco(data);
@@ -155,7 +220,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
     const timer = setTimeout(() => buscarClientesNoBanco(), 300);
     return () => clearTimeout(timer);
-  }, [buscaCliente, clienteSelecionado, isBloqueio, digitandoPeloUsuario]);
+  }, [buscaCliente, clienteSelecionado, isBloqueio, digitandoPeloUsuario, profile?.tenant_id]);
 
   if (!isOpen) return null;
 
@@ -327,35 +392,92 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
       let customerIdFinal = clienteSelecionado ? clienteSelecionado.id : agendamento?.customerId || null;
 
-      if (!isBloqueio && !customerIdFinal && buscaCliente.trim()) {
-        let queryBusca = supabase
-          .from("customers")
-          .select("id")
-          .ilike("nome", buscaCliente.trim())
-          .limit(1);
+      if (!isBloqueio) {
+        const telLimpo = telefoneCliente.replace(/\D/g, "");
 
-        if (profile?.tenant_id) {
-          queryBusca = queryBusca.eq("tenant_id", profile.tenant_id);
+        // Se informou telefone, valida se tem pelo menos 10 dígitos (DDD + número)
+        if (telefoneCliente.trim() && telLimpo.length < 10) {
+          alert("Por favor, informe um telefone válido com DDD (ex: (11) 99999-9999).");
+          setIsSaving(false);
+          return;
         }
 
-        const { data: clienteExistente } = await queryBusca;
+        // Se tem telefone informado, faz verificação de duplicidade de telefone no banco
+        if (telLimpo.length >= 10) {
+          let queryVerificaTel = supabase
+            .from("customers")
+            .select("id, nome, telefone, aniversario, is_whatsapp")
+            .or(`telefone.eq.${telefoneCliente.trim()},telefone.eq.${telLimpo}`);
 
-        if (clienteExistente && clienteExistente.length > 0) {
-          customerIdFinal = clienteExistente[0].id;
-        } else {
+          if (profile?.tenant_id) {
+            queryVerificaTel = queryVerificaTel.eq("tenant_id", profile.tenant_id);
+          }
+
+          const { data: clientesComTel, error: errVerificaTel } = await queryVerificaTel;
+          if (errVerificaTel) throw errVerificaTel;
+
+          if (clientesComTel && clientesComTel.length > 0) {
+            const clienteComMesmoTel = clientesComTel[0];
+
+            // Se for outro cliente diferente do selecionado/atual
+            if (customerIdFinal && clienteComMesmoTel.id !== customerIdFinal) {
+              alert(
+                `Não é possível salvar: O telefone ${telefoneCliente.trim()} já está cadastrado para a cliente "${clienteComMesmoTel.nome}". Não é permitido duplicar telefones no sistema.`
+              );
+              setIsSaving(false);
+              return;
+            }
+
+            // Se for um novo agendamento sem cliente previamente selecionado e encontrou pelo telefone
+            if (!customerIdFinal) {
+              const vincular = window.confirm(
+                `O telefone ${telefoneCliente.trim()} já pertence à cliente "${clienteComMesmoTel.nome}".\n\nDeseja vincular este agendamento ao cadastro de "${clienteComMesmoTel.nome}"?`
+              );
+              if (vincular) {
+                customerIdFinal = clienteComMesmoTel.id;
+                setClienteSelecionado(clienteComMesmoTel);
+                setBuscaCliente(clienteComMesmoTel.nome);
+              } else {
+                setIsSaving(false);
+                return;
+              }
+            }
+          }
+        }
+
+        // Se ainda não temos customerIdFinal e o nome foi informado, cria o cliente completo
+        if (!customerIdFinal && buscaCliente.trim()) {
+          const formatarNome = (texto) =>
+            texto.toLowerCase().replace(/(?:^|\s)\S/g, (l) => l.toUpperCase());
+
           const novoClientePayload = {
-            nome: buscaCliente.trim(),
+            nome: formatarNome(buscaCliente.trim()),
+            telefone: telefoneCliente.trim() || null,
+            is_whatsapp: eWhatsApp,
+            aniversario: aniversarioCliente || null,
             ...(profile?.tenant_id ? { tenant_id: profile.tenant_id } : {}),
           };
+
           const { data: novoCliente, error: errCliente } = await supabase
             .from("customers")
             .insert([novoClientePayload])
-            .select("id");
+            .select("id, nome, telefone, aniversario, is_whatsapp");
 
           if (errCliente) throw errCliente;
           if (novoCliente && novoCliente.length > 0) {
             customerIdFinal = novoCliente[0].id;
+            setClienteSelecionado(novoCliente[0]);
           }
+        } else if (customerIdFinal && (telefoneCliente.trim() || aniversarioCliente)) {
+          // Se já tem cadastro, atualiza telefone/aniversário caso tenham sido alterados/completados
+          await supabase
+            .from("customers")
+            .update({
+              ...(telefoneCliente.trim() ? { telefone: telefoneCliente.trim() } : {}),
+              is_whatsapp: eWhatsApp,
+              ...(aniversarioCliente ? { aniversario: aniversarioCliente } : {}),
+            })
+            .eq("id", customerIdFinal);
         }
       }
 
@@ -571,6 +693,49 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                 </div>
               )}
           </div>
+
+          {!isBloqueio && (
+            <div className="form-linha-dupla">
+              <div className="form-grupo">
+                <label>Telefone / WhatsApp</label>
+                <input
+                  type="text"
+                  placeholder="(00) 00000-0000"
+                  value={telefoneCliente}
+                  onChange={(e) =>
+                    setTelefoneCliente(applyPhoneMask(e.target.value))
+                  }
+                />
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    marginTop: "6px",
+                    fontSize: "0.85rem",
+                    color: "var(--cor-texto-secundario, #64748B)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={eWhatsApp}
+                    onChange={(e) => setEWhatsApp(e.target.checked)}
+                  />
+                  É WhatsApp
+                </label>
+              </div>
+
+              <div className="form-grupo">
+                <label>Data de Nascimento / Aniversário</label>
+                <input
+                  type="date"
+                  value={aniversarioCliente}
+                  onChange={(e) => setAniversarioCliente(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="form-linha-dupla">
             <div className="form-grupo">
