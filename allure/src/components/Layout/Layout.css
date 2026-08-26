@@ -15,60 +15,131 @@
 .mobile-overlay {
   display: none;
 }
+.btn-fechar-drawer {
+  display: none;
+}
 
-/* --- SIDEBAR (Menu Lateral) --- */
+/* --- SIDEBAR (Menu Lateral Desktop) --- */
 .sidebar {
-  width: 230px;
+  width: 220px;
+  height: 100vh;
   background-color: #ffffff;
   border-right: 1px solid var(--cor-borda);
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 1.1rem;
-  z-index: 40;
+  padding: 1.25rem 0.85rem;
+  z-index: 50;
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.02);
-  transition: transform 0.3s ease-in-out;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.sidebar-top-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.3rem 1rem 0.3rem;
 }
 
 .sidebar-logo {
-  padding: 0 0.5rem 1.75rem 0.5rem;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
 }
 
 .sidebar-logo-img {
-  max-width: 175px;
+  max-width: 125px;
   width: 100%;
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.04));
+  transition: opacity 0.2s ease;
 }
 
+.btn-toggle-desktop {
+  background: transparent;
+  border: 1px solid var(--cor-borda);
+  color: #64748b;
+  border-radius: 6px;
+  padding: 0.3rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-toggle-desktop:hover {
+  background-color: #f8fafc;
+  color: var(--cor-primaria);
+  border-color: var(--cor-primaria);
+}
+
+/* Sidebar Recolhida no Desktop (Mini Sidebar) */
+.sidebar.recolhida {
+  width: 72px;
+  padding: 1.25rem 0.5rem;
+}
+
+.sidebar.recolhida .sidebar-logo-img {
+  display: none;
+}
+
+.sidebar.recolhida .sidebar-top-section {
+  justify-content: center;
+}
+
+.sidebar.recolhida .nav-label,
+.sidebar.recolhida .user-info {
+  display: none;
+}
+
+.sidebar.recolhida .nav-item {
+  justify-content: center;
+  padding: 0.65rem;
+}
+
+.sidebar.recolhida .sidebar-footer {
+  justify-content: center;
+}
+
+/* Navegação */
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.25rem;
   flex: 1;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background-color: #e2e8f0;
+  border-radius: 4px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
-  padding: 0.8rem 1rem;
-  border-radius: 10px;
+  gap: 0.75rem;
+  padding: 0.58rem 0.85rem;
+  border-radius: 8px;
   color: #334155;
   text-decoration: none;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.92rem;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 
 .nav-item svg {
   flex-shrink: 0;
-  min-width: 21px;
-  min-height: 21px;
+  min-width: 20px;
+  min-height: 20px;
   stroke-width: 2.2px;
 }
 
@@ -83,32 +154,38 @@
   font-weight: 700;
 }
 
-/* --- NOVO: Rodapé do Menu (Perfil e Sair) --- */
+/* --- RODAPÉ DO MENU (Perfil e Sair) --- */
 .sidebar-footer {
   margin-top: auto;
-  padding-top: 1.5rem;
+  padding-top: 0.85rem;
   border-top: 1px solid var(--cor-borda);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .user-info {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .user-name {
-  font-weight: 600;
-  font-size: 0.95rem;
+  font-weight: 700;
+  font-size: 0.9rem;
   color: var(--cor-texto);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-role {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  font-weight: 600;
 }
 
 .logout-button {
@@ -118,10 +195,11 @@
   background-color: transparent;
   color: #64748b;
   border: 1px solid var(--cor-borda);
-  padding: 0.5rem;
+  padding: 0.45rem;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .logout-button:hover {
@@ -136,6 +214,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
 }
 
 .main-content {
@@ -144,63 +223,93 @@
   padding: 1.5rem;
 }
 
-/* =========================================
-   RESPONSIVIDADE (CELULARES E TABLETS)
-   ========================================= */
-@media (max-width: 768px) {
+/* ===================================================
+   RESPONSIVIDADE (CELULARES E TABLETS <= 1024px)
+   =================================================== */
+@media (max-width: 1024px) {
   .layout-container {
     flex-direction: column;
+    height: 100dvh;
   }
 
-  /* Exibe o cabeçalho com o botão hambúrguer */
+  /* Exibe o cabeçalho superior com a logo e o botão hambúrguer */
   .mobile-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 1.5rem;
+    padding: 0.85rem 1.25rem;
     background-color: #ffffff;
     border-bottom: 1px solid var(--cor-borda);
-    z-index: 20;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    z-index: 30;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    flex-shrink: 0;
   }
 
   .mobile-logo-img {
-    max-width: 120px;
+    max-width: 125px;
     height: auto;
     object-fit: contain;
   }
 
   .hamburger-btn {
     background: transparent;
-    border: none;
+    border: 1px solid #e2e8f0;
     color: var(--cor-primaria);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0.45rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
   }
 
-  .sidebar-logo {
+  .hamburger-btn:hover {
+    background-color: var(--cor-secundaria);
+  }
+
+  /* Esconde o botão de colapsar do desktop */
+  .btn-toggle-desktop {
     display: none;
   }
 
-  /* O Menu lateral vira uma gaveta flutuante */
+  /* Botão de fechar dentro do drawer no mobile */
+  .btn-fechar-drawer {
+    display: flex;
+    background: transparent;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    padding: 0.35rem;
+    border-radius: 6px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-fechar-drawer:hover {
+    background-color: #f1f5f9;
+    color: #dc2626;
+  }
+
+  /* A Sidebar se transforma no Menu Gaveta (Drawer) */
   .sidebar {
     position: fixed;
     top: 0;
     left: 0;
-    /* 100dvh respeita a barra inferior do Android/iPhone e não corta o rodapé */
     height: 100dvh;
+    width: 270px !important;
     transform: translateX(-100%);
-    padding-top: 1.5rem;
-    padding-bottom: 1.5rem; /* Dá um respiro pro botão de sair no fim da tela */
-    box-sizing: border-box; /* Garante que o tamanho não estoure */
+    padding: 1.5rem 1.25rem;
+    box-sizing: border-box;
+    box-shadow: 10px 0 40px rgba(0, 0, 0, 0.2);
+    z-index: 100;
   }
 
   .sidebar.aberto {
     transform: translateX(0);
   }
 
+  /* Fundo escuro atrás do drawer */
   .mobile-overlay {
     display: block;
     position: fixed;
@@ -208,12 +317,27 @@
     left: 0;
     width: 100vw;
     height: 100dvh;
-    background-color: rgba(0, 0, 0, 0.4);
-    z-index: 30;
-    backdrop-filter: blur(2px);
+    background-color: rgba(15, 23, 42, 0.5);
+    z-index: 90;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
 
   .main-content {
     padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-header {
+    padding: 0.75rem 1rem;
+  }
+
+  .mobile-logo-img {
+    max-width: 110px;
+  }
+
+  .main-content {
+    padding: 0.65rem;
   }
 }

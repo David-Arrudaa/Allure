@@ -1,6 +1,6 @@
 .configuracoes-container {
   background-color: #ffffff;
-  border-radius: 8px;
+  border-radius: var(--raio-borda, 12px);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
   padding: 1.5rem;
   min-height: calc(100vh - 3rem);
@@ -12,9 +12,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--cor-borda);
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .configuracoes-info h2 {
@@ -39,7 +41,7 @@
 .config-card {
   background-color: #ffffff;
   border: 1px solid var(--cor-borda);
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
@@ -98,7 +100,7 @@
 .config-form-group input:focus {
   border-color: var(--cor-primaria);
   background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(199, 75, 103, 0.1);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
 }
 
 .config-checkbox-group {
@@ -126,27 +128,31 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background-color: var(--cor-primaria);
+  background: linear-gradient(135deg, var(--cor-primaria) 0%, #6d28d9 100%);
   color: #ffffff;
   border: none;
-  padding: 0.75rem 1.5rem;
+  padding: 0.8rem 1.5rem;
   border-radius: 8px;
   font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s ease;
   align-self: flex-start;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
 }
 
 .btn-salvar-config:hover {
-  filter: brightness(0.95);
-  box-shadow: 0 4px 12px rgba(199, 75, 103, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35);
 }
 
-@media (max-width: 768px) {
+/* =========================================
+   RESPONSIVIDADE (CELULARES E TABLETS)
+   ========================================= */
+@media (max-width: 960px) {
   .configuracoes-container {
-    padding: 1rem;
-    min-height: calc(100vh - 80px);
+    padding: 1.25rem;
+    min-height: auto;
   }
 
   .configuracoes-topbar {
@@ -160,3 +166,13 @@
   }
 }
 
+@media (max-width: 600px) {
+  .configuracoes-container {
+    padding: 0.85rem;
+    border-radius: 12px;
+  }
+
+  .config-card-body {
+    padding: 1.2rem 1rem;
+  }
+}

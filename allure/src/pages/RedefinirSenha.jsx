@@ -65,6 +65,12 @@ export function RedefinirSenha() {
       {/* LADO DIREITO: FORMULÁRIO DE NOVA SENHA */}
       <div className="login-right-panel">
         <div className="login-box">
+          {/* CABEÇALHO DE MARCA MOBILE/TABLET */}
+          <div className="login-mobile-brand">
+            <img src={logoLogin} alt="LUZZ" className="login-mobile-logo-img" />
+            <p className="login-mobile-tagline">Gestão Inteligente</p>
+          </div>
+
           <div className="login-header-group">
             <h2 className="login-title">Criar Nova Senha</h2>
             <p className="login-subtitle">

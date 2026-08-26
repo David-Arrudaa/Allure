@@ -156,3 +156,18 @@
   font-size: 0.9rem;
   color: #475569;
 }
+
+/* =========================================
+   RESPONSIVIDADE (CELULARES <= 600px)
+   ========================================= */
+@media (max-width: 600px) {
+  .historico-lista {
+    max-height: 48vh;
+    padding-left: 0.2rem;
+    padding-right: 0.2rem;
+  }
+
+  .historico-cliente-card {
+    padding: 0.85rem;
+  }
+}

@@ -132,6 +132,12 @@ export function Login() {
       {/* LADO DIREITO: FORMULÁRIO MODERNO & DIRETO */}
       <div className="login-right-panel">
         <div className="login-box">
+          {/* CABEÇALHO DE MARCA MOBILE/TABLET */}
+          <div className="login-mobile-brand">
+            <img src={logoLogin} alt="LUZZ" className="login-mobile-logo-img" />
+            <p className="login-mobile-tagline">Gestão Inteligente</p>
+          </div>
+
           <div className="login-header-group">
             <h2 className="login-title">Acesse sua conta</h2>
             <p className="login-subtitle">

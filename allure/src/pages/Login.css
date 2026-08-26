@@ -13,8 +13,8 @@
   flex: 1.15;
   position: relative;
   background-color: #07090e;
-  /* Imagem cinematográfica de salão/estética em tons escuros */
-  background-image: url("https://images.unsplash.com/photo-1522337660859-02fbefca4702?q=80&w=1920&auto=format&fit=crop");
+  /* Imagem cinematográfica de salão de luxo moderno e amplo */
+  background-image: url("https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=1920&auto=format&fit=crop");
   background-size: cover;
   background-position: center;
   display: flex;
@@ -48,7 +48,12 @@
   transform: translate(-50%, -50%);
   width: 380px;
   height: 380px;
-  background: radial-gradient(circle, rgba(124, 58, 237, 0.22) 0%, rgba(79, 70, 229, 0.08) 50%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgba(124, 58, 237, 0.22) 0%,
+    rgba(79, 70, 229, 0.08) 50%,
+    transparent 70%
+  );
   filter: blur(40px);
   z-index: 1;
   pointer-events: none;
@@ -304,30 +309,121 @@
   font-weight: 600;
 }
 
-.login-footer-security {
-  display: flex;
+/* Cabeçalho de marca mobile (escondido no desktop) */
+.login-mobile-brand {
+  display: none;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 2rem;
-  font-size: 0.82rem;
-  color: #64748b;
-  font-weight: 500;
+  margin-bottom: 2rem;
+  text-align: center;
 }
 
-/* Responsividade */
-@media (max-width: 900px) {
+.login-mobile-logo-img {
+  max-width: 190px;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  margin-bottom: 0.35rem;
+}
+
+.login-mobile-tagline {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #7c3aed;
+  margin: 0;
+}
+
+/* =========================================
+   RESPONSIVIDADE (TABLETS E CELULARES)
+   ========================================= */
+
+/* Tablets em modo retrato e telas intermediárias (<= 960px) */
+@media (max-width: 960px) {
+  .login-container {
+    flex-direction: column;
+    overflow-y: auto;
+    height: auto;
+    min-height: 100dvh;
+  }
+
   .login-left-panel {
     display: none;
   }
+
   .login-right-panel {
+    flex: 1;
     background-color: var(--cor-fundo);
-    padding: 1.5rem;
+    padding: 2.5rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: none;
   }
+
   .login-box {
     background-color: #ffffff;
+    border-radius: 24px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+    border: 1px solid #e2e8f0;
+    padding: 2.5rem 2.25rem;
+    max-width: 440px;
+  }
+
+  .login-mobile-brand {
+    display: flex;
+  }
+
+  .login-header-group {
+    text-align: center;
+    margin-bottom: 1.75rem;
+  }
+
+  .login-title {
+    font-size: 1.85rem;
+  }
+}
+
+/* Smartphones pequenos e médios (<= 480px) */
+@media (max-width: 480px) {
+  .login-right-panel {
+    padding: 1.25rem 1rem;
+  }
+
+  .login-box {
+    padding: 2rem 1.25rem;
     border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-    padding: 2.5rem 2rem;
+    width: 100%;
+  }
+
+  .login-title {
+    font-size: 1.6rem;
+  }
+
+  .login-subtitle {
+    font-size: 0.88rem;
+  }
+
+  .input-field-wrapper input {
+    font-size: 1rem; /* Evita auto-zoom indesejado no Safari/iOS */
+    padding-top: 0.95rem;
+    padding-bottom: 0.95rem;
+  }
+
+  .login-aux-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin: 0 0 0.75rem 0;
+  }
+
+  .btn-esqueci-senha {
+    font-size: 0.85rem;
+  }
+
+  .login-button {
+    padding: 1.1rem;
+    font-size: 1rem;
   }
 }
