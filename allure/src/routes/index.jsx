@@ -12,6 +12,7 @@ import { Layout } from "../components/Layout/index.jsx";
 import { useAuth } from "../contexts/AuthContext";
 import { AgendamentoPublico } from "../pages/AgendamentoPublico/AgendamentoPublico";
 import { Configuracoes } from "../pages/Configuracoes/Configuracoes";
+import { RedefinirSenha } from "../pages/RedefinirSenha";
 
 function AdminRoute({ children }) {
   const { user } = useAuth();
@@ -26,6 +27,7 @@ export function AppRoutes() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         
         {/* Rota pública de agendamento */}
         <Route path="/agendar/:tenant_id" element={<AgendamentoPublico />} />

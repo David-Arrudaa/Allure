@@ -8,7 +8,6 @@
 
 /* 
   RESET CSS
-
   Garante que todos os navegadores comecem do zero, sem margens indesejadas.
 */
 * {
@@ -18,10 +17,7 @@
 }
 
 /* 
-  VARIÁVEIS CSS (Preparação para os Temas e SaaS)
-  Aqui definimos a paleta de cores padrão do Allure. 
-  Futuramente, nosso Contexto React irá alterar essas variáveis dinamicamente 
-  conforme as configurações de cada salão no banco de dados.
+  VARIÁVEIS CSS (Temas e Identidade LUZZ)
 */
 :root {
   /* Fundo High-End Tech: Cinza ultra-claro com toque sofisticado */
@@ -36,9 +32,12 @@
   --raio-borda: 10px;
   --sombra-leve: 0 4px 12px rgba(124, 58, 237, 0.08);
 }
+
 body {
-  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background-color: var(--cor-fundo);
   color: var(--cor-texto);
-  -webkit-font-smoothing: antialiased; /* Deixa as fontes mais nítidas no Mac/iOS */
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

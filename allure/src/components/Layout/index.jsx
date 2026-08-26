@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { ErrorBoundary } from "../ErrorBoundary";
+import logoHeader from "../../assets/logo-header.png";
 import "./Layout.css";
 
 export function Layout() {
@@ -31,8 +32,7 @@ export function Layout() {
       {/* CABEÇALHO MOBILE (Aparece apenas no celular) */}
       <div className="mobile-header">
         <div className="mobile-logo">
-          <h2>LUZZ</h2>
-          <p>Gestão</p>
+          <img src={logoHeader} alt="LUZZ" className="mobile-logo-img" />
         </div>
         <button
           className="hamburger-btn"
@@ -50,8 +50,7 @@ export function Layout() {
       {/* MENU LATERAL */}
       <aside className={`sidebar ${menuAberto ? "aberto" : ""}`}>
         <div className="sidebar-logo">
-          <h2>LUZZ</h2>
-          <p>Gestão</p>
+          <img src={logoHeader} alt="LUZZ" className="sidebar-logo-img" />
         </div>
 
         <nav className="sidebar-nav">
