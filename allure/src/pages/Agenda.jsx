@@ -19,25 +19,8 @@ import { supabase } from "../services/supabase";
 import { Skeleton } from "../components/ui/Skeleton"; // <-- IMPORTAÇÃO DO SKELETON
 import "./Agenda.css";
 
-const extrairAniversario = (observacoes) => {
-  if (!observacoes) return "";
-  const match = observacoes.match(/(?:Nascimento|Anivers[áa]rio):\s*([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}\/[0-9]{2}\/[0-9]{4})/i);
-  if (match) {
-    const val = match[1];
-    if (val.includes("/")) {
-      const [d, m, y] = val.split("/");
-      return `${y}-${m}-${d}`;
-    }
-    return val;
-  }
-  return "";
-};
-
 const formatarDataInput = (data) => {
-  if (!data) return "";
-  const d = data instanceof Date ? data : new Date(data);
-  if (isNaN(d.getTime())) return "";
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
 };
 
 export function Agenda() {
@@ -111,7 +94,7 @@ export function Agenda() {
       // BUSCA O TELEFONE JUNTO COM O NOME DO CLIENTE NA TABELA CUSTOMERS
       const { data, error } = await supabase.from("appointments").select(`
           *,
-          customers ( id, nome, telefone, is_whatsapp, observacoes ),
+          customers ( id, nome, telefone ),
           profissionais ( id, nome )
         `);
 
@@ -131,8 +114,6 @@ export function Agenda() {
             customerId: item.customer_id || item.customers?.id || null,
             cliente: item.customers?.nome || "Cliente",
             telefone: item.customers?.telefone || "",
-            aniversario: extrairAniversario(item.customers?.observacoes),
-            isWhatsApp: item.customers?.is_whatsapp ?? true,
             profissionalId: item.profissional_id,
             profissional: item.profissionais?.nome || "Profissional",
             servico: item.servico,
@@ -207,7 +188,7 @@ export function Agenda() {
 
       const { data, error } = await supabase
         .from("appointments")
-        .select("*, customers(id, nome, telefone, is_whatsapp, observacoes)")
+        .select("*, customers(nome)")
         .eq("grupo_recorrencia", ag.grupo_recorrencia)
         .gte("data_horario", hojeStr)
         .order("data_horario", { ascending: true });
@@ -267,9 +248,6 @@ export function Agenda() {
   };
 
   const formatarDataExibicao = (data) => {
-    if (!data) return "";
-    const d = data instanceof Date ? data : new Date(data);
-    if (isNaN(d.getTime())) return "";
     const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     const meses = [
       "Janeiro",
@@ -285,7 +263,7 @@ export function Agenda() {
       "Novembro",
       "Dezembro",
     ];
-    return `${dias[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")} de ${meses[d.getMonth()]}`;
+    return `${dias[data.getDay()]}, ${String(data.getDate()).padStart(2, "0")} de ${meses[data.getMonth()]}`;
   };
 
   const irParaHoje = () => setDataSelecionada(new Date());
@@ -308,21 +286,19 @@ export function Agenda() {
 
   const determinarCoresAgendamento = (ag) => {
     if (ag.status === "bloqueio") {
-      return { bg: "#F1F5F9", border: "#94A3B8", text: "#475569" }; // Cinza/Bloqueio
+      return { bg: "#F1F5F9", border: "#94A3B8", text: "#64748B" }; // Cinza
     }
     if (ag.status === "cancelado") {
-      return { bg: "#FEE2E2", border: "#EF4444", text: "#991B1B" }; // Vermelho/Cancelado
+      return { bg: "#FEF2F2", border: "#EF4444", text: "#991B1B" }; // Vermelho/Cancelado
     }
-    // 1. Confirmado e Pago (ou ao receber pagamento): Verde Forte
     if (ag.pagamento === "pago") {
-      return { bg: "#DCFCE7", border: "#16A34A", text: "#14532D" }; // Verde forte / Pago
+      return { bg: "#F5F3FF", border: "#8B5CF6", text: "#5B21B6" }; // Roxo/Pago
     }
-    // 2. Confirmado sem receber pagamento: Azul
     if (ag.status === "confirmado") {
-      return { bg: "#DBEAFE", border: "#3B82F6", text: "#1E40AF" }; // Azul / Confirmado sem pagar
+      return { bg: "#F0FDF4", border: "#22C55E", text: "#166534" }; // Verde/Confirmado
     }
-    // 3. Agendamento Pendente (sem confirmação): Amarelo Claro
-    return { bg: "#FEF9C3", border: "#EAB308", text: "#854D0E" }; // Amarelo claro / Pendente
+    // Default: Agendado / Pendente
+    return { bg: "#EFF6FF", border: "#3B82F6", text: "#1E40AF" }; // Azul/Pendente
   };
 
   const calcularHoraFim = (horaInicio, duracaoMinutos) => {
@@ -617,7 +593,6 @@ export function Agenda() {
                         style={{
                           top: `${calcularPosicao(ag.horarioInicio)}px`,
                           height: `${ag.duracao * 2}px`,
-                          minHeight: `${ag.duracao * 2}px`,
                           backgroundColor: determinarCoresAgendamento(ag).bg,
                           borderLeftColor: determinarCoresAgendamento(ag).border,
                           position: "absolute",
@@ -1118,9 +1093,6 @@ export function Agenda() {
                               id: item.id,
                               customerId: item.customer_id || item.customers?.id || null,
                               cliente: item.customers?.nome,
-                              telefone: item.customers?.telefone || "",
-                              aniversario: extrairAniversario(item.customers?.observacoes),
-                              isWhatsApp: item.customers?.is_whatsapp ?? true,
                               profissionalId: item.profissional_id,
                               servico: item.servico,
                               horarioInicio: horaFormatada,

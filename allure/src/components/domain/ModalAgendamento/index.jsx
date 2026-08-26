@@ -90,11 +90,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const [pacotesPendentes, setPacotesPendentes] = useState([]);
   const [conflitosDetalhados, setConflitosDetalhados] = useState([]);
 
-  // NOVO: ESTADOS DO MODAL DE SENHA PARA RETROATIVOS
-  const [showSenhaModal, setShowSenhaModal] = useState(false);
-  const [senhaDigitada, setSenhaDigitada] = useState("");
-  const [erroSenha, setErroSenha] = useState("");
-  const [pacotesPendentesSenha, setPacotesPendentesSenha] = useState([]);
 
   // NOVO: ESTADO DO MODAL DE CONFIRMAÇÃO DE AGENDAMENTO RETROATIVO
   const [showModalRetroativo, setShowModalRetroativo] = useState(false);
@@ -174,11 +169,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
     setPacotesPendentes([]);
     setConflitosDetalhados([]);
     
-    // Reseta os estados de senha sempre que abrir o modal
-    setShowSenhaModal(false);
-    setSenhaDigitada("");
-    setErroSenha("");
-    setPacotesPendentesSenha([]);
 
     // Reseta modal de retroativo
     setShowModalRetroativo(false);
@@ -346,20 +336,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
     setIsSaving(false);
   };
 
-  // FUNÇÃO DE VALIDAÇÃO DE SENHA
-  const handleConfirmarSenha = (e) => {
-    e.preventDefault();
-    const SENHA_PADRAO = "admin123"; 
-
-    if (senhaDigitada === SENHA_PADRAO) {
-      setErroSenha("");
-      setShowSenhaModal(false);
-      setIsSaving(true);
-      validarESalvar(pacotesPendentesSenha); // Continua o fluxo de salvamento
-    } else {
-      setErroSenha("Senha incorreta. Tente novamente.");
-    }
-  };
 
   const validarESalvar = async (pacotes) => {
     try {
@@ -1138,114 +1114,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         </form>
       </div>
 
-      {/* --- NOVO MODAL DE SENHA PARA AGENDAMENTO RETROATIVO --- */}
-      {showSenhaModal && (
-        <div
-          className="modal-overlay"
-          style={{ zIndex: 1200, backgroundColor: "rgba(15, 23, 42, 0.7)" }}
-        >
-          <div
-            className="modal-box"
-            style={{
-              maxWidth: "400px",
-              textAlign: "center",
-              padding: "2rem 1.5rem",
-              borderRadius: "16px",
-            }}
-          >
-            <div
-              style={{
-                width: "56px",
-                height: "56px",
-                borderRadius: "50%",
-                margin: "0 auto 1.25rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "#FFFBEB",
-                color: "#D97706",
-              }}
-            >
-              <Lock size={28} strokeWidth={2.3} />
-            </div>
-
-            <h3 style={{ fontSize: "1.25rem", color: "#1E293B", margin: "0 0 0.5rem 0" }}>
-              Agendamento Retroativo
-            </h3>
-            
-            <p style={{ fontSize: "0.95rem", color: "#64748B", marginBottom: "1.5rem", lineHeight: "1.5" }}>
-              Você está tentando salvar um horário que já passou. Insira a senha de autorização para prosseguir.
-            </p>
-
-            <form onSubmit={handleConfirmarSenha}>
-              <input
-                type="password"
-                placeholder="Digite a senha..."
-                value={senhaDigitada}
-                onChange={(e) => {
-                  setSenhaDigitada(e.target.value);
-                  setErroSenha("");
-                }}
-                style={{
-                  width: "100%",
-                  padding: "0.8rem",
-                  borderRadius: "8px",
-                  border: `1px solid ${erroSenha ? "#EF4444" : "#CBD5E1"}`,
-                  fontSize: "1rem",
-                  textAlign: "center",
-                  letterSpacing: "2px",
-                  marginBottom: erroSenha ? "0.5rem" : "1.5rem",
-                }}
-                autoFocus
-              />
-              {erroSenha && (
-                <div style={{ color: "#EF4444", fontSize: "0.85rem", marginBottom: "1rem", fontWeight: "500" }}>
-                  {erroSenha}
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: "10px" }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSenhaModal(false);
-                    setSenhaDigitada("");
-                    setErroSenha("");
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: "0.8rem",
-                    borderRadius: "8px",
-                    border: "1px solid #E2E8F0",
-                    backgroundColor: "#FFFFFF",
-                    color: "#475569",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    flex: 1,
-                    padding: "0.8rem",
-                    borderRadius: "8px",
-                    border: "none",
-                    backgroundColor: "var(--cor-primaria)",
-                    color: "#FFFFFF",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                  }}
-                >
-                  Autorizar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {/* -------------------------------------------------------- */}
 
       {showConflictModal && (
         <div

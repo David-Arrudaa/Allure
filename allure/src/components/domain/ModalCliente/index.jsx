@@ -166,7 +166,7 @@ export function ModalCliente({ isOpen, onClose, cliente }) {
             </div>
 
             <div className="form-grupo">
-              <label>Data Nascimento</label>
+              <label>Data de Nascimento</label>
               <input type="date" {...register("aniversario")} />
             </div>
           </div>
