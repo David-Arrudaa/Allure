@@ -1,0 +1,11 @@
+# Logs & Environment
+.env
+.env*
+!.env.example
+*.local
+node_modules/
+dist/
+.vercel
+.vscode/
+.DS_Store
+

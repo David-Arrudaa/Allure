@@ -16,11 +16,11 @@ export async function getTenantConfig(hostname) {
 
   return {
     id: 'tenant-1',
-    name: 'Allure Hair',
-    logoUrl: 'https://placehold.co/150x50?text=Allure+Hair',
+    name: 'LUZZ - Gestão de Beleza',
+    logoUrl: 'https://placehold.co/150x50?text=LUZZ',
     theme: {
-      primary: '#9b87f5',
-      secondary: '#7E69AB'
+      primary: '#7c3aed',
+      secondary: '#ede9fe'
     }
   };
 }

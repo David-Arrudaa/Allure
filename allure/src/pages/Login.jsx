@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import logoAllure from "../assets/logo.png";
 import "./Login.css";
 
 export function Login() {
@@ -33,7 +32,7 @@ export function Login() {
     <div className="login-container">
       {/* LADO ESQUERDO */}
       <div className="login-left-panel">
-        <div className="login-overlay"></div>{" "}
+        <div className="login-overlay"></div>
         <div
           className="login-brand-info"
           style={{
@@ -42,24 +41,28 @@ export function Login() {
             alignItems: "center",
           }}
         >
-          <img
-            src={logoAllure}
-            alt="Logo Allure"
+          <h1
             style={{
-              width: "220px",
-              marginBottom: "0.5rem", // Reduzi um pouco para aproximar o texto do logo
-              filter: "brightness(0) invert(1)",
+              fontSize: "4rem",
+              fontWeight: "900",
+              letterSpacing: "10px",
+              color: "#FFFFFF",
+              margin: "0 0 0.25rem 0",
+              fontFamily: "'Segoe UI', Roboto, sans-serif",
+              textShadow: "0 4px 20px rgba(0,0,0,0.25)",
             }}
-          />
+          >
+            LUZZ
+          </h1>
 
           {/* ESTILO PREMIUM PARA O SUBTÍTULO */}
           <p
             style={{
-              textTransform: "uppercase", // Letras maiúsculas
-              letterSpacing: "4px", // Espaçamento largo entre as letras
-              fontSize: "0.85rem", // Fonte um pouco mais delicada
-              fontWeight: "500", // Peso médio
-              color: "rgba(255, 255, 255, 0.8)", // Branco levemente suavizado para não ofuscar o logo
+              textTransform: "uppercase",
+              letterSpacing: "4px",
+              fontSize: "0.85rem",
+              fontWeight: "600",
+              color: "rgba(255, 255, 255, 0.9)",
               margin: "0",
             }}
           >

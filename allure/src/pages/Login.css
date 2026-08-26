@@ -31,8 +31,8 @@
   /* Usando a cor primária com 85% de opacidade */
   background: linear-gradient(
     135deg,
-    rgba(199, 75, 103, 0.85) 0%,
-    rgba(160, 60, 83, 0.95) 100%
+    rgba(124, 58, 237, 0.9) 0%,
+    rgba(79, 70, 229, 0.95) 100%
   );
   z-index: 1;
 }
@@ -133,7 +133,7 @@
 .input-group input:focus {
   border-color: var(--cor-primaria);
   background-color: #ffffff;
-  box-shadow: 0 4px 12px rgba(199, 75, 103, 0.1);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
 }
 
 .input-group input::placeholder {
@@ -141,7 +141,7 @@
 }
 
 .login-button {
-  background: linear-gradient(135deg, var(--cor-primaria) 0%, #a03c53 100%);
+  background: linear-gradient(135deg, var(--cor-primaria) 0%, #6d28d9 100%);
   color: white;
   border: none;
   padding: 1.2rem;
@@ -151,12 +151,12 @@
   cursor: pointer;
   transition: all 0.3s ease;
   margin-top: 1rem;
-  box-shadow: 0 4px 15px rgba(199, 75, 103, 0.3);
+  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
 }
 
 .login-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(199, 75, 103, 0.4);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45);
 }
 
 .login-button:disabled {

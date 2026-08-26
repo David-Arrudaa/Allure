@@ -24,17 +24,17 @@
   conforme as configurações de cada salão no banco de dados.
 */
 :root {
-  /* Fundo alterado: Um tom de rosa bem claro, elegante e "quente" */
-  --cor-fundo: #fcf0f3;
+  /* Fundo High-End Tech: Cinza ultra-claro com toque sofisticado */
+  --cor-fundo: #f8fafc;
 
-  --cor-texto: #2d3748;
-  --cor-primaria: #c74b67;
-  --cor-secundaria: #fce7eb;
+  --cor-texto: #1e293b;
+  --cor-primaria: #7c3aed;       /* Violeta Real / Roxo Luxo */
+  --cor-secundaria: #ede9fe;     /* Lavanda suave para seleções e hovers */
   --cor-cards: #ffffff;
   --cor-borda: #e2e8f0;
 
   --raio-borda: 10px;
-  --sombra-leve: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --sombra-leve: 0 4px 12px rgba(124, 58, 237, 0.08);
 }
 body {
   font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;

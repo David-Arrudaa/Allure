@@ -8,7 +8,7 @@ import {
   Scissors,
   LayoutDashboard,
   DollarSign,
-  Briefcase,
+  UserCheck,
   Package,
   Menu, // <-- Ícone do hambúrguer
   X, // <-- Ícone para fechar o menu
@@ -31,8 +31,8 @@ export function Layout() {
       {/* CABEÇALHO MOBILE (Aparece apenas no celular) */}
       <div className="mobile-header">
         <div className="mobile-logo">
-          <h2>Allure</h2>
-          <p>Admin</p>
+          <h2>LUZZ</h2>
+          <p>Gestão</p>
         </div>
         <button
           className="hamburger-btn"
@@ -50,8 +50,8 @@ export function Layout() {
       {/* MENU LATERAL */}
       <aside className={`sidebar ${menuAberto ? "aberto" : ""}`}>
         <div className="sidebar-logo">
-          <h2>Allure</h2>
-          <p>Admin</p>
+          <h2>LUZZ</h2>
+          <p>Gestão</p>
         </div>
 
         <nav className="sidebar-nav">
@@ -84,7 +84,7 @@ export function Layout() {
 
           {profile?.is_admin && (
             <NavLink to="/equipe" className="nav-item" onClick={fecharMenu}>
-              <Briefcase size={20} />
+              <UserCheck size={20} />
               <span>Gerenciamento</span>
             </NavLink>
           )}

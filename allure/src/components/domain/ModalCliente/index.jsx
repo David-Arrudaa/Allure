@@ -4,7 +4,6 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useClientes } from "../../../hooks/useClientes";
-import { useAuth } from "../../../contexts/AuthContext";
 import "./ModalCliente.css";
 // import "../ModalAgendamento/ModalAgendamento.css";
 
@@ -47,7 +46,6 @@ const montarObservacoesComAniversario = (obsExistente, dataNasc) => {
 };
 
 export function ModalCliente({ isOpen, onClose, cliente }) {
-  const { profile } = useAuth();
   const { criarCliente, atualizarCliente, isSalvando } = useClientes();
 
   const {
@@ -104,7 +102,6 @@ export function ModalCliente({ isOpen, onClose, cliente }) {
         telefone: dadosCliente.telefone.trim(),
         is_whatsapp: dadosCliente.eWhatsApp,
         observacoes: montarObservacoesComAniversario(dadosCliente.observacoes, dadosCliente.aniversario),
-        tenant_id: profile?.tenant_id || "11111111-1111-1111-1111-111111111111",
       };
 
       if (cliente && cliente.id) {
