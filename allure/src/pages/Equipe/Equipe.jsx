@@ -11,9 +11,11 @@ import {
 } from "lucide-react";
 import { supabase } from "../../services/supabase"; // Importação do banco de dados
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useAuth } from "../../contexts/AuthContext";
 import "./Equipe.css";
 
 export function Equipe() {
+  const { profile } = useAuth();
   const [busca, setBusca] = useState("");
   const [equipe, setEquipe] = useState([]);
   const [carregandoDados, setCarregandoDados] = useState(true);
@@ -172,6 +174,7 @@ export function Equipe() {
         foto: formFunc.foto || null,
         email: formFunc.email.trim(),
         is_admin: formFunc.is_admin,
+        tenant_id: profile?.tenant_id,
       };
 
       if (editandoId) {
@@ -410,7 +413,7 @@ export function Equipe() {
               </button>
             </div>
 
-            <form onSubmit={handleSalvar} className="modal-form">
+            <form onSubmit={handleSalvar} className="modal-form" autoComplete="off">
               <div className="upload-foto-container">
                 <div className="avatar-preview">
                   {formFunc.foto ? (
@@ -438,6 +441,7 @@ export function Equipe() {
                 <input
                   type="text"
                   required
+                  autoComplete="off"
                   placeholder="Ex: Amanda Lima"
                   value={formFunc.nome}
                   onChange={(e) =>
@@ -454,6 +458,7 @@ export function Equipe() {
                 <input
                   type="text"
                   required
+                  autoComplete="off"
                   placeholder="Ex: Nail Designer"
                   value={formFunc.especialidade}
                   onChange={(e) =>
@@ -469,6 +474,7 @@ export function Equipe() {
                 <label>Telefone</label>
                 <input
                   type="text"
+                  autoComplete="off"
                   placeholder="(00) 00000-0000"
                   value={formFunc.telefone}
                   onChange={(e) =>
@@ -482,6 +488,7 @@ export function Equipe() {
                 <input
                   type="email"
                   required
+                  autoComplete="off"
                   placeholder="Ex: amanda@salao.com"
                   value={formFunc.email}
                   onChange={(e) =>
@@ -496,6 +503,7 @@ export function Equipe() {
                   <input
                     type="password"
                     required
+                    autoComplete="new-password"
                     placeholder="Mínimo 6 caracteres"
                     value={formFunc.senha}
                     onChange={(e) =>

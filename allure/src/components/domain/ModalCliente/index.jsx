@@ -106,12 +106,13 @@ export function ModalCliente({ isOpen, onClose, cliente }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="form-cliente">
+        <form onSubmit={handleSubmit(onSubmit)} className="form-cliente" autoComplete="off">
           <div className="form-grupo">
             <label>Nome Completo *</label>
             <input
               type="text"
               placeholder="Ex: Mariana Souza"
+              autoComplete="off"
               {...register("nome")}
               onChange={(e) => {
                 e.target.value = formatarNome(e.target.value);
@@ -132,6 +133,7 @@ export function ModalCliente({ isOpen, onClose, cliente }) {
                     type="text"
                     placeholder="(00) 00000-0000"
                     value={value}
+                    autoComplete="off"
                     onChange={(e) => onChange(applyPhoneMask(e.target.value))}
                   />
                 )}

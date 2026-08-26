@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Search, Edit2, Trash2 } from "lucide-react";
-import { ModalServico } from "../components/domain/ModalServico";
-import { supabase } from "../services/supabase";
-import { Skeleton } from "../components/ui/Skeleton";
-import { useAuth } from "../contexts/AuthContext";
-import "./Servicos.css";
+import { ModalServico } from "../../components/domain/ModalServico";
+import { supabase } from "../../services/supabase";
+import { Skeleton } from "../../components/ui/Skeleton";
+import { useAuth } from "../../contexts/AuthContext";
 
 export function Servicos() {
   const { profile } = useAuth();
@@ -70,16 +69,16 @@ export function Servicos() {
   );
 
   return (
-    <div className="servicos-container">
-      <div className="servicos-topbar">
-        <div className="servicos-info">
-          <h2>Gestão de Serviços</h2>
-          <p>Cadastre e ajuste os valores dos serviços do salão</p>
+    <div className="bg-white rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-6 min-h-[calc(100vh-3rem)] flex flex-col max-md:p-4 max-md:h-[calc(100vh-80px)]">
+      <div className="flex justify-between items-center mb-8 pb-4 border-b border-[var(--cor-borda)] max-md:flex-col max-md:items-start max-md:gap-5">
+        <div>
+          <h2 className="text-2xl text-[var(--cor-texto)] font-bold mb-1">Gestão de Serviços</h2>
+          <p className="text-slate-500 text-sm">Cadastre e ajuste os valores dos serviços do salão</p>
         </div>
 
         {profile?.is_admin && (
           <button
-            className="btn-novo"
+            className="btn-novo max-md:w-full max-md:justify-center"
             onClick={() => {
               setServicoEditando(null); // Garante que abra o modal limpo
               setModalAberto(true);
@@ -92,46 +91,43 @@ export function Servicos() {
         )}
       </div>
 
-      <div className="servicos-conteudo">
-        <div className="servicos-filtros">
-          <div className="busca-container">
-            <Search size={18} />
+      <div className="flex-1 flex flex-col">
+        <div className="flex mb-6">
+          <div className="relative w-full max-w-[400px] max-md:max-w-full">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Buscar serviço por nome..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               disabled={isLoading} // Trava a busca enquanto carrega
+              className="w-full py-3 pr-4 pl-[2.8rem] border border-[var(--cor-borda)] rounded-lg text-[0.95rem] text-[var(--cor-texto)] bg-slate-50 outline-none transition-all duration-200 focus:border-[var(--cor-primaria)] focus:bg-white focus:shadow-[0_0_0_3px_rgba(199,75,103,0.1)]"
             />
           </div>
         </div>
 
-        <div className="tabela-container">
-          <table className="tabela-servicos">
+        <div className="bg-white border border-[var(--cor-borda)] rounded-lg overflow-hidden max-md:overflow-x-hidden max-md:w-full">
+          <table className="w-full border-collapse text-left max-md:min-w-0 max-md:w-full">
             <thead>
               <tr>
-                <th>Nome do Serviço</th>
-                <th>Valor (R$)</th>
-                <th>Ações</th>
+                <th className="bg-slate-50 p-4 text-[0.85rem] font-semibold text-slate-500 uppercase border-b border-[var(--cor-borda)] max-md:p-[0.8rem_0.4rem] max-md:text-[0.85rem] max-md:whitespace-normal">Nome do Serviço</th>
+                <th className="bg-slate-50 p-4 text-[0.85rem] font-semibold text-slate-500 uppercase border-b border-[var(--cor-borda)] max-md:p-[0.8rem_0.4rem] max-md:text-[0.85rem] max-md:whitespace-normal">Valor (R$)</th>
+                <th className="bg-slate-50 p-4 text-[0.85rem] font-semibold text-slate-500 uppercase border-b border-[var(--cor-borda)] max-md:p-[0.8rem_0.4rem] max-md:text-[0.85rem] max-md:whitespace-normal">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {/* ========================================================= */}
-              {/* SKELETONS - TABELA FANTASMA                               */}
-              {/* ========================================================= */}
               {isLoading ? (
                 [1, 2, 3, 4, 5].map((item) => (
-                  <tr key={`skel-${item}`}>
-                    <td>
+                  <tr key={`skel-${item}`} className="hover:bg-slate-50">
+                    <td className="p-4 text-[0.95rem] text-[var(--cor-texto)] border-b border-slate-100 align-middle max-md:p-[0.8rem_0.4rem] max-md:text-[0.85rem] max-md:whitespace-normal">
                       <Skeleton width="60%" height="20px" />
                     </td>
-                    <td>
+                    <td className="p-4 text-[0.95rem] text-[var(--cor-texto)] border-b border-slate-100 align-middle max-md:p-[0.8rem_0.4rem] max-md:text-[0.85rem] max-md:whitespace-normal">
                       <Skeleton width="80px" height="20px" />
                     </td>
-                    <td>
+                    <td className="p-4 text-[0.95rem] text-[var(--cor-texto)] border-b border-slate-100 align-middle last:border-b-0 max-md:p-[0.8rem_0.4rem] max-md:text-[0.85rem] max-md:whitespace-normal">
                       <div
-                        className="acoes-tabela"
-                        style={{ display: "flex", gap: "6px" }}
+                        className="flex gap-1.5"
                       >
                         <Skeleton
                           width="32px"
@@ -149,18 +145,19 @@ export function Servicos() {
                 ))
               ) : servicosFiltrados.length > 0 ? (
                 servicosFiltrados.map((servico) => (
-                  <tr key={servico.id}>
-                    <td>
+                  <tr key={servico.id} className="hover:bg-slate-50">
+                    <td className="p-4 text-[0.95rem] text-[var(--cor-texto)] border-b border-slate-100 align-middle max-md:p-[0.8rem_0.4rem] max-md:text-[0.85rem] max-md:whitespace-normal">
                       <strong>{servico.nome}</strong>
                     </td>
-                    {/* Formata o preço com vírgula */}
-                    <td>R$ {String(servico.preco).replace(".", ",")}</td>
-                    <td>
-                      <div className="acoes-tabela">
+                    <td className="p-4 text-[0.95rem] text-[var(--cor-texto)] border-b border-slate-100 align-middle max-md:p-[0.8rem_0.4rem] max-md:text-[0.85rem] max-md:whitespace-normal">
+                      R$ {String(servico.preco).replace(".", ",")}
+                    </td>
+                    <td className="p-4 text-[0.95rem] text-[var(--cor-texto)] border-b border-slate-100 align-middle last:border-b-0 max-md:p-[0.8rem_0.4rem] max-md:text-[0.85rem] max-md:whitespace-normal">
+                      <div className="flex gap-1.5">
                         {profile?.is_admin && (
                           <>
                             <button
-                              className="btn-acao editar"
+                              className="bg-transparent border-none p-1.5 rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all duration-200 hover:bg-blue-50 hover:text-blue-500"
                               title="Editar Serviço"
                               onClick={() => {
                                 setServicoEditando(servico);
@@ -170,7 +167,7 @@ export function Servicos() {
                               <Edit2 size={18} />
                             </button>
                             <button
-                              className="btn-acao excluir"
+                              className="bg-transparent border-none p-1.5 rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all duration-200 hover:bg-red-50 hover:text-red-500"
                               title="Excluir Serviço"
                               onClick={() => setServicoParaExcluir(servico)}
                             >

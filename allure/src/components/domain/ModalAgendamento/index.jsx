@@ -3,6 +3,7 @@ import { X, RefreshCw, AlertTriangle, ListChecks, Lock } from "lucide-react";
 import { supabase } from "../../../services/supabase";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
+import { useAuth } from "../../../contexts/AuthContext";
 import "./ModalAgendamento.css";
 
 const agendamentoSchema = z.object({
@@ -16,6 +17,7 @@ const agendamentoSchema = z.object({
 });
 
 export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
+  const { profile } = useAuth();
   const dataHoje = new Date().toISOString().split("T")[0];
 
   const [buscaCliente, setBuscaCliente] = useState("");
@@ -335,7 +337,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       if (!isBloqueio && !customerIdFinal && buscaCliente.trim()) {
         const { data: novoCliente, error: errCliente } = await supabase
           .from("customers")
-          .insert([{ nome: buscaCliente.trim() }])
+          .insert([{ nome: buscaCliente.trim(), tenant_id: profile?.tenant_id }])
           .select("id");
 
         if (errCliente) throw errCliente;
@@ -359,6 +361,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         status: isBloqueio ? "bloqueio" : "pendente",
         pagamento: "pendente",
         grupo_recorrencia: idGrupoRecorrencia,
+        tenant_id: profile?.tenant_id,
       }));
 
       let resSalvar;

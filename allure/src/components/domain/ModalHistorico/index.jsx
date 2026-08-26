@@ -35,11 +35,12 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
           data_horario,
           servico,
           valor,
+          status,
+          pagamento,
           profissionais ( nome )
         `,
         )
         .eq("customer_id", cliente.id)
-        .eq("pagamento", "pago") // Filtra estritamente os concluídos/pagos
         .gte("data_horario", dataLimiteIso) // Apenas últimos 12 meses
         .order("data_horario", { ascending: false }); // Ordena do mais recente para o mais antigo
 
@@ -57,6 +58,8 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
             servico: item.servico || "Serviço não especificado",
             profissional: item.profissionais?.nome || "Equipe",
             valor: item.valor ? String(item.valor).replace(".", ",") : "0,00",
+            status: item.status,
+            pagamento: item.pagamento,
           };
         });
 
@@ -89,6 +92,12 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
         </div>
 
         <div className="historico-lista">
+          {cliente.observacoes && (
+            <div style={{ backgroundColor: "#FEF9C3", padding: "12px", borderRadius: "8px", borderLeft: "4px solid #F59E0B", marginBottom: "16px", color: "#854D0E", fontSize: "0.9rem" }}>
+              <strong>Observações Importantes:</strong>
+              <p style={{ margin: "4px 0 0" }}>{cliente.observacoes}</p>
+            </div>
+          )}
           {loading ? (
             <div
               style={{
@@ -112,7 +121,14 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
                 </div>
 
                 <div className="historico-detalhes">
-                  <h4>{item.servico}</h4>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <h4>{item.servico}</h4>
+                    <div style={{ display: "flex", gap: "6px", flexDirection: "column", alignItems: "flex-end" }}>
+                      {item.status === "cancelado" && <span style={{ backgroundColor: "#FEE2E2", color: "#EF4444", padding: "2px 6px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: "700" }}>CANCELADO</span>}
+                      {item.pagamento === "pago" && <span style={{ backgroundColor: "#DCFCE7", color: "#16A34A", padding: "2px 6px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: "700" }}>PAGO</span>}
+                      {item.pagamento !== "pago" && item.status !== "cancelado" && <span style={{ backgroundColor: "#F1F5F9", color: "#64748B", padding: "2px 6px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: "700" }}>PENDENTE</span>}
+                    </div>
+                  </div>
                   <p
                     style={{
                       display: "flex",
@@ -147,7 +163,7 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
                 borderRadius: "8px",
               }}
             >
-              Nenhum atendimento pago registrado nos últimos 12 meses.
+              Nenhum atendimento registrado nos últimos 12 meses.
             </p>
           )}
         </div>

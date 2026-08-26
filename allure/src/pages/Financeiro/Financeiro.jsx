@@ -387,7 +387,6 @@ export function Financeiro() {
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               className="input-busca"
-              disabled={loading} // Trava a busca enquanto carrega
             />
           </div>
 

@@ -1,15 +1,22 @@
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 test.describe('MVP Flow - Critical Path', () => {
 
   test.beforeEach(async ({ page }) => {
-    // Assuming standard login for E2E tests, navigating to home/dashboard
-    await page.goto('/');
-
-    // Simulate login if necessary
-    // await page.fill('input[name="email"]', 'admin@allure.com');
-    // await page.fill('input[name="password"]', 'password123');
-    // await page.click('button[type="submit"]');
+    // Injeta a sessão no localStorage para burlar o Captcha do Supabase
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        '@Allure:profissional',
+        JSON.stringify({
+          id: 'test-admin-id',
+          nome: 'Admin Teste',
+          email: 'admin@allure.com',
+          tenant_id: 'test-tenant',
+          is_admin: true
+        })
+      );
+    });
+    await page.goto('/agenda');
   });
 
   test('Deve cadastrar, alterar cliente, marcar agenda, pagar e validar dashboard', async ({ page }) => {

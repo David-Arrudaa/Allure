@@ -4,6 +4,7 @@ import { supabase } from "../../../services/supabase";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useAuth } from "../../../contexts/AuthContext";
 import "../ModalAgendamento/ModalAgendamento.css";
 
 const servicoSchema = z.object({
@@ -15,6 +16,7 @@ const servicoSchema = z.object({
 });
 
 export function ModalServico({ isOpen, onClose, servico }) {
+  const { profile } = useAuth();
   const [carregando, setCarregando] = React.useState(false);
 
   const {
@@ -62,6 +64,7 @@ export function ModalServico({ isOpen, onClose, servico }) {
       const payload = {
         nome: formatarNome(dadosServico.nome),
         preco: precoNumerico,
+        tenant_id: profile?.tenant_id,
       };
 
       if (servico && servico.id) {
