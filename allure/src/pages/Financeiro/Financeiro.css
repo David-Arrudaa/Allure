@@ -407,7 +407,7 @@
 
 .tabela-cabecalho.prof-table,
 .tabela-linha.prof-table {
-  grid-template-columns: 1fr 2fr 2fr 1fr;
+  grid-template-columns: 1fr 1.8fr 1.8fr 1.2fr 1.2fr;
 }
 
 .texto-secundario {

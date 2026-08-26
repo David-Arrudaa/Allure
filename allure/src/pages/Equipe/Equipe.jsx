@@ -11,10 +11,12 @@ import {
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../services/supabase"; // Importação do banco de dados
+import { useAuth } from "../../contexts/AuthContext";
 import { Skeleton } from "../../components/ui/Skeleton";
 import "./Equipe.css";
 
 export function Equipe() {
+  const { user, profile } = useAuth();
   const [busca, setBusca] = useState("");
   const [equipe, setEquipe] = useState([]);
   const [carregandoDados, setCarregandoDados] = useState(true);
@@ -123,6 +125,12 @@ export function Equipe() {
     e.preventDefault();
     if (!formFunc.nome || !formFunc.especialidade) return;
 
+    if (!editandoId && formFunc.email && formFunc.senha && formFunc.senha.length < 8) {
+      alert("A senha de acesso deve conter no mínimo 8 caracteres para maior segurança.");
+      setCarregandoForm(false);
+      return;
+    }
+
     setCarregandoForm(true);
 
     try {
@@ -165,14 +173,17 @@ export function Equipe() {
         }
       }
 
+      const tenantIdFinal = profile?.tenant_id || user?.tenant_id || "11111111-1111-1111-1111-111111111111";
+
       const dadosParaSalvar = {
         nome: formFunc.nome.trim(),
         especialidade: formFunc.especialidade.trim(),
         telefone: formFunc.telefone.trim() || null,
         ordem: novaOrdem,
         foto: formFunc.foto || null,
-        email: formFunc.email.trim(),
-        is_admin: formFunc.is_admin,
+        email: formFunc.email ? formFunc.email.trim() : null,
+        is_admin: formFunc.is_admin || false,
+        tenant_id: tenantIdFinal,
       };
 
       if (editandoId) {
@@ -492,11 +503,12 @@ export function Equipe() {
 
               {!editandoId && (
                 <div className="form-group">
-                  <label>Senha Provisória *</label>
+                  <label>Senha Provisória (Mínimo 8 caracteres) *</label>
                   <input
                     type="password"
                     required
-                    placeholder="Mínimo 6 caracteres"
+                    minLength={8}
+                    placeholder="Mínimo 8 caracteres"
                     value={formFunc.senha}
                     onChange={(e) =>
                       setFormFunc({ ...formFunc, senha: e.target.value })

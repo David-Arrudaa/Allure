@@ -222,7 +222,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
             .limit(5);
 
           if (profile?.tenant_id) {
-            queryClientes = queryClientes.or(`tenant_id.eq.${profile.tenant_id},tenant_id.is.null`);
+            queryClientes = queryClientes.eq("tenant_id", profile.tenant_id);
           }
 
           const { data, error } = await queryClientes;
@@ -430,7 +430,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
             .or(`telefone.eq.${telefoneCliente.trim()},telefone.eq.${telLimpo}`);
 
           if (profile?.tenant_id) {
-            queryVerificaTel = queryVerificaTel.or(`tenant_id.eq.${profile.tenant_id},tenant_id.is.null`);
+            queryVerificaTel = queryVerificaTel.eq("tenant_id", profile.tenant_id);
           }
 
           const { data: clientesComTel, error: errVerificaTel } = await queryVerificaTel;

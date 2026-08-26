@@ -8,19 +8,59 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const profissionalSalva = localStorage.getItem("@Allure:profissional");
-    if (profissionalSalva) {
-      setUser(JSON.parse(profissionalSalva));
-    }
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || !session) {
+    async function initAuth() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.email) {
+          const { data, error } = await supabase
+            .from("profissionais")
+            .select("id, nome, email, tenant_id, is_admin")
+            .eq("email", session.user.email)
+            .single();
+
+          if (data && !error) {
+            setUser(data);
+            localStorage.setItem("@Allure:profissional", JSON.stringify(data));
+          } else {
+            setUser(null);
+            localStorage.removeItem("@Allure:profissional");
+          }
+        } else {
+          setUser(null);
+          localStorage.removeItem("@Allure:profissional");
+        }
+      } catch (err) {
+        console.error("Erro ao inicializar autenticação:", err);
         setUser(null);
         localStorage.removeItem("@Allure:profissional");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_OUT" || !session) {
+        setUser(null);
+        localStorage.removeItem("@Allure:profissional");
+        setLoading(false);
+      } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        if (session?.user?.email) {
+          const { data, error } = await supabase
+            .from("profissionais")
+            .select("id, nome, email, tenant_id, is_admin")
+            .eq("email", session.user.email)
+            .single();
+
+          if (data && !error) {
+            setUser(data);
+            localStorage.setItem("@Allure:profissional", JSON.stringify(data));
+          }
+        }
+        setLoading(false);
       }
     });
-
-    setLoading(false);
 
     return () => subscription?.unsubscribe();
   }, []);

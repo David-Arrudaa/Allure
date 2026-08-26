@@ -286,19 +286,21 @@ export function Agenda() {
 
   const determinarCoresAgendamento = (ag) => {
     if (ag.status === "bloqueio") {
-      return { bg: "#F1F5F9", border: "#94A3B8", text: "#64748B" }; // Cinza
+      return { bg: "#F1F5F9", border: "#94A3B8", text: "#475569" }; // Cinza/Bloqueio
     }
     if (ag.status === "cancelado") {
-      return { bg: "#FEF2F2", border: "#EF4444", text: "#991B1B" }; // Vermelho/Cancelado
+      return { bg: "#FEE2E2", border: "#EF4444", text: "#991B1B" }; // Vermelho/Cancelado
     }
+    // 1. Confirmado e Pago (ou ao receber pagamento): Verde Forte
     if (ag.pagamento === "pago") {
-      return { bg: "#F5F3FF", border: "#8B5CF6", text: "#5B21B6" }; // Roxo/Pago
+      return { bg: "#DCFCE7", border: "#16A34A", text: "#14532D" }; // Verde forte / Pago
     }
+    // 2. Confirmado sem receber pagamento: Azul
     if (ag.status === "confirmado") {
-      return { bg: "#F0FDF4", border: "#22C55E", text: "#166534" }; // Verde/Confirmado
+      return { bg: "#DBEAFE", border: "#3B82F6", text: "#1E40AF" }; // Azul / Confirmado sem pagar
     }
-    // Default: Agendado / Pendente
-    return { bg: "#EFF6FF", border: "#3B82F6", text: "#1E40AF" }; // Azul/Pendente
+    // 3. Agendamento Pendente (sem confirmação): Amarelo Claro
+    return { bg: "#FEF9C3", border: "#EAB308", text: "#854D0E" }; // Amarelo claro / Pendente
   };
 
   const calcularHoraFim = (horaInicio, duracaoMinutos) => {
@@ -487,37 +489,16 @@ export function Agenda() {
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "12px" }}>
-          <button
-            className="btn-novo"
-            onClick={() => {
-              setAgendamentoEditando(null);
-              setIsModalOpen(true);
-            }}
-            disabled={isLoading}
-          >
-            <Plus size={20} /> Novo Agendamento
-          </button>
-          
-          <div style={{ display: "flex", gap: "12px", fontSize: "0.75rem", fontWeight: "600", color: "#64748B" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <div style={{ width: "12px", height: "12px", backgroundColor: "#EFF6FF", border: "1px solid #3B82F6", borderRadius: "50%" }}></div> 
-              Agendado
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <div style={{ width: "12px", height: "12px", backgroundColor: "#F0FDF4", border: "1px solid #22C55E", borderRadius: "50%" }}></div> 
-              Confirmado
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <div style={{ width: "12px", height: "12px", backgroundColor: "#F5F3FF", border: "1px solid #8B5CF6", borderRadius: "50%" }}></div> 
-              Pago
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <div style={{ width: "12px", height: "12px", backgroundColor: "#FEF2F2", border: "1px solid #EF4444", borderRadius: "50%" }}></div> 
-              Cancelado
-            </span>
-          </div>
-        </div>
+        <button
+          className="btn-novo"
+          onClick={() => {
+            setAgendamentoEditando(null);
+            setIsModalOpen(true);
+          }}
+          disabled={isLoading}
+        >
+          <Plus size={20} /> Novo Agendamento
+        </button>
       </div>
 
       <div className="agenda-wrapper">
@@ -540,15 +521,6 @@ export function Agenda() {
                   className="coluna-profissional"
                   style={{ padding: "12px" }}
                 >
-                  <div
-                    className="profissional-header"
-                    style={{ marginBottom: "20px" }}
-                  >
-                    <Skeleton width="40px" height="40px" borderRadius="50%" />
-                    <div style={{ marginLeft: "10px" }}>
-                      <Skeleton width="90px" height="16px" />
-                    </div>
-                  </div>
                   <div
                     style={{
                       display: "flex",
@@ -593,6 +565,7 @@ export function Agenda() {
                         style={{
                           top: `${calcularPosicao(ag.horarioInicio)}px`,
                           height: `${ag.duracao * 2}px`,
+                          minHeight: `${ag.duracao * 2}px`,
                           backgroundColor: determinarCoresAgendamento(ag).bg,
                           borderLeftColor: determinarCoresAgendamento(ag).border,
                           position: "absolute",
@@ -823,12 +796,12 @@ export function Agenda() {
                   style={{
                     top: `${calcularPosicao(ag.horarioInicio)}px`,
                     height: `${ag.duracao * 2}px`,
+                    minHeight: `${ag.duracao * 2}px`,
                     backgroundColor: "#FFFFFF",
                     borderLeftColor: "#EF4444",
                     border: "2px dashed #FECACA",
                     borderLeft: "4px solid #EF4444",
                     position: "absolute",
-                    cursor: "pointer",
                   }}
                 >
                   <div className="card-header">

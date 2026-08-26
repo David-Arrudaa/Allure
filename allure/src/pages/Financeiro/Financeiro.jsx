@@ -174,12 +174,27 @@ export function Financeiro() {
         });
       }
 
+      let taxaComissaoProf = 50;
+      if (!profile?.is_admin && profile?.id) {
+        const { data: profData } = await supabase
+          .from("profissionais")
+          .select("comissao")
+          .eq("id", profile.id)
+          .single();
+        if (profData?.comissao !== undefined && profData?.comissao !== null) {
+          taxaComissaoProf = Number(profData.comissao);
+        }
+      }
+
       historicoGeral.sort((a, b) => b.dataOrd - a.dataOrd);
+      const comissaoTotal = sumTotal * (taxaComissaoProf / 100);
       setMetricas({
         total: sumTotal,
         pix: sumPix,
         dinheiro: sumDinheiro,
         cartao: sumCartao,
+        comissao: comissaoTotal,
+        comissaoTaxa: taxaComissaoProf,
       });
       setHistoricoPagamentos(historicoGeral);
     } catch (error) {
@@ -226,7 +241,7 @@ export function Financeiro() {
         }
       }
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("appointments")
         .select(
           `
@@ -240,6 +255,12 @@ export function Financeiro() {
         .eq("pagamento", "pago")
         .neq("status", "bloqueio")
         .neq("status", "cancelado");
+
+      if (!profile?.is_admin && profile?.id) {
+        query = query.eq("profissional_id", profile.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -277,11 +298,13 @@ export function Financeiro() {
           mapaDesempenho[profId].atendimentos += 1;
 
           const dataObj = new Date(item.data_horario);
+          const comissaoItemVal = valorNum * (taxaComissao / 100);
           mapaAtendimentos[profId].push({
             id: item.id,
             cliente: clienteNome,
             servico: item.servico,
             valor: formatarMoeda(valorNum),
+            comissaoItem: formatarMoeda(comissaoItemVal),
             data: `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}/${dataObj.getFullYear()}`,
             dataOrd: dataObj.getTime(),
           });
@@ -306,6 +329,11 @@ export function Financeiro() {
 
       setFuncionarias(arrayFuncionarias);
       setAtendimentosPorProfissional(mapaAtendimentos);
+
+      if (!profile?.is_admin && arrayFuncionarias.length > 0) {
+        setProfSelecionada(arrayFuncionarias[0].id);
+        setExpandirDesempenho(true);
+      }
     } catch (error) {
       console.error("Erro desempenho equipe:", error.message);
     } finally {
@@ -463,7 +491,7 @@ export function Financeiro() {
         <div className="metric-card destaque">
           <div className="metric-info">
             <span>
-              TOTAL FATURADO ({mesSelecionado === "Ano" ? "ANO" : "MÊS"})
+              {profile?.is_admin ? "TOTAL FATURADO" : "MEU TOTAL PRODUZIDO"} ({mesSelecionado === "Ano" ? "ANO" : "MÊS"})
             </span>
             <h2>
               {loading ? (
@@ -478,46 +506,64 @@ export function Financeiro() {
           </div>
         </div>
 
-        <div className="metric-card">
-          <div className="metric-info">
-            <span>ENTRADAS VIA PIX</span>
-            <h2>
-              {loading ? (
-                <Skeleton width="100px" height="36px" />
-              ) : (
-                formatarMoeda(metricas.pix)
-              )}
-            </h2>
+        {!profile?.is_admin ? (
+          <div className="metric-card" style={{ borderColor: "#10B981", backgroundColor: "#F0FDF4" }}>
+            <div className="metric-info">
+              <span style={{ color: "#166534", fontWeight: "700" }}>MINHA COMISSÃO ({metricas.comissaoTaxa || 50}%)</span>
+              <h2 style={{ color: "#15803D" }}>
+                {loading ? (
+                  <Skeleton width="100px" height="36px" />
+                ) : (
+                  formatarMoeda(metricas.comissao || 0)
+                )}
+              </h2>
+            </div>
+            <div className="metric-icon green">
+              <Percent size={24} />
+            </div>
           </div>
-          <div className="metric-icon green">
-            <QrCode size={24} />
+        ) : (
+          <div className="metric-card">
+            <div className="metric-info">
+              <span>ENTRADAS VIA PIX</span>
+              <h2>
+                {loading ? (
+                  <Skeleton width="100px" height="36px" />
+                ) : (
+                  formatarMoeda(metricas.pix)
+                )}
+              </h2>
+            </div>
+            <div className="metric-icon green">
+              <QrCode size={24} />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="metric-card">
           <div className="metric-info">
-            <span>ENTRADAS EM DINHEIRO</span>
+            <span>{!profile?.is_admin ? "RECEBIDO EM PIX" : "ENTRADAS EM DINHEIRO"}</span>
             <h2>
               {loading ? (
                 <Skeleton width="100px" height="36px" />
               ) : (
-                formatarMoeda(metricas.dinheiro)
+                formatarMoeda(!profile?.is_admin ? metricas.pix : metricas.dinheiro)
               )}
             </h2>
           </div>
           <div className="metric-icon blue">
-            <Wallet size={24} />
+            {!profile?.is_admin ? <QrCode size={24} /> : <Wallet size={24} />}
           </div>
         </div>
 
         <div className="metric-card">
           <div className="metric-info">
-            <span>ENTRADAS EM CARTÃO</span>
+            <span>{!profile?.is_admin ? "CARTÃO / DINHEIRO" : "ENTRADAS EM CARTÃO"}</span>
             <h2>
               {loading ? (
                 <Skeleton width="100px" height="36px" />
               ) : (
-                formatarMoeda(metricas.cartao)
+                formatarMoeda(!profile?.is_admin ? (metricas.cartao + metricas.dinheiro) : metricas.cartao)
               )}
             </h2>
           </div>
@@ -527,238 +573,238 @@ export function Financeiro() {
         </div>
       </div>
 
-      {/* SEÇÃO: DESEMPENHO POR PROFISSIONAL */}
-      {/* SEÇÃO: DESEMPENHO POR PROFISSIONAL (SOMENTE ADMIN) */}
-      {profile?.is_admin && (
-        <div className="section-box mb-15">
-          <div
-            className="section-header-clickable"
-            onClick={() => setExpandirDesempenho(!expandirDesempenho)}
-          >
-            <div className="section-title">
-              <User size={20} />
-              <h3>
-                Comissão e Desempenho
-                <span
-                  style={{
-                    fontSize: "0.85rem",
-                    color: "#64748B",
-                    marginLeft: "8px",
-                    fontWeight: "500",
-                  }}
-                >
-                  (
-                  {filtroDesempenho === "semana"
-                    ? "Semana Atual"
-                    : mesSelecionado === "Ano"
-                      ? anoSelecionado
-                      : `${mesSelecionado}/${anoSelecionado}`}
-                  )
-                </span>
-              </h3>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div
+      {/* SEÇÃO: DESEMPENHO E COMISSÕES */}
+      <div className="section-box mb-15">
+        <div
+          className="section-header-clickable"
+          onClick={() => setExpandirDesempenho(!expandirDesempenho)}
+        >
+          <div className="section-title">
+            <User size={20} />
+            <h3>
+              {profile?.is_admin ? "Comissão e Desempenho da Equipe" : "Minha Comissão e Desempenho"}
+              <span
                 style={{
-                  display: "flex",
-                  gap: "4px",
-                  backgroundColor: "#F1F5F9",
-                  padding: "4px",
-                  borderRadius: "8px",
+                  fontSize: "0.85rem",
+                  color: "#64748B",
+                  marginLeft: "8px",
+                  fontWeight: "500",
                 }}
-                onClick={(e) => e.stopPropagation()}
               >
-                <button
-                  onClick={() => setFiltroDesempenho("semana")}
-                  style={{
-                    border: "none",
-                    padding: "4px 10px",
-                    borderRadius: "6px",
-                    fontSize: "0.8rem",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                    backgroundColor:
-                      filtroDesempenho === "semana" ? "#FFFFFF" : "transparent",
-                    color:
-                      filtroDesempenho === "semana"
-                        ? "var(--cor-primaria)"
-                        : "#64748B",
-                    boxShadow:
-                      filtroDesempenho === "semana"
-                        ? "0 1px 3px rgba(0,0,0,0.1)"
-                        : "none",
-                  }}
-                >
-                  Semana Atual
-                </button>
-                <button
-                  onClick={() => setFiltroDesempenho("mes")}
-                  style={{
-                    border: "none",
-                    padding: "4px 10px",
-                    borderRadius: "6px",
-                    fontSize: "0.8rem",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                    backgroundColor:
-                      filtroDesempenho === "mes" ? "#FFFFFF" : "transparent",
-                    color:
-                      filtroDesempenho === "mes"
-                        ? "var(--cor-primaria)"
-                        : "#64748B",
-                    boxShadow:
-                      filtroDesempenho === "mes"
-                        ? "0 1px 3px rgba(0,0,0,0.1)"
-                        : "none",
-                  }}
-                >
-                  {mesSelecionado === "Ano" ? "Ano Completo" : "Mês Selecionado"}
-                </button>
-              </div>
-  
-              {expandirDesempenho ? (
-                <ChevronUp size={20} className="chevron-icon" />
-              ) : (
-                <ChevronDown size={20} className="chevron-icon" />
-              )}
-            </div>
+                (
+                {filtroDesempenho === "semana"
+                  ? "Semana Atual"
+                  : mesSelecionado === "Ano"
+                    ? anoSelecionado
+                    : `${mesSelecionado}/${anoSelecionado}`}
+                )
+              </span>
+            </h3>
           </div>
-  
-          {expandirDesempenho && (
-            <div className="section-content">
-              {/* SKELETONS NOS CARDS DE EQUIPE */}
-              {loadingEquipe ? (
-                <div className="prof-cards-grid">
-                  {[1, 2, 3].map((item) => (
-                    <div
-                      key={`skel-prof-${item}`}
-                      className="prof-card"
-                      style={{ pointerEvents: "none" }}
-                    >
-                      <div
-                        className="prof-card-info"
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "8px",
-                        }}
-                      >
-                        <Skeleton width="120px" height="20px" />
-                        <Skeleton width="180px" height="14px" />
-                      </div>
-                      <div
-                        className="prof-card-valor"
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "flex-end",
-                          gap: "4px",
-                        }}
-                      >
-                        <Skeleton width="80px" height="12px" />
-                        <Skeleton width="100px" height="24px" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : funcionarias.length > 0 ? (
-                <div className="prof-cards-grid">
-                  {funcionarias.map((prof) => (
-                    <div
-                      key={prof.id}
-                      className={`prof-card ${profSelecionada === prof.id ? "ativo" : ""}`}
-                      onClick={() =>
-                        setProfSelecionada(
-                          profSelecionada === prof.id ? null : prof.id,
-                        )
-                      }
-                    >
-                      <div className="prof-card-info">
-                        <strong>{prof.nome}</strong>
-                        <span
-                          style={{
-                            display: "flex",
-                            gap: "6px",
-                            flexWrap: "wrap",
-                            alignItems: "center",
-                          }}
-                        >
-                          {prof.atendimentos}{" "}
-                          {prof.atendimentos === 1
-                            ? "atendimento"
-                            : "atendimentos"}
-                          <span
-                            style={{
-                              width: "4px",
-                              height: "4px",
-                              borderRadius: "50%",
-                              backgroundColor: "#CBD5E1",
-                            }}
-                          ></span>
-                          Caixa: {prof.totalProduzido}
-                        </span>
-                      </div>
-                      <div
-                        className="prof-card-valor"
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "flex-end",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: "0.75rem",
-                            color: "#64748B",
-                            fontWeight: "600",
-                          }}
-                        >
-                          A RECEBER ({prof.comissaoPct}%)
-                        </span>
-                        <strong
-                          style={{
-                            color: "#059669",
-                            fontSize: "1.2rem",
-                            marginTop: "2px",
-                          }}
-                        >
-                          {prof.valorReceber}
-                        </strong>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div
-                  className="estado-vazio"
-                  style={{ padding: "2rem 0", color: "#64748B" }}
-                >
-                  <p>
-                    Nenhum atendimento pago registrado neste período para a
-                    equipe.
-                  </p>
-                </div>
-              )}
-  
-              {profSelecionada && (
-                <div className="prof-detalhes-container">
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "4px",
+                backgroundColor: "#F1F5F9",
+                padding: "4px",
+                borderRadius: "8px",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setFiltroDesempenho("semana")}
+                style={{
+                  border: "none",
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  fontSize: "0.8rem",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  backgroundColor:
+                    filtroDesempenho === "semana" ? "#FFFFFF" : "transparent",
+                  color:
+                    filtroDesempenho === "semana"
+                      ? "var(--cor-primaria)"
+                      : "#64748B",
+                  boxShadow:
+                    filtroDesempenho === "semana"
+                      ? "0 1px 3px rgba(0,0,0,0.1)"
+                      : "none",
+                }}
+              >
+                Semana Atual
+              </button>
+              <button
+                onClick={() => setFiltroDesempenho("mes")}
+                style={{
+                  border: "none",
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  fontSize: "0.8rem",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  backgroundColor:
+                    filtroDesempenho === "mes" ? "#FFFFFF" : "transparent",
+                  color:
+                    filtroDesempenho === "mes"
+                      ? "var(--cor-primaria)"
+                      : "#64748B",
+                  boxShadow:
+                    filtroDesempenho === "mes"
+                      ? "0 1px 3px rgba(0,0,0,0.1)"
+                      : "none",
+                }}
+              >
+                {mesSelecionado === "Ano" ? "Ano Completo" : "Mês Selecionado"}
+              </button>
+            </div>
+
+            {expandirDesempenho ? (
+              <ChevronUp size={20} className="chevron-icon" />
+            ) : (
+              <ChevronDown size={20} className="chevron-icon" />
+            )}
+          </div>
+        </div>
+
+        {expandirDesempenho && (
+          <div className="section-content">
+            {/* SKELETONS NOS CARDS DE EQUIPE */}
+            {loadingEquipe ? (
+              <div className="prof-cards-grid">
+                {[1, 2, 3].map((item) => (
                   <div
-                    className="prof-detalhes-header"
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                    }}
+                    key={`skel-prof-${item}`}
+                    className="prof-card"
+                    style={{ pointerEvents: "none" }}
                   >
-                    <div>
-                      <h4>
-                        Histórico Detalhado:{" "}
-                        {funcionarias.find((f) => f.id === profSelecionada)?.nome}
-                      </h4>
-  
+                    <div
+                      className="prof-card-info"
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                      }}
+                    >
+                      <Skeleton width="120px" height="20px" />
+                      <Skeleton width="180px" height="14px" />
+                    </div>
+                    <div
+                      className="prof-card-valor"
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-end",
+                        gap: "4px",
+                      }}
+                    >
+                      <Skeleton width="80px" height="12px" />
+                      <Skeleton width="100px" height="24px" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : funcionarias.length > 0 ? (
+              <div className="prof-cards-grid">
+                {funcionarias.map((prof) => (
+                  <div
+                    key={prof.id}
+                    className={`prof-card ${profSelecionada === prof.id ? "ativo" : ""}`}
+                    onClick={() =>
+                      setProfSelecionada(
+                        profSelecionada === prof.id ? null : prof.id,
+                      )
+                    }
+                  >
+                    <div className="prof-card-info">
+                      <strong>{prof.nome}</strong>
+                      <span
+                        style={{
+                          display: "flex",
+                          gap: "6px",
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                        }}
+                      >
+                        {prof.atendimentos}{" "}
+                        {prof.atendimentos === 1
+                          ? "atendimento"
+                          : "atendimentos"}
+                        <span
+                          style={{
+                            width: "4px",
+                            height: "4px",
+                            borderRadius: "50%",
+                            backgroundColor: "#CBD5E1",
+                          }}
+                        ></span>
+                        Produzido: {prof.totalProduzido}
+                      </span>
+                    </div>
+                    <div
+                      className="prof-card-valor"
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-end",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748B",
+                          fontWeight: "600",
+                        }}
+                      >
+                        A RECEBER ({prof.comissaoPct}%)
+                      </span>
+                      <strong
+                        style={{
+                          color: "#059669",
+                          fontSize: "1.2rem",
+                          marginTop: "2px",
+                        }}
+                      >
+                        {prof.valorReceber}
+                      </strong>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div
+                className="estado-vazio"
+                style={{ padding: "2rem 0", color: "#64748B" }}
+              >
+                <p>
+                  Nenhum atendimento pago registrado neste período para a
+                  equipe.
+                </p>
+              </div>
+            )}
+
+            {profSelecionada && (
+              <div className="prof-detalhes-container">
+                <div
+                  className="prof-detalhes-header"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <div>
+                    <h4>
+                      {profile?.is_admin
+                        ? `Histórico Detalhado: ${funcionarias.find((f) => f.id === profSelecionada)?.nome}`
+                        : "Meus Atendimentos e Comissões Detalhadas"}
+                    </h4>
+
+                    {profile?.is_admin ? (
                       <div
                         style={{
                           display: "flex",
@@ -827,76 +873,105 @@ export function Financeiro() {
                           (Edite e clique fora para salvar)
                         </span>
                       </div>
-                    </div>
-  
+                    ) : (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          marginTop: "12px",
+                          backgroundColor: "#F0FDF4",
+                          padding: "8px 14px",
+                          borderRadius: "8px",
+                          border: "1px solid #BBF7D0",
+                          width: "fit-content",
+                        }}
+                      >
+                        <Percent size={16} color="#16A34A" />
+                        <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "#166534" }}>
+                          Sua Taxa de Comissão: <strong>{funcionarias.find((f) => f.id === profSelecionada)?.comissaoPct}%</strong>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {profile?.is_admin && (
                     <button
                       className="btn-fechar"
                       onClick={() => setProfSelecionada(null)}
                     >
                       <X size={18} />
                     </button>
-                  </div>
-  
-                  <div className="prof-resumo-tags">
-                    <span className="resumo-label">Serviços realizados:</span>
-                    {calcularResumoTipos(profSelecionada).map(
-                      ([tipo, quantidade]) => (
-                        <div key={tipo} className="prof-tag">
-                          <strong>{quantidade}</strong> {tipo}
-                        </div>
-                      ),
-                    )}
-                  </div>
-  
-                  {atendimentosDaProf.length > 0 && (
-                    <div className="tabela-financeira mt-10">
-                      <div
-                        className="tabela-cabecalho prof-table"
-                        style={{ gridTemplateColumns: "1fr 2fr 2fr 1fr" }}
-                      >
-                        <span>Data</span>
-                        <span>Cliente</span>
-                        <span>Serviço</span>
-                        <span style={{ textAlign: "right" }}>
-                          Valor Produzido
-                        </span>
-                      </div>
-                      {profPaginado.map((item) => (
-                        <div
-                          key={item.id}
-                          className="tabela-linha prof-table"
-                          style={{ gridTemplateColumns: "1fr 2fr 2fr 1fr" }}
-                        >
-                          <span className="texto-secundario">{item.data}</span>
-                          <strong>{item.cliente}</strong>
-                          <span>
-                            <span className="tag-forma">{item.servico}</span>
-                          </span>
-                          <span
-                            className="valor-recebido"
-                            style={{ textAlign: "right" }}
-                          >
-                            {item.valor}
-                          </span>
-                        </div>
-                      ))}
-  
-                      {totalPaginasProf > 1 && (
-                        <Pagination
-                          paginaAtual={paginaProf}
-                          setPaginaAtual={setPaginaProf}
-                          totalPaginas={totalPaginasProf}
-                          totalItems={atendimentosDaProf.length}
-                        />
-                      )}
-                    </div>
                   )}
                 </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+
+                <div className="prof-resumo-tags">
+                  <span className="resumo-label">Serviços realizados:</span>
+                  {calcularResumoTipos(profSelecionada).map(
+                    ([tipo, quantidade]) => (
+                      <div key={tipo} className="prof-tag">
+                        <strong>{quantidade}</strong> {tipo}
+                      </div>
+                    ),
+                  )}
+                </div>
+
+                {atendimentosDaProf.length > 0 && (
+                  <div className="tabela-financeira mt-10">
+                    <div
+                      className="tabela-cabecalho prof-table"
+                      style={{ gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr" }}
+                    >
+                      <span>Data</span>
+                      <span>Cliente</span>
+                      <span>Serviço</span>
+                      <span style={{ textAlign: "right" }}>
+                        Valor Serviço
+                      </span>
+                      <span style={{ textAlign: "right" }}>
+                        {profile?.is_admin ? "Comissão" : "Minha Comissão"}
+                      </span>
+                    </div>
+                    {profPaginado.map((item) => (
+                      <div
+                        key={item.id}
+                        className="tabela-linha prof-table"
+                        style={{ gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr" }}
+                      >
+                        <span className="texto-secundario">{item.data}</span>
+                        <strong>{item.cliente}</strong>
+                        <span>
+                          <span className="tag-forma">{item.servico}</span>
+                        </span>
+                        <span
+                          style={{ textAlign: "right", color: "#64748B" }}
+                        >
+                          {item.valor}
+                        </span>
+                        <span
+                          className="valor-recebido"
+                          style={{ textAlign: "right", color: "#059669", fontWeight: "700" }}
+                        >
+                          {item.comissaoItem}
+                        </span>
+                      </div>
+                    ))}
+
+                    {totalPaginasProf > 1 && (
+                      <Pagination
+                        paginaAtual={paginaProf}
+                        setPaginaAtual={setPaginaProf}
+                        totalPaginas={totalPaginasProf}
+                        totalItems={atendimentosDaProf.length}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* SEÇÃO: HISTÓRICO GERAL */}
       <div className="section-box">
