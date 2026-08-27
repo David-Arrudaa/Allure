@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, Send, Loader2 } from "lucide-react";
 import { supabase } from "../../../services/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
-import "./ModalWhatsApp.css";
 import { Modal } from "../../ui/Modal";
 
 export function ModalWhatsApp({ isOpen, onClose, agendamento }) {
@@ -182,7 +181,7 @@ export function ModalWhatsApp({ isOpen, onClose, agendamento }) {
               <div className="form-actions">
                 <button
                   type="button"
-                  variant="secondary"
+                  className="btn-cancelar"
                   onClick={() => setIsEditing(false)}
                 >
                   Cancelar
@@ -210,7 +209,7 @@ export function ModalWhatsApp({ isOpen, onClose, agendamento }) {
                         <button className="btn-enviar-wa" onClick={() => enviarWhatsapp(template)} title="Enviar Mensagem">
                           <Send size={16} />
                         </button>
-                        <button className="btn-editar-wa" onClick={() => handleEditar(template)} title="Editar">
+                        <button variant="ghost" className="text-blue-500" onClick={() => handleEditar(template)} title="Editar">
                           <Edit2 size={16} />
                         </button>
                         <button className="btn-excluir-wa" onClick={() => handleExcluir(template.id)} title="Excluir">

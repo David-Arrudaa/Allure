@@ -1,4 +1,5 @@
 import { AlertTriangle, Clock, Calendar } from "lucide-react";
+import { Modal } from "../../ui/Modal";
 import "./ModalConfirmacaoRetroativo.css";
 
 export function ModalConfirmacaoRetroativo({
@@ -8,18 +9,13 @@ export function ModalConfirmacaoRetroativo({
   onConfirmar,
   onCancelar,
 }) {
-  if (!isOpen) return null;
-
   const dataFormatada = dataStr
     ? dataStr.split("-").reverse().join("/")
     : "";
 
   return (
-    <div className="modal-retroativo-overlay" onClick={onCancelar}>
-      <div
-        className="modal-retroativo-card"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal isOpen={isOpen} onClose={onCancelar}>
+      <div className="flex flex-col items-center text-center">
         <div className="modal-retroativo-icon">
           <AlertTriangle size={32} strokeWidth={2.2} />
         </div>
@@ -38,7 +34,7 @@ export function ModalConfirmacaoRetroativo({
           <span>{horaStr}</span>
         </div>
 
-        <div className="modal-retroativo-botoes">
+        <div className="modal-retroativo-botoes w-full">
           <button
             type="button"
             className="btn-retroativo-cancelar"
@@ -55,6 +51,6 @@ export function ModalConfirmacaoRetroativo({
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
