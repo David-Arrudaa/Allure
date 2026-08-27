@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { X, CreditCard, Banknote, QrCode } from "lucide-react";
-import "./ModalPagamento.css";
+import { CreditCard, Banknote, QrCode } from "lucide-react";
+import { Modal } from "../../ui/Modal";
 
 export function ModalPagamento({ isOpen, onClose, dados, onSave }) {
   const [buscaCliente, setBuscaCliente] = useState("");
@@ -48,29 +48,8 @@ export function ModalPagamento({ isOpen, onClose, dados, onSave }) {
   };
 
   return (
-    <div className="modal-pagamento-overlay" onClick={onClose}>
-      <div className="modal-pagamento-box" onClick={(e) => e.stopPropagation()}>
-        {/* CABEÇALHO */}
-        <div className="modal-pagamento-header">
-          <h2
-            style={{
-              margin: 0,
-              fontSize: "1.25rem",
-              color: "var(--cor-texto)",
-            }}
-          >
-            Receber Pagamento
-          </h2>
-          <button
-            className="btn-fechar-pagamento"
-            onClick={onClose}
-            title="Fechar"
-          >
-            <X size={20} strokeWidth={2.5} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="form-agendamento">
+    <Modal isOpen={isOpen} onClose={onClose} title="Receber Pagamento">
+      <form onSubmit={handleSubmit} className="form-agendamento">
           {/* BUSCA DE CLIENTE */}
           <div className="form-grupo" style={{ position: "relative" }}>
             <label>Nome da Cliente</label>
@@ -275,7 +254,7 @@ export function ModalPagamento({ isOpen, onClose, dados, onSave }) {
 
           <button
             type="submit"
-            className="btn-salvar"
+            variant="primary"
             style={{
               marginTop: "1.5rem",
               width: "100%",
@@ -286,7 +265,6 @@ export function ModalPagamento({ isOpen, onClose, dados, onSave }) {
             Confirmar Recebimento
           </button>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
