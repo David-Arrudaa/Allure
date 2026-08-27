@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -238,25 +238,7 @@ export function Dashboard() {
     }
   };
 
-  const handleDarBaixa = async (idAgendamento) => {
-    try {
-      const { error } = await supabase
-        .from("appointments")
-        .update({ pagamento: "pago", status: "confirmado" })
-        .eq("id", idAgendamento);
 
-      if (error) throw error;
-
-      if (listaPendentes.length === 1) {
-        setIsModalPendentesAberto(false);
-      }
-
-      carregarDadosPainel();
-    } catch (error) {
-      console.error("Erro ao dar baixa no pagamento:", error.message);
-      alert("Ocorreu um erro ao dar baixa no pagamento.");
-    }
-  };
 
   const formatarMoeda = (valor) => {
     return new Intl.NumberFormat("pt-BR", {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Search, Edit2, Trash2 } from "lucide-react";
 import { ModalServico } from "../../components/domain/ModalServico";
 import { supabase } from "../../services/supabase";

@@ -7,7 +7,7 @@ export function useClientes(paginaAtual, itensPorPagina, termoBusca) {
   const query = useQuery({
     queryKey: ["clientes", paginaAtual, itensPorPagina, termoBusca],
     queryFn: () => fetchClientes(paginaAtual, itensPorPagina, termoBusca),
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
   });
 
   const criarMutation = useMutation({

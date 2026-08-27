@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { X, CreditCard, Banknote, QrCode } from "lucide-react";
-import { supabase } from "../../../services/supabase";
 import "./ModalPagamento.css";
 
 export function ModalPagamento({ isOpen, onClose, dados, onSave }) {

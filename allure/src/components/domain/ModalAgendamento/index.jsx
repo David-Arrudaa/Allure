@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { X, RefreshCw, AlertTriangle, ListChecks, Lock } from "lucide-react";
+import { X, RefreshCw, AlertTriangle, ListChecks } from "lucide-react";
 import { supabase } from "../../../services/supabase";
-import { useForm, Controller } from "react-hook-form";
-import { z } from "zod";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { ModalConfirmacaoRetroativo } from "../ModalConfirmacaoRetroativo";
 import "./ModalAgendamento.css";
 
 const agendamentoSchema = z.object({
@@ -16,11 +17,45 @@ const agendamentoSchema = z.object({
   valor: z.string().optional()
 });
 
+const extrairAniversario = (observacoes) => {
+  if (!observacoes) return "";
+  const match = observacoes.match(/(?:Nascimento|Anivers[áa]rio):\s*([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}\/[0-9]{2}\/[0-9]{4})/i);
+  if (match) {
+    const val = match[1];
+    if (val.includes("/")) {
+      const [d, m, y] = val.split("/");
+      return `${y}-${m}-${d}`;
+    }
+    return val;
+  }
+  return "";
+};
+
+const montarObservacoesComAniversario = (obsExistente, dataNasc) => {
+  const obsLimpa = (obsExistente || "")
+    .replace(/(?:\[)?(?:Nascimento|Anivers[áa]rio):\s*([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}\/[0-9]{2}\/[0-9]{4})(?:\])?\n?/gi, "")
+    .trim();
+  if (!dataNasc) return obsLimpa;
+  return obsLimpa ? `${obsLimpa}\nNascimento: ${dataNasc}` : `Nascimento: ${dataNasc}`;
+};
+
+const applyPhoneMask = (value) => {
+  if (!value) return "";
+  const clean = value.replace(/\D/g, "");
+  if (clean.length <= 2) return clean;
+  if (clean.length <= 6) return `(${clean.slice(0, 2)}) ${clean.slice(2)}`;
+  if (clean.length <= 10) return `(${clean.slice(0, 2)}) ${clean.slice(2, 6)}-${clean.slice(6)}`;
+  return `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7, 11)}`;
+};
+
 export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const { profile } = useAuth();
   const dataHoje = new Date().toISOString().split("T")[0];
 
   const [buscaCliente, setBuscaCliente] = useState("");
+  const [telefoneCliente, setTelefoneCliente] = useState("");
+  const [eWhatsApp, setEWhatsApp] = useState(true);
+  const [aniversarioCliente, setAniversarioCliente] = useState("");
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
   const [listaClientesBanco, setListaClientesBanco] = useState([]);
   const [isBuscando, setIsBuscando] = useState(false);
@@ -55,13 +90,12 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
   const [pacotesPendentes, setPacotesPendentes] = useState([]);
   const [conflitosDetalhados, setConflitosDetalhados] = useState([]);
 
-  // NOVO: ESTADOS DO MODAL DE SENHA PARA RETROATIVOS
-  const [showSenhaModal, setShowSenhaModal] = useState(false);
-  const [senhaDigitada, setSenhaDigitada] = useState("");
-  const [erroSenha, setErroSenha] = useState("");
-  const [pacotesPendentesSenha, setPacotesPendentesSenha] = useState([]);
 
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  // NOVO: ESTADO DO MODAL DE CONFIRMAÇÃO DE AGENDAMENTO RETROATIVO
+  const [showModalRetroativo, setShowModalRetroativo] = useState(false);
+  const [pacotesPendentesRetroativo, setPacotesPendentesRetroativo] = useState([]);
+
+  const { handleSubmit } = useForm();
 
   useEffect(() => {
     async function carregarDadosIniciais() {
@@ -86,22 +120,38 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
   useEffect(() => {
     if (agendamento) {
-      // eslint-disable-next-line
       setDigitandoPeloUsuario(false);
-      setBuscaCliente(agendamento.cliente);
+      setBuscaCliente(agendamento.cliente || "");
+      setTelefoneCliente(agendamento.telefone ? applyPhoneMask(agendamento.telefone) : "");
+      setEWhatsApp(agendamento.isWhatsApp ?? true);
+      setAniversarioCliente(agendamento.aniversario || "");
+      setClienteSelecionado(
+        agendamento.customerId
+          ? {
+              id: agendamento.customerId,
+              nome: agendamento.cliente,
+              telefone: agendamento.telefone,
+              aniversario: agendamento.aniversario,
+              is_whatsapp: agendamento.isWhatsApp,
+            }
+          : null
+      );
+      setDataAgendamento(agendamento.data || dataHoje);
       setProfissionalId(agendamento.profissionalId || "");
-      setServico(agendamento.servico);
-      setHorario(agendamento.horarioInicio);
+      setServico(agendamento.servico || "");
+      setHorario(agendamento.horarioInicio || "09:00");
       setDuracao(agendamento.duracao || 60);
-      setValor(agendamento.valor);
+      setValor(agendamento.valor || "");
       setIsBloqueio(agendamento.status === "bloqueio");
 
       setIsRecorrente(false);
-      setIntervalo(21);
       setDataFim("");
     } else {
       setDigitandoPeloUsuario(true);
       setBuscaCliente("");
+      setTelefoneCliente("");
+      setEWhatsApp(true);
+      setAniversarioCliente("");
       setClienteSelecionado(null);
       setDataAgendamento(dataHoje);
       setHorario("09:00");
@@ -119,15 +169,41 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
     setPacotesPendentes([]);
     setConflitosDetalhados([]);
     
-    // Reseta os estados de senha sempre que abrir o modal
-    setShowSenhaModal(false);
-    setSenhaDigitada("");
-    setErroSenha("");
-    setPacotesPendentesSenha([]);
+
+    // Reseta modal de retroativo
+    setShowModalRetroativo(false);
+    setPacotesPendentesRetroativo([]);
     
     setIsSaving(false);
     setIsBuscando(false);
   }, [agendamento, isOpen, dataHoje]);
+
+  useEffect(() => {
+    async function carregarDadosClienteEdicao() {
+      if (agendamento && agendamento.customerId) {
+        try {
+          const { data, error } = await supabase
+            .from("customers")
+            .select("id, nome, telefone, is_whatsapp, observacoes")
+            .eq("id", agendamento.customerId)
+            .maybeSingle();
+
+          if (data && !error) {
+            setClienteSelecionado(data);
+            if (data.telefone) setTelefoneCliente(applyPhoneMask(data.telefone));
+            const niver = extrairAniversario(data.observacoes);
+            if (niver) setAniversarioCliente(niver);
+            if (data.is_whatsapp !== undefined) setEWhatsApp(data.is_whatsapp);
+          }
+        } catch (err) {
+          console.error("Erro ao carregar dados do cliente:", err);
+        }
+      }
+    }
+    if (isOpen && agendamento) {
+      carregarDadosClienteEdicao();
+    }
+  }, [agendamento, isOpen]);
 
   useEffect(() => {
     const buscarClientesNoBanco = async () => {
@@ -139,14 +215,24 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       ) {
         setIsBuscando(true);
         try {
-          const { data, error } = await supabase
+          let queryClientes = supabase
             .from("customers")
-            .select("id, nome, telefone")
-            .or(`nome.ilike.%${buscaCliente.trim()}%,telefone.ilike.%${buscaCliente.trim()}%`)
+            .select("id, nome, telefone, is_whatsapp, observacoes")
+            .ilike("nome", `%${buscaCliente.trim()}%`)
             .limit(5);
 
-          if (error) throw error;
-          if (data) setListaClientesBanco(data);
+          if (profile?.tenant_id) {
+            queryClientes = queryClientes.eq("tenant_id", profile.tenant_id);
+          }
+
+          const { data, error } = await queryClientes;
+
+          if (error) {
+            console.error("Erro ao buscar clientes:", error.message);
+          }
+          if (data) {
+            setListaClientesBanco(data);
+          }
         } catch (error) {
           console.error("Erro ao buscar clientes:", error.message);
         } finally {
@@ -160,7 +246,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
 
     const timer = setTimeout(() => buscarClientesNoBanco(), 300);
     return () => clearTimeout(timer);
-  }, [buscaCliente, clienteSelecionado, isBloqueio, digitandoPeloUsuario]);
+  }, [buscaCliente, clienteSelecionado, isBloqueio, digitandoPeloUsuario, profile?.tenant_id]);
 
   if (!isOpen) return null;
 
@@ -226,38 +312,30 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       }
     }
 
-    // NOVA LÓGICA: Permitir a hora atual. Removemos os minutos e segundos de 'agora' para que 22:41 permita 22:00
-    const agoraTruncado = new Date(agora);
-    agoraTruncado.setMinutes(0, 0, 0);
-
-    // Se for no passado (antes da hora atual), barra aqui e abre o modal de senha
-    if (dataHoraEscolhida < agoraTruncado) {
-      setPacotesPendentesSenha(pacotesIniciais);
-      setShowSenhaModal(true);
+    // Se o horário já passou, abre o modal customizado de confirmação retroativa
+    if (dataHoraEscolhida < agora) {
+      setPacotesPendentesRetroativo(pacotesIniciais);
+      setShowModalRetroativo(true);
       setIsSaving(false);
       return;
     }
 
-    // Se for no futuro, segue a vida normal
+    // Segue o fluxo de salvamento
     validarESalvar(pacotesIniciais);
   };
 
-  // FUNÇÃO DE VALIDAÇÃO DE SENHA
-  const handleConfirmarSenha = (e) => {
-    e.preventDefault();
-    
-    // AQUI VOCÊ DEFINE A SENHA PADRÃO DO SISTEMA
-    const SENHA_PADRAO = "admin123"; 
-
-    if (senhaDigitada === SENHA_PADRAO) {
-      setErroSenha("");
-      setShowSenhaModal(false);
-      setIsSaving(true);
-      validarESalvar(pacotesPendentesSenha); // Continua o fluxo de salvamento
-    } else {
-      setErroSenha("Senha incorreta. Tente novamente.");
-    }
+  const handleConfirmarRetroativo = () => {
+    setShowModalRetroativo(false);
+    setIsSaving(true);
+    validarESalvar(pacotesPendentesRetroativo);
   };
+
+  const handleCancelarRetroativo = () => {
+    setShowModalRetroativo(false);
+    setPacotesPendentesRetroativo([]);
+    setIsSaving(false);
+  };
+
 
   const validarESalvar = async (pacotes) => {
     try {
@@ -332,17 +410,102 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         return;
       }
 
-      let customerIdFinal = clienteSelecionado ? clienteSelecionado.id : null;
+      let customerIdFinal = clienteSelecionado ? clienteSelecionado.id : agendamento?.customerId || null;
 
-      if (!isBloqueio && !customerIdFinal && buscaCliente.trim()) {
-        const { data: novoCliente, error: errCliente } = await supabase
-          .from("customers")
-          .insert([{ nome: buscaCliente.trim(), tenant_id: profile?.tenant_id }])
-          .select("id");
+      if (!isBloqueio) {
+        const telLimpo = telefoneCliente.replace(/\D/g, "");
 
-        if (errCliente) throw errCliente;
-        if (novoCliente && novoCliente.length > 0) {
-          customerIdFinal = novoCliente[0].id;
+        // Se informou telefone, valida se tem pelo menos 10 dígitos (DDD + número)
+        if (telefoneCliente.trim() && telLimpo.length < 10) {
+          alert("Por favor, informe um telefone válido com DDD (ex: (11) 99999-9999).");
+          setIsSaving(false);
+          return;
+        }
+
+        // Se tem telefone informado, faz verificação de duplicidade de telefone no banco
+        if (telLimpo.length >= 10) {
+          let queryVerificaTel = supabase
+            .from("customers")
+            .select("id, nome, telefone, is_whatsapp, observacoes")
+            .or(`telefone.eq.${telefoneCliente.trim()},telefone.eq.${telLimpo}`);
+
+          if (profile?.tenant_id) {
+            queryVerificaTel = queryVerificaTel.eq("tenant_id", profile.tenant_id);
+          }
+
+          const { data: clientesComTel, error: errVerificaTel } = await queryVerificaTel;
+          if (errVerificaTel) {
+            console.error("Erro ao verificar telefone duplicado:", errVerificaTel);
+          }
+
+          if (clientesComTel && clientesComTel.length > 0) {
+            const clienteComMesmoTel = clientesComTel[0];
+
+            // Se for outro cliente diferente do selecionado/atual
+            if (customerIdFinal && clienteComMesmoTel.id !== customerIdFinal) {
+              alert(
+                `Não é possível salvar: O telefone ${telefoneCliente.trim()} já está cadastrado para a cliente "${clienteComMesmoTel.nome}". Não é permitido duplicar telefones no sistema.`
+              );
+              setIsSaving(false);
+              return;
+            }
+
+            // Se for um novo agendamento sem cliente previamente selecionado e encontrou pelo telefone
+            if (!customerIdFinal) {
+              const vincular = window.confirm(
+                `O telefone ${telefoneCliente.trim()} já pertence à cliente "${clienteComMesmoTel.nome}".\n\nDeseja vincular este agendamento ao cadastro de "${clienteComMesmoTel.nome}"?`
+              );
+              if (vincular) {
+                customerIdFinal = clienteComMesmoTel.id;
+                setClienteSelecionado(clienteComMesmoTel);
+                setBuscaCliente(clienteComMesmoTel.nome);
+              } else {
+                setIsSaving(false);
+                return;
+              }
+            }
+          }
+        }
+
+        // Se ainda não temos customerIdFinal e o nome foi informado, cria o cliente completo
+        if (!customerIdFinal && buscaCliente.trim()) {
+          const formatarNome = (texto) =>
+            texto.toLowerCase().replace(/(?:^|\s)\S/g, (l) => l.toUpperCase());
+
+          const novoClientePayload = {
+            nome: formatarNome(buscaCliente.trim()),
+            telefone: telefoneCliente.trim() || null,
+            is_whatsapp: eWhatsApp,
+            observacoes: montarObservacoesComAniversario("", aniversarioCliente),
+            ...(profile?.tenant_id ? { tenant_id: profile.tenant_id } : {}),
+          };
+
+          const { data: novoCliente, error: errCliente } = await supabase
+            .from("customers")
+            .insert([novoClientePayload])
+            .select("id, nome, telefone, is_whatsapp, observacoes");
+
+          if (errCliente) throw errCliente;
+          if (novoCliente && novoCliente.length > 0) {
+            customerIdFinal = novoCliente[0].id;
+            setClienteSelecionado(novoCliente[0]);
+          }
+        } else if (customerIdFinal && (telefoneCliente.trim() || aniversarioCliente)) {
+          // Se já tem cadastro, atualiza telefone/aniversário caso tenham sido alterados/completados
+          const { data: clienteAtual } = await supabase
+            .from("customers")
+            .select("observacoes")
+            .eq("id", customerIdFinal)
+            .maybeSingle();
+
+          await supabase
+            .from("customers")
+            .update({
+              ...(telefoneCliente.trim() ? { telefone: telefoneCliente.trim() } : {}),
+              is_whatsapp: eWhatsApp,
+              observacoes: montarObservacoesComAniversario(clienteAtual?.observacoes, aniversarioCliente),
+            })
+            .eq("id", customerIdFinal);
         }
       }
 
@@ -351,6 +514,8 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
           ? `rec_${Date.now().toString(36)}_${Math.random().toString(36).substring(2)}`
           : agendamento?.grupo_recorrencia || null;
 
+      const tenantIdFinal = profile?.tenant_id || agendamento?.tenant_id || null;
+
       const pacotesSalvarBanco = pacotes.map((p) => ({
         customer_id: isBloqueio ? null : customerIdFinal,
         profissional_id: profissionalId,
@@ -358,10 +523,15 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         valor: isBloqueio ? 0 : Number(String(valor).replace(",", ".")) || 0,
         data_horario: `${p.dataStr}T${p.horaStr}:00-03:00`,
         duracao: Number(duracao),
-        status: isBloqueio ? "bloqueio" : "pendente",
-        pagamento: "pendente",
+        status: isBloqueio
+          ? "bloqueio"
+          : agendamento?.pagamento === "pago"
+            ? "confirmado"
+            : (agendamento?.status || "pendente"),
+        pagamento: agendamento?.pagamento || "pendente",
+        forma_pagamento: agendamento?.forma_pagamento || null,
         grupo_recorrencia: idGrupoRecorrencia,
-        tenant_id: profile?.tenant_id,
+        ...(tenantIdFinal ? { tenant_id: tenantIdFinal } : {}),
       }));
 
       let resSalvar;
@@ -470,6 +640,12 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
               value={
                 clienteSelecionado ? clienteSelecionado.nome : buscaCliente
               }
+              onFocus={() => {
+                if (buscaCliente.trim().length >= 2) setDigitandoPeloUsuario(true);
+              }}
+              onBlur={() => {
+                setTimeout(() => setDigitandoPeloUsuario(false), 200);
+              }}
               onChange={(e) => {
                 setDigitandoPeloUsuario(true);
                 setBuscaCliente(e.target.value);
@@ -497,6 +673,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                     maxHeight: "150px",
                     overflowY: "auto",
                   }}
+                  onMouseDown={(e) => e.preventDefault()}
                 >
                   {isBuscando ? (
                     <div
@@ -511,50 +688,123 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                       Buscando...
                     </div>
                   ) : listaClientesBanco.length > 0 ? (
-                    listaClientesBanco.map((c) => (
-                      <div
-                        key={c.id}
-                        onClick={() => {
-                          setClienteSelecionado(c);
-                          setBuscaCliente(c.nome);
-                          setListaClientesBanco([]);
-                        }}
-                        style={{
-                          padding: "0.6rem 1rem",
-                          cursor: "pointer",
-                          borderBottom: "1px solid #F1F5F9",
-                          fontSize: "0.9rem",
-                          color: "var(--cor-texto)",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#F8FAFC")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#FFFFFF")
-                        }
-                      >
-                        <strong>{c.nome}</strong> -{" "}
-                        <span style={{ color: "#64748B" }}>
-                          {c.telefone || "Sem telefone"}
-                        </span>
-                      </div>
-                    ))
+                    listaClientesBanco.map((c) => {
+                      const niver = extrairAniversario(c.observacoes);
+                      return (
+                        <div
+                          key={c.id}
+                          onClick={() => {
+                            setClienteSelecionado(c);
+                            setBuscaCliente(c.nome);
+                            setTelefoneCliente(c.telefone ? applyPhoneMask(c.telefone) : "");
+                            setEWhatsApp(c.is_whatsapp ?? true);
+                            setAniversarioCliente(niver || "");
+                            setListaClientesBanco([]);
+                            setDigitandoPeloUsuario(false);
+                          }}
+                          style={{
+                            padding: "0.6rem 1rem",
+                            cursor: "pointer",
+                            borderBottom: "1px solid #F1F5F9",
+                            fontSize: "0.9rem",
+                            color: "var(--cor-texto)",
+                          }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.backgroundColor = "#F8FAFC")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.backgroundColor = "#FFFFFF")
+                          }
+                        >
+                          <strong>{c.nome}</strong> -{" "}
+                          <span style={{ color: "#64748B" }}>
+                            {c.telefone ? applyPhoneMask(c.telefone) : "Sem telefone"}
+                          </span>
+                        </div>
+                      );
+                    })
                   ) : (
                     <div
                       style={{
-                        padding: "0.8rem 1rem",
-                        fontSize: "0.9rem",
-                        color: "#EF4444",
-                        textAlign: "center",
-                        fontWeight: "500",
+                        padding: "0.6rem 0.8rem",
+                        fontSize: "0.82rem",
+                        color: "#475569",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "8px",
+                        backgroundColor: "#F8FAFC",
                       }}
                     >
-                      Nenhum cliente encontrado.
+                      <span>✨ Cliente não cadastrado. Preencha os dados abaixo para salvar.</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDigitandoPeloUsuario(false);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#94A3B8",
+                          padding: "2px",
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                        title="Fechar aviso"
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
                   )}
                 </div>
               )}
           </div>
+
+          {!isBloqueio && (
+            <div className="form-linha-dupla">
+              <div className="form-grupo">
+                <label>Telefone</label>
+                <input
+                  type="text"
+                  placeholder="(00) 00000-0000"
+                  value={telefoneCliente}
+                  onChange={(e) =>
+                    setTelefoneCliente(applyPhoneMask(e.target.value))
+                  }
+                />
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    marginTop: "6px",
+                    fontSize: "0.85rem",
+                    color: "var(--cor-texto-secundario, #64748B)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={eWhatsApp}
+                    onChange={(e) => setEWhatsApp(e.target.checked)}
+                  />
+                  É WhatsApp
+                </label>
+              </div>
+
+              <div className="form-grupo">
+                <label>Data Nascimento</label>
+                <input
+                  type="date"
+                  value={aniversarioCliente}
+                  onChange={(e) => setAniversarioCliente(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="form-linha-dupla">
             <div className="form-grupo">
@@ -586,6 +836,36 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
               />
             </div>
           </div>
+
+          {(() => {
+            const dataHora = new Date(`${dataAgendamento.replace(/-/g, "/")} ${horario}`);
+            const agora = new Date();
+            if (!isNaN(dataHora.getTime()) && dataHora < agora) {
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    padding: "10px 14px",
+                    backgroundColor: "#FFFBEB",
+                    border: "1px solid #FCD34D",
+                    borderRadius: "8px",
+                    color: "#92400E",
+                    fontSize: "0.85rem",
+                    fontWeight: "500",
+                    marginBottom: "1rem",
+                  }}
+                >
+                  <AlertTriangle size={18} color="#D97706" style={{ flexShrink: 0 }} />
+                  <span>
+                    <strong>Horário no passado:</strong> Este agendamento será registrado como retroativo.
+                  </span>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           <div className="form-linha-dupla">
             <div className="form-grupo">
@@ -834,114 +1114,6 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
         </form>
       </div>
 
-      {/* --- NOVO MODAL DE SENHA PARA AGENDAMENTO RETROATIVO --- */}
-      {showSenhaModal && (
-        <div
-          className="modal-overlay"
-          style={{ zIndex: 1200, backgroundColor: "rgba(15, 23, 42, 0.7)" }}
-        >
-          <div
-            className="modal-box"
-            style={{
-              maxWidth: "400px",
-              textAlign: "center",
-              padding: "2rem 1.5rem",
-              borderRadius: "16px",
-            }}
-          >
-            <div
-              style={{
-                width: "56px",
-                height: "56px",
-                borderRadius: "50%",
-                margin: "0 auto 1.25rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "#FFFBEB",
-                color: "#D97706",
-              }}
-            >
-              <Lock size={28} strokeWidth={2.3} />
-            </div>
-
-            <h3 style={{ fontSize: "1.25rem", color: "#1E293B", margin: "0 0 0.5rem 0" }}>
-              Agendamento Retroativo
-            </h3>
-            
-            <p style={{ fontSize: "0.95rem", color: "#64748B", marginBottom: "1.5rem", lineHeight: "1.5" }}>
-              Você está tentando salvar um horário que já passou. Insira a senha de autorização para prosseguir.
-            </p>
-
-            <form onSubmit={handleConfirmarSenha}>
-              <input
-                type="password"
-                placeholder="Digite a senha..."
-                value={senhaDigitada}
-                onChange={(e) => {
-                  setSenhaDigitada(e.target.value);
-                  setErroSenha("");
-                }}
-                style={{
-                  width: "100%",
-                  padding: "0.8rem",
-                  borderRadius: "8px",
-                  border: `1px solid ${erroSenha ? "#EF4444" : "#CBD5E1"}`,
-                  fontSize: "1rem",
-                  textAlign: "center",
-                  letterSpacing: "2px",
-                  marginBottom: erroSenha ? "0.5rem" : "1.5rem",
-                }}
-                autoFocus
-              />
-              {erroSenha && (
-                <div style={{ color: "#EF4444", fontSize: "0.85rem", marginBottom: "1rem", fontWeight: "500" }}>
-                  {erroSenha}
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: "10px" }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSenhaModal(false);
-                    setSenhaDigitada("");
-                    setErroSenha("");
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: "0.8rem",
-                    borderRadius: "8px",
-                    border: "1px solid #E2E8F0",
-                    backgroundColor: "#FFFFFF",
-                    color: "#475569",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    flex: 1,
-                    padding: "0.8rem",
-                    borderRadius: "8px",
-                    border: "none",
-                    backgroundColor: "var(--cor-primaria)",
-                    color: "#FFFFFF",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                  }}
-                >
-                  Autorizar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {/* -------------------------------------------------------- */}
 
       {showConflictModal && (
         <div
@@ -1112,6 +1284,15 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
           </div>
         </div>
       )}
+
+      {/* --- MODAL DE CONFIRMAÇÃO DE AGENDAMENTO RETROATIVO --- */}
+      <ModalConfirmacaoRetroativo
+        isOpen={showModalRetroativo}
+        dataStr={dataAgendamento}
+        horaStr={horario}
+        onConfirmar={handleConfirmarRetroativo}
+        onCancelar={handleCancelarRetroativo}
+      />
     </div>
   );
 }

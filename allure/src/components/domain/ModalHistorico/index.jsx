@@ -1,8 +1,34 @@
-import React, { useState, useEffect } from "react";
-import { X, Calendar, User, DollarSign, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Calendar, User, DollarSign, Loader2, FileText, Phone, Cake } from "lucide-react";
 import { supabase } from "../../../services/supabase";
 import "./ModalHistorico.css";
 import "../ModalAgendamento/ModalAgendamento.css";
+
+const extrairAniversario = (observacoes) => {
+  if (!observacoes) return "";
+  const match = observacoes.match(
+    /(?:Nascimento|Anivers[áa]rio):\s*([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}\/[0-9]{2}\/[0-9]{4})/i,
+  );
+  if (match) {
+    const val = match[1];
+    if (val.includes("-")) {
+      const [y, m, d] = val.split("-");
+      return `${d}/${m}/${y}`;
+    }
+    return val;
+  }
+  return "";
+};
+
+const limparObservacoes = (observacoes) => {
+  if (!observacoes) return "";
+  return observacoes
+    .replace(
+      /(?:\[)?(?:Nascimento|Anivers[áa]rio):\s*([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}\/[0-9]{2}\/[0-9]{4})(?:\])?\n?/gi,
+      "",
+    )
+    .trim();
+};
 
 export function ModalHistorico({ isOpen, onClose, cliente }) {
   const [historico, setHistorico] = useState([]);
@@ -74,22 +100,74 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
 
   if (!isOpen || !cliente) return null;
 
+  const aniversarioStr = extrairAniversario(cliente.observacoes);
+  const obsLimpa = limparObservacoes(cliente.observacoes);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-box"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: "550px" }}
+      >
         <div className="modal-header">
           <div>
-            <h2 style={{ marginBottom: "0.2rem" }}>
-              Histórico de Atendimentos
+            <h2 style={{ marginBottom: "0.2rem", fontSize: "1.3rem" }}>
+              Histórico da Cliente
             </h2>
             <p style={{ fontSize: "0.9rem", color: "#64748B", margin: 0 }}>
-              Cliente: <strong>{cliente.nome}</strong> (Últimos 12 meses)
+              <strong>{cliente.nome}</strong>
             </p>
           </div>
           <button className="btn-fechar" onClick={onClose} title="Fechar">
             <X size={20} strokeWidth={2.5} />
           </button>
         </div>
+
+        {/* CARD DE INFORMAÇÕES & OBSERVAÇÕES */}
+        <div className="historico-cliente-card">
+          <div className="historico-cliente-topo">
+            <div className="historico-tags">
+              <span className="tag-contato">
+                <Phone size={13} /> {cliente.telefone || "Sem telefone"}
+              </span>
+              {aniversarioStr && (
+                <span className="tag-aniversario">
+                  <Cake size={13} /> Aniversário: {aniversarioStr}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="historico-observacoes-bloco">
+            <div className="historico-observacoes-header">
+              <FileText size={15} />
+              <span>Observações & Preferências:</span>
+            </div>
+            {obsLimpa ? (
+              <p className="historico-observacoes-texto">{obsLimpa}</p>
+            ) : (
+              <p className="historico-observacoes-vazio">
+                Nenhuma observação ou preferência registrada para esta cliente.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <h3
+          style={{
+            fontSize: "0.95rem",
+            fontWeight: "700",
+            color: "var(--cor-texto)",
+            marginBottom: "0.75rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+          }}
+        >
+          <Calendar size={16} color="var(--cor-primaria)" /> Atendimentos
+          Realizados (Últimos 12 meses)
+        </h3>
 
         <div className="historico-lista">
           {cliente.observacoes && (
@@ -157,7 +235,7 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
               style={{
                 color: "#94A3B8",
                 textAlign: "center",
-                marginTop: "1rem",
+                marginTop: "0.5rem",
                 padding: "2rem",
                 backgroundColor: "#F8FAFC",
                 borderRadius: "8px",

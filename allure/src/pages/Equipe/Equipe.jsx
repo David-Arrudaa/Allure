@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   UserPlus,
   Search,
@@ -9,13 +9,15 @@ import {
   Edit,
   Camera,
 } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../services/supabase"; // Importação do banco de dados
+import { useAuth } from "../../contexts/AuthContext";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useAuth } from "../../contexts/AuthContext";
 import "./Equipe.css";
 
 export function Equipe() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const [busca, setBusca] = useState("");
   const [equipe, setEquipe] = useState([]);
   const [carregandoDados, setCarregandoDados] = useState(true);
@@ -124,6 +126,12 @@ export function Equipe() {
     e.preventDefault();
     if (!formFunc.nome || !formFunc.especialidade) return;
 
+    if (!editandoId && formFunc.email && formFunc.senha && formFunc.senha.length < 8) {
+      alert("A senha de acesso deve conter no mínimo 8 caracteres para maior segurança.");
+      setCarregandoForm(false);
+      return;
+    }
+
     setCarregandoForm(true);
 
     try {
@@ -166,15 +174,17 @@ export function Equipe() {
         }
       }
 
+      const tenantIdFinal = profile?.tenant_id || user?.tenant_id || "11111111-1111-1111-1111-111111111111";
+
       const dadosParaSalvar = {
         nome: formFunc.nome.trim(),
         especialidade: formFunc.especialidade.trim(),
         telefone: formFunc.telefone.trim() || null,
         ordem: novaOrdem,
         foto: formFunc.foto || null,
-        email: formFunc.email.trim(),
-        is_admin: formFunc.is_admin,
-        tenant_id: profile?.tenant_id,
+        email: formFunc.email ? formFunc.email.trim() : null,
+        is_admin: formFunc.is_admin || false,
+        tenant_id: tenantIdFinal,
       };
 
       if (editandoId) {
@@ -187,10 +197,9 @@ export function Equipe() {
         // Criar usuário no Auth (sem deslogar o admin)
         // Isso requer que a confirmação de e-mail esteja desativada no Supabase (Autoconfirm)
         if (formFunc.email && formFunc.senha) {
-          const { createClient } = await import("@supabase/supabase-js");
           const adminAuthClient = createClient(
-            import.meta.env.VITE_SUPABASE_URL,
-            import.meta.env.VITE_SUPABASE_ANON_KEY,
+            import.meta.env.VITE_SUPABASE_URL || "https://placeholder.supabase.co",
+            import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key",
             { auth: { persistSession: false, autoRefreshToken: false } }
           );
 
@@ -499,12 +508,13 @@ export function Equipe() {
 
               {!editandoId && (
                 <div className="form-group">
-                  <label>Senha Provisória *</label>
+                  <label>Senha Provisória (Mínimo 8 caracteres) *</label>
                   <input
                     type="password"
                     required
                     autoComplete="new-password"
-                    placeholder="Mínimo 6 caracteres"
+                    minLength={8}
+                    placeholder="Mínimo 8 caracteres"
                     value={formFunc.senha}
                     onChange={(e) =>
                       setFormFunc({ ...formFunc, senha: e.target.value })

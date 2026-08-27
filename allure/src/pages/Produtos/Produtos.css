@@ -1,46 +1,123 @@
 .produtos-container {
+  background-color: #ffffff;
+  border-radius: var(--raio-borda, 12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  padding: 1.5rem;
+  min-height: calc(100vh - 3rem);
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  width: 100%;
 }
 
 .produtos-topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--cor-borda);
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .produtos-info h2 {
   font-size: 1.5rem;
-  color: #1e293b;
-  margin-bottom: 0.25rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.produtos-info h2 svg {
-  color: var(--cor-primaria);
+  color: var(--cor-texto);
+  font-weight: 700;
+  margin-bottom: 0.2rem;
 }
 
 .produtos-info p {
   color: #64748b;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .produtos-conteudo {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e2e8f0;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
+/* --- BARRA DE PESQUISA --- */
+.produtos-filtros {
+  display: flex;
+  margin-bottom: 1.5rem;
+}
+
+.busca-container {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+}
+
+.busca-container svg {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+}
+
+.busca-container input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.8rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: var(--cor-texto);
+  background-color: #f8fafc;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.busca-container input:focus {
+  border-color: var(--cor-primaria);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+/* --- TABELA DE PRODUTOS --- */
+.tabela-container {
+  background-color: #ffffff;
+  border: 1px solid var(--cor-borda);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.tabela-produtos {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.tabela-produtos th {
+  background-color: #f8fafc;
+  padding: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.tabela-produtos td {
+  padding: 1rem;
+  font-size: 0.95rem;
+  color: var(--cor-texto);
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.tabela-produtos tr:last-child td {
+  border-bottom: none;
+}
+
+.tabela-produtos tr:hover {
+  background-color: #f8fafc;
+}
+
+/* --- BADGES DE ESTOQUE --- */
 .estoque-badge {
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 600;
@@ -55,4 +132,128 @@
 .estoque-zerado {
   background-color: #fee2e2;
   color: #991b1b;
+}
+
+/* --- BOTÕES DE AÇÃO --- */
+.acoes-tabela {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-acao {
+  background: none;
+  border: none;
+  padding: 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-acao.editar:hover {
+  background-color: #eff6ff;
+  color: #3b82f6;
+}
+
+.btn-acao.excluir:hover {
+  background-color: #fef2f2;
+  color: #ef4444;
+}
+
+/* =========================================
+   RESPONSIVIDADE (CELULARES E TABLETS)
+   ========================================= */
+@media (max-width: 960px) {
+  .produtos-container {
+    padding: 1.25rem;
+  }
+
+  .produtos-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .produtos-topbar button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .busca-container {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .produtos-container {
+    padding: 0.85rem;
+    min-height: auto;
+  }
+
+  /* Formato Card no celular */
+  .tabela-container {
+    border: none;
+    background-color: transparent;
+  }
+
+  .tabela-produtos thead {
+    display: none;
+  }
+
+  .tabela-produtos tbody tr {
+    display: flex;
+    flex-direction: column;
+    background-color: #ffffff;
+    border: 1px solid var(--cor-borda);
+    border-radius: 12px;
+    margin-bottom: 0.85rem;
+    padding: 0.75rem 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  }
+
+  .tabela-produtos td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: right;
+  }
+
+  .tabela-produtos td:last-child {
+    border-bottom: none;
+    padding-bottom: 0.25rem;
+  }
+
+  .tabela-produtos td:nth-child(1)::before {
+    content: "Produto:";
+    font-weight: 600;
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+
+  .tabela-produtos td:nth-child(2)::before {
+    content: "Preço:";
+    font-weight: 600;
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+
+  .tabela-produtos td:nth-child(3)::before {
+    content: "Estoque:";
+    font-weight: 600;
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+
+  .tabela-produtos td:nth-child(4)::before {
+    content: "Ações:";
+    font-weight: 600;
+    color: #64748b;
+    font-size: 0.85rem;
+    margin-right: auto;
+  }
 }

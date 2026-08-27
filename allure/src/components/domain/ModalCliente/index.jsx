@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { X } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,28 @@ const applyPhoneMask = (value) => {
   if (clean.length <= 6) return `(${clean.slice(0, 2)}) ${clean.slice(2)}`;
   if (clean.length <= 10) return `(${clean.slice(0, 2)}) ${clean.slice(2, 6)}-${clean.slice(6)}`;
   return `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7, 11)}`;
+};
+
+const extrairAniversario = (observacoes) => {
+  if (!observacoes) return "";
+  const match = observacoes.match(/(?:Nascimento|Anivers[áa]rio):\s*([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}\/[0-9]{2}\/[0-9]{4})/i);
+  if (match) {
+    const val = match[1];
+    if (val.includes("/")) {
+      const [d, m, y] = val.split("/");
+      return `${y}-${m}-${d}`;
+    }
+    return val;
+  }
+  return "";
+};
+
+const montarObservacoesComAniversario = (obsExistente, dataNasc) => {
+  const obsLimpa = (obsExistente || "")
+    .replace(/(?:\[)?(?:Nascimento|Anivers[áa]rio):\s*([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}\/[0-9]{2}\/[0-9]{4})(?:\])?\n?/gi, "")
+    .trim();
+  if (!dataNasc) return obsLimpa;
+  return obsLimpa ? `${obsLimpa}\nNascimento: ${dataNasc}` : `Nascimento: ${dataNasc}`;
 };
 
 export function ModalCliente({ isOpen, onClose, cliente }) {
@@ -50,8 +72,8 @@ export function ModalCliente({ isOpen, onClose, cliente }) {
           nome: cliente.nome || "",
           telefone: cliente.telefone && cliente.telefone !== "Não informado" ? cliente.telefone : "",
           eWhatsApp: cliente.is_whatsapp ?? true,
-          aniversario: cliente.aniversario || "",
-          observacoes: cliente.observacoes || "",
+          aniversario: cliente.aniversario || extrairAniversario(cliente.observacoes),
+          observacoes: (cliente.observacoes || "").replace(/(?:\[)?(?:Nascimento|Anivers[áa]rio):\s*([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}\/[0-9]{2}\/[0-9]{4})(?:\])?\n?/gi, "").trim(),
         });
       } else {
         reset({
@@ -79,7 +101,7 @@ export function ModalCliente({ isOpen, onClose, cliente }) {
         nome: formatarNome(dadosCliente.nome.trim()),
         telefone: dadosCliente.telefone.trim(),
         is_whatsapp: dadosCliente.eWhatsApp,
-        observacoes: dadosCliente.observacoes?.trim() || "",
+        observacoes: montarObservacoesComAniversario(dadosCliente.observacoes, dadosCliente.aniversario),
       };
 
       if (cliente && cliente.id) {

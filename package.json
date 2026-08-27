@@ -1,0 +1,11 @@
+{
+  "name": "allure-root",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix allure run dev",
+    "build": "npm --prefix allure run build",
+    "lint": "npm --prefix allure run lint",
+    "preview": "npm --prefix allure run preview"
+  }
+}
+

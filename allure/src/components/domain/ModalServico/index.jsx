@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { supabase } from "../../../services/supabase";
+import { useAuth } from "../../../contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,7 +18,7 @@ const servicoSchema = z.object({
 
 export function ModalServico({ isOpen, onClose, servico }) {
   const { profile } = useAuth();
-  const [carregando, setCarregando] = React.useState(false);
+  const [carregando, setCarregando] = useState(false);
 
   const {
     register,
