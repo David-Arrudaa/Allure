@@ -35,3 +35,9 @@ dist-ssr
 .agents/
 skills-lock.json
 .gemini/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
-import { supabase } from "../../../services/supabase";
-import { useAuth } from "../../../contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { supabase } from "../../../services/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
 import "../ModalAgendamento/ModalAgendamento.css";
 

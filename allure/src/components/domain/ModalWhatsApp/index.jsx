@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { X, Plus, Edit2, Trash2, Send, Loader2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Send, Loader2 } from "lucide-react";
 import { supabase } from "../../../services/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
 import "./ModalWhatsApp.css";
+import { Modal } from "../../ui/Modal";
 
 export function ModalWhatsApp({ isOpen, onClose, agendamento }) {
   const { profile } = useAuth();
@@ -72,7 +73,7 @@ export function ModalWhatsApp({ isOpen, onClose, agendamento }) {
       // Ops, let's just create it. Se falhar, investigamos. 
       // Vou atualizar depois que verificar, mas vamos mandar o insert padrão:
 
-      const jwt = (await supabase.auth.getSession()).data.session?.user?.id;
+      
       // na verdade o tenant_id geralmente vem de outro lugar. Vou usar o supabase db function se precisar, ou buscar o do cliente.
       
       // Para já, faremos a query de forma simples:
@@ -150,16 +151,8 @@ export function ModalWhatsApp({ isOpen, onClose, agendamento }) {
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box modal-whatsapp" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Mensagens Rápidas (WhatsApp)</h2>
-          <button className="btn-fechar" onClick={onClose} title="Fechar">
-            <X size={20} strokeWidth={2.5} />
-          </button>
-        </div>
-
-        <div className="modal-whatsapp-content">
+    <Modal isOpen={isOpen} onClose={onClose} title="Mensagens Rápidas (WhatsApp)">
+      <div className="modal-whatsapp-content">
           {isEditing ? (
             <form onSubmit={handleSalvar} className="form-template">
               <div className="form-grupo">
@@ -189,7 +182,7 @@ export function ModalWhatsApp({ isOpen, onClose, agendamento }) {
               <div className="form-actions">
                 <button
                   type="button"
-                  className="btn-cancelar"
+                  variant="secondary"
                   onClick={() => setIsEditing(false)}
                 >
                   Cancelar
@@ -246,8 +239,7 @@ export function ModalWhatsApp({ isOpen, onClose, agendamento }) {
               </button>
             </>
           )}
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }
