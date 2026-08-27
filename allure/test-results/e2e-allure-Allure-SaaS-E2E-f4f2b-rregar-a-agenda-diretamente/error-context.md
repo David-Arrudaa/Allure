@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: e2e\allure.spec.js >> Allure SaaS E2E Tests >> Filtros do Dashboard - deve atualizar métricas ao mudar o filtro
-- Location: e2e\allure.spec.js:84:3
+- Name: e2e\allure.spec.js >> Allure SaaS E2E Tests >> Login bypass via LocalStorage - deve carregar a agenda diretamente
+- Location: e2e\allure.spec.js:23:3
 
 # Error details
 

@@ -6,15 +6,15 @@
 
 # Test info
 
-- Name: e2e\fase2.spec.js >> Evolução Fase 2 - Homologação >> Compra de Pacote e diminuição de saldo de sessões
-- Location: e2e\fase2.spec.js:16:3
+- Name: e2e\fase2.spec.js >> Evolução Fase 2 - Homologação >> Fluxo de Agendamento Público (acesso anônimo ok, sem acesso a rotas privadas)
+- Location: e2e\fase2.spec.js:5:3
 
 # Error details
 
 ```
-Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/login
+Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/agendar/tenant-123
 Call log:
-  - navigating to "http://localhost:5173/login", waiting until "load"
+  - navigating to "http://localhost:5173/agendar/tenant-123", waiting until "load"
 
 ```
 
@@ -27,7 +27,8 @@ Call log:
   4  | 
   5  |   test('Fluxo de Agendamento Público (acesso anônimo ok, sem acesso a rotas privadas)', async ({ page }) => {
   6  |     // Acessa a rota pública
-  7  |     await page.goto('/agendar/tenant-123');
+> 7  |     await page.goto('/agendar/tenant-123');
+     |                ^ Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/agendar/tenant-123
   8  |     await expect(page.locator('text=Agendamento')).toBeVisible();
   9  | 
   10 |     // Tenta acessar rota privada
@@ -38,8 +39,7 @@ Call log:
   15 | 
   16 |   test('Compra de Pacote e diminuição de saldo de sessões', async ({ page }) => {
   17 |     // Simula login
-> 18 |     await page.goto('/login');
-     |                ^ Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/login
+  18 |     await page.goto('/login');
   19 |     // ... preenchimento de login ...
   20 |     
   21 |     // Acessa pacotes

@@ -12,36 +12,10 @@
 # Error details
 
 ```
-Test timeout of 30000ms exceeded.
-```
-
-```
-Error: page.click: Test timeout of 30000ms exceeded.
+Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/
 Call log:
-  - waiting for locator('button:has-text("Nova Cliente")')
+  - navigating to "http://localhost:5173/", waiting until "load"
 
-```
-
-# Page snapshot
-
-```yaml
-- generic [ref=f1e3]:
-  - generic [ref=f1e6]:
-    - img "Logo Allure" [ref=f1e7]
-    - paragraph [ref=f1e8]: Gestão Inteligente
-  - generic [ref=f1e10]:
-    - heading "Bem-vindo(a)" [level=2] [ref=f1e11]
-    - paragraph [ref=f1e12]: Acesse sua plataforma de gestão.
-    - generic [ref=f1e13]:
-      - generic [ref=f1e14]:
-        - generic [ref=f1e15]: E-mail
-        - textbox "E-mail" [ref=f1e16]:
-          - /placeholder: contato@salao.com
-      - generic [ref=f1e17]:
-        - generic [ref=f1e18]: Senha
-        - textbox "Senha" [ref=f1e19]:
-          - /placeholder: ••••••••
-      - button "Entrar na plataforma" [ref=f1e20] [cursor=pointer]
 ```
 
 # Test source
@@ -66,7 +40,8 @@ Call log:
   17 |       );
   18 |     });
   19 |     // Go to the starting URL before each test.
-  20 |     await page.goto('http://localhost:5173/'); // Adjust port as needed
+> 20 |     await page.goto('http://localhost:5173/'); // Adjust port as needed
+     |                ^ Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/
   21 |   });
   22 | 
   23 |   test('Login bypass via LocalStorage - deve carregar a agenda diretamente', async ({ page }) => {
@@ -80,8 +55,7 @@ Call log:
   31 |     await page.goto('http://localhost:5173/clientes');
   32 |     
   33 |     // Cadastrar cliente
-> 34 |     await page.click('button:has-text("Nova Cliente")');
-     |                ^ Error: page.click: Test timeout of 30000ms exceeded.
+  34 |     await page.click('button:has-text("Nova Cliente")');
   35 |     await page.fill('input[name="nome"]', 'Maria Silva Teste');
   36 |     await page.locator('input[name="telefone"]').type('11987654321', { delay: 50 });
   37 |     await page.check('input[name="eWhatsApp"]');

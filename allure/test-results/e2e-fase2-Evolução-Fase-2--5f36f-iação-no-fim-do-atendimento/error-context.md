@@ -12,31 +12,10 @@
 # Error details
 
 ```
-Error: expect(locator).toBeVisible() failed
-
-Locator: locator('text=WhatsApp')
-Expected: visible
-Timeout: 5000ms
-Error: element(s) not found
-
+Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/configuracoes
 Call log:
-  - Expect "toBeVisible" with timeout 5000ms
-  - waiting for locator('text=WhatsApp')
+  - navigating to "http://localhost:5173/configuracoes", waiting until "load"
 
-```
-
-```yaml
-- img "Logo Allure"
-- paragraph: Gestão Inteligente
-- heading "Bem-vindo(a)" [level=2]
-- paragraph: Acesse sua plataforma de gestão.
-- text: E-mail
-- textbox "E-mail":
-  - /placeholder: contato@salao.com
-- text: Senha
-- textbox "Senha":
-  - /placeholder: ••••••••
-- button "Entrar na plataforma"
 ```
 
 # Test source
@@ -71,9 +50,9 @@ Call log:
   27 | 
   28 |   test('Disparo de Avaliação no fim do atendimento', async ({ page }) => {
   29 |     // Acessa configurações
-  30 |     await page.goto('/configuracoes');
-> 31 |     await expect(page.locator('text=WhatsApp')).toBeVisible();
-     |                                                 ^ Error: expect(locator).toBeVisible() failed
+> 30 |     await page.goto('/configuracoes');
+     |                ^ Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/configuracoes
+  31 |     await expect(page.locator('text=WhatsApp')).toBeVisible();
   32 |   });
   33 | 
   34 | });

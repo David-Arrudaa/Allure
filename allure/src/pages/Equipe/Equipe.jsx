@@ -13,7 +13,7 @@ import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../services/supabase"; // Importação do banco de dados
 import { useAuth } from "../../contexts/AuthContext";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { useAuth } from "../../contexts/AuthContext";
+import { ModalReativarProfissional } from "../../components/domain/ModalReativarProfissional";
 import "./Equipe.css";
 
 export function Equipe() {
@@ -22,6 +22,18 @@ export function Equipe() {
   const [equipe, setEquipe] = useState([]);
   const [carregandoDados, setCarregandoDados] = useState(true);
   const [carregandoForm, setCarregandoForm] = useState(false);
+
+  // Controle do modal de reativação de login existente
+  const [modalReativarInfo, setModalReativarInfo] = useState({
+    aberto: false,
+    email: "",
+    nome: "",
+    tipo: "reativar",
+    profNome: "",
+    profObj: null,
+    dadosParaSalvar: null,
+  });
+  const [carregandoReativacao, setCarregandoReativacao] = useState(false);
 
   // Controle do modal principal (Cadastro/Edição)
   const [modalAberto, setModalAberto] = useState(false);
@@ -208,9 +220,50 @@ export function Equipe() {
             password: formFunc.senha,
           });
 
-          if (authError) throw new Error("Erro ao criar login: " + authError.message);
+          if (authError) {
+            const isUserAlreadyRegistered =
+              authError.message?.toLowerCase().includes("already registered") ||
+              authError.message?.toLowerCase().includes("already exists") ||
+              authError.status === 422;
+
+            if (isUserAlreadyRegistered) {
+              // Verificar se esse e-mail já pertence a alguém na equipe
+              const profNaEquipe = equipe.find(
+                (p) => p.email && p.email.toLowerCase() === formFunc.email.trim().toLowerCase()
+              );
+
+              if (profNaEquipe) {
+                setModalReativarInfo({
+                  aberto: true,
+                  email: formFunc.email.trim(),
+                  nome: formFunc.nome.trim(),
+                  tipo: "ja_na_equipe",
+                  profNome: profNaEquipe.nome,
+                  profObj: profNaEquipe,
+                  dadosParaSalvar: null,
+                });
+                setCarregandoForm(false);
+                return;
+              } else {
+                // E-mail existe no Auth (conta anterior), permitindo reativação
+                setModalReativarInfo({
+                  aberto: true,
+                  email: formFunc.email.trim(),
+                  nome: formFunc.nome.trim(),
+                  tipo: "reativar",
+                  profNome: "",
+                  profObj: null,
+                  dadosParaSalvar,
+                });
+                setCarregandoForm(false);
+                return;
+              }
+            }
+
+            throw new Error("Erro ao criar login: " + authError.message);
+          }
           
-          if (authData.user) {
+          if (authData?.user) {
             dadosParaSalvar.id = authData.user.id; // Vincula ao mesmo UUID
           }
         }
@@ -229,6 +282,41 @@ export function Equipe() {
     } finally {
       setCarregandoForm(false);
     }
+  };
+
+  const handleConfirmarReativacao = async () => {
+    if (modalReativarInfo.tipo === "ja_na_equipe") {
+      const profParaEditar = modalReativarInfo.profObj;
+      setModalReativarInfo({ aberto: false });
+      if (profParaEditar) {
+        abrirModalEdicao(profParaEditar);
+      }
+      return;
+    }
+
+    if (!modalReativarInfo.dadosParaSalvar) return;
+
+    setCarregandoReativacao(true);
+    try {
+      const { error } = await supabase
+        .from("profissionais")
+        .insert([modalReativarInfo.dadosParaSalvar]);
+
+      if (error) throw error;
+
+      setModalReativarInfo({ aberto: false });
+      setModalAberto(false);
+      buscarProfissionais();
+    } catch (error) {
+      console.error("Erro ao reativar profissional:", error.message);
+      alert("Erro ao reativar profissional: " + error.message);
+    } finally {
+      setCarregandoReativacao(false);
+    }
+  };
+
+  const handleCancelarReativacao = () => {
+    setModalReativarInfo({ aberto: false });
   };
 
   const abrirModalExcluir = (id) => {
@@ -616,6 +704,18 @@ export function Equipe() {
           </div>
         </div>
       )}
+
+      {/* Modal de Reativação / E-mail já existente */}
+      <ModalReativarProfissional
+        isOpen={modalReativarInfo.aberto}
+        email={modalReativarInfo.email}
+        nome={modalReativarInfo.nome}
+        tipo={modalReativarInfo.tipo}
+        profNome={modalReativarInfo.profNome}
+        isSalvando={carregandoReativacao}
+        onConfirmar={handleConfirmarReativacao}
+        onCancelar={handleCancelarReativacao}
+      />
     </div>
   );
 }
