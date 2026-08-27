@@ -209,7 +209,7 @@ export function ModalWhatsApp({ isOpen, onClose, agendamento }) {
                         <button className="btn-enviar-wa" onClick={() => enviarWhatsapp(template)} title="Enviar Mensagem">
                           <Send size={16} />
                         </button>
-                        <button variant="ghost" className="text-blue-500" onClick={() => handleEditar(template)} title="Editar">
+                        <button className="btn-editar-wa" onClick={() => handleEditar(template)} title="Editar">
                           <Edit2 size={16} />
                         </button>
                         <button className="btn-excluir-wa" onClick={() => handleExcluir(template.id)} title="Excluir">

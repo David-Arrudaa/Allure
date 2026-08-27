@@ -4,8 +4,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "../../services/supabase";
 import { useAuth } from "../../contexts/AuthContext";
-import { Edit2, Trash2, Plus, Search, X } from "lucide-react";
+import { Edit2, Trash2, Plus, Search } from "lucide-react";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { Modal } from "../../components/ui/Modal";
 import "./Produtos.css";
 
 const produtoSchema = z.object({
@@ -177,7 +178,7 @@ export function Produtos() {
 
         {profile?.is_admin && (
           <button
-            className="btn-novo"
+            variant="primary"
             onClick={() => abrirModal()}
             disabled={loading}
           >
@@ -309,33 +310,11 @@ export function Produtos() {
       </div>
 
       {/* MODAL DE CADASTRO / EDIÇÃO */}
-      {isModalOpen && (
-        <div className="modal-overlay" onClick={fecharModal}>
-          <div
-            className="modal-box"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "450px" }}
-          >
-            <div
-              className="modal-header"
-              style={{
-                marginBottom: "1.2rem",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <h2 style={{ margin: 0, fontSize: "1.25rem" }}>
-                {produtoEditando ? "Editar Produto" : "Novo Produto"}
-              </h2>
-              <button
-                className="btn-fechar"
-                onClick={fecharModal}
-                title="Fechar"
-              >
-                <X size={20} strokeWidth={2.5} />
-              </button>
-            </div>
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={fecharModal} 
+        title={produtoEditando ? "Editar Produto" : "Novo Produto"}
+      >
 
             <form onSubmit={handleSubmit(onSubmit)} className="form-agendamento">
               <div className="form-grupo">
@@ -419,7 +398,7 @@ export function Produtos() {
 
               <button
                 type="submit"
-                className="btn-salvar"
+                variant="primary"
                 style={{ marginTop: "1.5rem" }}
                 disabled={isSalvando}
               >
@@ -430,50 +409,35 @@ export function Produtos() {
                     : "Salvar Produto"}
               </button>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
-      {produtoParaExcluir && (
-        <div
-          className="modal-overlay"
-          onClick={() => setProdutoParaExcluir(null)}
-        >
-          <div
-            className="modal-box modal-exclusao"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3
-              style={{
-                fontSize: "1.25rem",
-                color: "#1E293B",
-                marginBottom: "0.5rem",
-              }}
-            >
-              Confirmar Exclusão
-            </h3>
+      <Modal
+        isOpen={!!produtoParaExcluir}
+        onClose={() => setProdutoParaExcluir(null)}
+        title="Confirmar Exclusão"
+      >
+        <div className="modal-exclusao">
             <p style={{ color: "#475569", marginBottom: "1.5rem" }}>
               Tem certeza que deseja apagar o produto{" "}
               <strong>{produtoParaExcluir.nome}</strong> do estoque?
             </p>
             <div className="modal-exclusao-acoes">
               <button
-                className="btn-cancelar"
+                variant="secondary"
                 onClick={() => setProdutoParaExcluir(null)}
               >
                 Cancelar
               </button>
               <button
-                className="btn-confirmar-exclusao"
+                variant="danger"
                 onClick={confirmarExclusao}
               >
                 Sim, apagar
               </button>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
