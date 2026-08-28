@@ -562,107 +562,109 @@ export function Agenda() {
 
         {/* LADO DIREITO: Navegação de Dias, Filtro de Profissionais e Botão Novo */}
         <div className="agenda-header-direita">
-          <div className="agenda-botoes-nav">
-            <button onClick={diaAnterior}>&lt; Anterior</button>
-            <button onClick={irParaHoje}>Hoje</button>
-            <button onClick={proximoDia}>Próxima &gt;</button>
-          </div>
+          <div className="agenda-controles-secundarios">
+            <div className="agenda-botoes-nav">
+              <button onClick={diaAnterior}>&lt; Anterior</button>
+              <button onClick={irParaHoje}>Hoje</button>
+              <button onClick={proximoDia}>Próxima &gt;</button>
+            </div>
 
-          {/* DROPDOWN DE FILTRO DINÂMICO DE PROFISSIONAIS */}
-          <div className="filtro-profissionais-wrapper" ref={filtroProfRef}>
-            <button
-              type="button"
-              className={`btn-filtro-profissionais ${isFiltroProfAberto ? "ativo" : ""}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsFiltroProfAberto(!isFiltroProfAberto);
-              }}
-              title="Filtrar profissionais visíveis na agenda"
-            >
-              <Users size={16} />
-              <span className="btn-filtro-texto">Profissionais</span>
-              <span className="badge-contador-prof">
-                {profissionais.length > 0 && profissionaisSelecionados.length === profissionais.length
-                  ? `Todas (${profissionais.length})`
-                  : `${profissionaisSelecionados.length}/${profissionais.length}`}
-              </span>
-              <ChevronDown size={14} className={`seta-filtro ${isFiltroProfAberto ? "girada" : ""}`} />
-            </button>
-
-            {isFiltroProfAberto && (
-              <div
-                className="dropdown-filtro-profissionais"
-                onClick={(e) => e.stopPropagation()}
+            {/* DROPDOWN DE FILTRO DINÂMICO DE PROFISSIONAIS */}
+            <div className="filtro-profissionais-wrapper" ref={filtroProfRef}>
+              <button
+                type="button"
+                className={`btn-filtro-profissionais ${isFiltroProfAberto ? "ativo" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsFiltroProfAberto(!isFiltroProfAberto);
+                }}
+                title="Filtrar profissionais visíveis na agenda"
               >
-                <div className="dropdown-filtro-header">
-                  <div className="dropdown-filtro-titulo">
-                    <Filter size={15} />
-                    <span>Filtrar Equipe</span>
-                  </div>
-                  <div className="dropdown-filtro-acoes-rapidas">
-                    <button
-                      type="button"
-                      onClick={selecionarTodasProfissionais}
-                      className="btn-acao-filtro"
-                    >
-                      Todas
-                    </button>
-                    <button
-                      type="button"
-                      onClick={desmarcarTodasProfissionais}
-                      className="btn-acao-filtro"
-                    >
-                      Nenhuma
-                    </button>
-                  </div>
-                </div>
+                <Users size={16} />
+                <span className="btn-filtro-texto">Profissionais</span>
+                <span className="badge-contador-prof">
+                  {profissionais.length > 0 && profissionaisSelecionados.length === profissionais.length
+                    ? `Todas (${profissionais.length})`
+                    : `${profissionaisSelecionados.length}/${profissionais.length}`}
+                </span>
+                <ChevronDown size={14} className={`seta-filtro ${isFiltroProfAberto ? "girada" : ""}`} />
+              </button>
 
-                <div className="dropdown-filtro-lista">
-                  {profissionais.map((prof) => {
-                    const isChecked = profissionaisSelecionados.includes(prof.id);
-                    const qtdAgendamentos = agendamentosDoDia.filter(
-                      (ag) => ag.profissionalId === prof.id,
-                    ).length;
-
-                    return (
-                      <label
-                        key={prof.id}
-                        className={`item-filtro-prof ${isChecked ? "selecionado" : ""}`}
+              {isFiltroProfAberto && (
+                <div
+                  className="dropdown-filtro-profissionais"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="dropdown-filtro-header">
+                    <div className="dropdown-filtro-titulo">
+                      <Filter size={15} />
+                      <span>Filtrar Equipe</span>
+                    </div>
+                    <div className="dropdown-filtro-acoes-rapidas">
+                      <button
+                        type="button"
+                        onClick={selecionarTodasProfissionais}
+                        className="btn-acao-filtro"
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleProfissional(prof.id)}
-                          className="checkbox-filtro-prof"
-                        />
-                        <div className="avatar-filtro-prof">
-                          {prof.foto ? (
-                            <img src={prof.foto} alt={prof.nome} />
-                          ) : (
-                            <span>{prof.nome.charAt(0)}</span>
-                          )}
-                        </div>
-                        <span className="nome-filtro-prof">{prof.nome}</span>
-                        {qtdAgendamentos > 0 && (
-                          <span
-                            className="badge-qtd-agendamentos"
-                            title={`${qtdAgendamentos} agendamento(s) hoje`}
-                          >
-                            {qtdAgendamentos}
-                          </span>
-                        )}
-                      </label>
-                    );
-                  })}
-                </div>
+                        Todas
+                      </button>
+                      <button
+                        type="button"
+                        onClick={desmarcarTodasProfissionais}
+                        className="btn-acao-filtro"
+                      >
+                        Nenhuma
+                      </button>
+                    </div>
+                  </div>
 
-                <div className="dropdown-filtro-footer">
-                  <span>
-                    Exibindo {profissionaisExibidos.length} de {profissionais.length} profissionais
-                  </span>
+                  <div className="dropdown-filtro-lista">
+                    {profissionais.map((prof) => {
+                      const isChecked = profissionaisSelecionados.includes(prof.id);
+                      const qtdAgendamentos = agendamentosDoDia.filter(
+                        (ag) => ag.profissionalId === prof.id,
+                      ).length;
+
+                      return (
+                        <label
+                          key={prof.id}
+                          className={`item-filtro-prof ${isChecked ? "selecionado" : ""}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleProfissional(prof.id)}
+                            className="checkbox-filtro-prof"
+                          />
+                          <div className="avatar-filtro-prof">
+                            {prof.foto ? (
+                              <img src={prof.foto} alt={prof.nome} />
+                            ) : (
+                              <span>{prof.nome.charAt(0)}</span>
+                            )}
+                          </div>
+                          <span className="nome-filtro-prof">{prof.nome}</span>
+                          {qtdAgendamentos > 0 && (
+                            <span
+                              className="badge-qtd-agendamentos"
+                              title={`${qtdAgendamentos} agendamento(s) hoje`}
+                            >
+                              {qtdAgendamentos}
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  <div className="dropdown-filtro-footer">
+                    <span>
+                      Exibindo {profissionaisExibidos.length} de {profissionais.length} profissionais
+                    </span>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           <button
@@ -726,7 +728,7 @@ export function Agenda() {
               </button>
             </div>
           ) : (
-            profissionaisExibidos.map((prof) => {
+            profissionaisExibidos.map((prof, indexProf) => {
                 const temMenuNestaColuna = agendamentosDoDia.some(
                   (ag) => ag.profissionalId === prof.id && menuAbertoId === ag.id,
                 );
@@ -817,7 +819,7 @@ export function Agenda() {
                                   </button>
 
                                   {menuAbertoId === ag.id && (
-                                    <div className="menu-acoes-flutuante">
+                                    <div className={`menu-acoes-flutuante ${indexProf === 0 ? "menu-abrir-direita" : ""}`}>
                                       <button
                                         className="item-menu-acao item-whatsapp"
                                         onClick={(e) => {
