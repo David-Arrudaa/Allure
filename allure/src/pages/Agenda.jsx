@@ -185,8 +185,14 @@ export function Agenda() {
       if (error) throw error;
 
       if (data) {
-        const listaFormatada = data.map((item) => {
-          const dataObj = new Date(item.data_horario);
+        const listaFormatada = data
+          .filter(
+            (item) =>
+              item.duracao !== 0 &&
+              !String(item.servico || "").toLowerCase().startsWith("venda:"),
+          )
+          .map((item) => {
+            const dataObj = new Date(item.data_horario);
           const dataFormatada = formatarDataInput(dataObj);
           const horarioFormatado = dataObj.toLocaleTimeString("pt-BR", {
             hour: "2-digit",
