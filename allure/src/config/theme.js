@@ -35,7 +35,7 @@ export const MODAL_STYLES = {
 };
 
 export const FORM_STYLES = {
-  group: "flex flex-col gap-2",
+  group: "flex flex-col gap-2 mt-2",
   label: "text-sm font-semibold text-slate-700 tracking-wide",
   input:
     "w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 bg-slate-50/50 focus:bg-white focus:outline-none focus:border-[var(--cor-primaria)] focus:ring-2 focus:ring-[var(--cor-primaria)]/20 transition-all text-sm",
@@ -44,7 +44,7 @@ export const FORM_STYLES = {
   textarea:
     "w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 bg-slate-50/50 focus:bg-white focus:outline-none focus:border-[var(--cor-primaria)] focus:ring-2 focus:ring-[var(--cor-primaria)]/20 transition-all text-sm min-h-[90px] resize-y",
   error: "text-red-500 text-xs font-medium flex items-center gap-1 mt-0.5",
-  row: "grid grid-cols-1 sm:grid-cols-2 gap-5",
+  row: "grid grid-cols-1 sm:grid-cols-2 gap-5 mt-2",
   actions:
     "flex items-center justify-end gap-3 !pt-6 !mt-6 !pb-4 border-t border-slate-100",
 };
