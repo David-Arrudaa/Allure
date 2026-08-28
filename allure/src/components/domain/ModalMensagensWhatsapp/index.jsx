@@ -8,14 +8,10 @@ import {
   ArrowLeft,
   MessageSquare,
   Sparkles,
+  Phone,
   Copy,
   Check,
-  ChevronRight,
-  User,
-  Loader2,
 } from "lucide-react";
-import { supabase } from "../../../services/supabase";
-import { useAuth } from "../../../contexts/AuthContext";
 import "./ModalMensagensWhatsapp.css";
 
 const MODELOS_PADRAO = [
@@ -52,15 +48,14 @@ const MODELOS_PADRAO = [
 ];
 
 export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
-  const { user } = useAuth();
-  const tenantId =
-    user?.tenant_id ||
-    agendamento?.tenant_id ||
-    "11111111-1111-1111-1111-111111111111";
-
-  const [modelos, setModelos] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [salvando, setSalvando] = useState(false);
+  const [modelos, setModelos] = useState(() => {
+    try {
+      const salvos = localStorage.getItem("luzz_whatsapp_templates");
+      return salvos ? JSON.parse(salvos) : MODELOS_PADRAO;
+    } catch {
+      return MODELOS_PADRAO;
+    }
+  });
 
   // Modos de visualização: 'lista' | 'previa' | 'editor'
   const [modo, setModo] = useState("lista");
@@ -74,80 +69,22 @@ export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
   const [tituloForm, setTituloForm] = useState("");
   const [textoForm, setTextoForm] = useState("");
 
-  // Buscar modelos no Supabase com tenant_id
-  const carregarModelos = async () => {
-    if (!tenantId) return;
-    setLoading(true);
+  // Persistir modelos no localStorage
+  useEffect(() => {
     try {
-      const { data, error } = await supabase
-        .from("whatsapp_templates")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .order("ordem", { ascending: true })
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        setModelos(data);
-      } else {
-        // Se o salão ainda não possui modelos salvos no banco, cria os modelos padrões iniciais no tenant_id dele
-        const modelosIniciais = MODELOS_PADRAO.map((m, idx) => ({
-          tenant_id: tenantId,
-          titulo: m.titulo,
-          texto: m.texto,
-          ordem: idx,
-        }));
-
-        const { data: criados, error: errInsert } = await supabase
-          .from("whatsapp_templates")
-          .insert(modelosIniciais)
-          .select();
-
-        if (!errInsert && criados && criados.length > 0) {
-          setModelos(criados);
-        } else {
-          setModelos(MODELOS_PADRAO);
-        }
-      }
-    } catch (err) {
-      console.warn(
-        "Aviso: Tabela whatsapp_templates indisponível ou erro na busca. Usando fallback local:",
-        err,
-      );
-      try {
-        const salvos = localStorage.getItem(`luzz_whatsapp_templates_${tenantId}`);
-        setModelos(salvos ? JSON.parse(salvos) : MODELOS_PADRAO);
-      } catch {
-        setModelos(MODELOS_PADRAO);
-      }
-    } finally {
-      setLoading(false);
+      localStorage.setItem("luzz_whatsapp_templates", JSON.stringify(modelos));
+    } catch (e) {
+      console.error("Erro ao salvar modelos de WhatsApp:", e);
     }
-  };
+  }, [modelos]);
 
-  // Carregar dados sempre que o modal for aberto
+  // Resetar ao abrir/fechar
   useEffect(() => {
     if (isOpen) {
       setModo("lista");
       setCopiado(false);
-      carregarModelos();
     }
-  }, [isOpen, tenantId]);
-
-  // Persistir em cache local por precaução
-  useEffect(() => {
-    if (modelos.length > 0 && tenantId) {
-      try {
-        localStorage.setItem(
-          `luzz_whatsapp_templates_${tenantId}`,
-          JSON.stringify(modelos),
-        );
-      } catch (e) {
-        console.error("Erro ao salvar cache de modelos:", e);
-      }
-    }
-  }, [modelos, tenantId]);
+  }, [isOpen, agendamento]);
 
   if (!isOpen || !agendamento) return null;
 
@@ -178,12 +115,6 @@ export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
       .replace(/\{salao\}/gi, "nosso salão");
   };
 
-  // Obter hora atual formatada para a bolha do chat
-  const horaAtual = new Date().toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
   // Abrir prévia de um modelo
   const handleSelecionarModelo = (modelo) => {
     const textoPronto = processarTexto(modelo.texto);
@@ -207,9 +138,10 @@ export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
 
     let url = "";
     if (telefoneLimpo) {
-      const numeroFinal = telefoneLimpo.startsWith("55")
-        ? telefoneLimpo
-        : `55${telefoneLimpo}`;
+      const numeroFinal =
+        telefoneLimpo.startsWith("55")
+          ? telefoneLimpo
+          : `55${telefoneLimpo}`;
       url = `https://wa.me/${numeroFinal}?text=${mensagemCodificada}`;
     } else {
       url = `https://wa.me/?text=${mensagemCodificada}`;
@@ -244,109 +176,37 @@ export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
     setModo("editor");
   };
 
-  // Excluir modelo no banco de dados e localmente
-  const handleExcluirModelo = async (id, e) => {
+  // Excluir modelo
+  const handleExcluirModelo = (id, e) => {
     e.stopPropagation();
-    if (!window.confirm("Deseja realmente excluir este modelo de mensagem?")) {
-      return;
+    if (window.confirm("Deseja realmente excluir este modelo de mensagem?")) {
+      setModelos((prev) => prev.filter((m) => m.id !== id));
     }
-
-    try {
-      await supabase
-        .from("whatsapp_templates")
-        .delete()
-        .eq("id", id)
-        .eq("tenant_id", tenantId);
-    } catch (err) {
-      console.error("Erro ao excluir do Supabase:", err);
-    }
-
-    setModelos((prev) => prev.filter((m) => m.id !== id));
   };
 
-  // Salvar modelo criado ou editado no Supabase
-  const handleSalvarModelo = async (e) => {
+  // Salvar modelo criado ou editado
+  const handleSalvarModelo = (e) => {
     e.preventDefault();
     if (!tituloForm.trim() || !textoForm.trim()) return;
 
-    setSalvando(true);
-    const tituloLimpo = tituloForm.trim();
-    const textoLimpo = textoForm.trim();
-
-    try {
-      if (modeloEditando) {
-        // Atualizar modelo existente
-        const { error } = await supabase
-          .from("whatsapp_templates")
-          .update({
-            titulo: tituloLimpo,
-            texto: textoLimpo,
-          })
-          .eq("id", modeloEditando.id)
-          .eq("tenant_id", tenantId);
-
-        if (error) throw error;
-
-        setModelos((prev) =>
-          prev.map((m) =>
-            m.id === modeloEditando.id
-              ? { ...m, titulo: tituloLimpo, texto: textoLimpo }
-              : m,
-          ),
-        );
-      } else {
-        // Inserir novo modelo com tenant_id do salão
-        const novoRegistro = {
-          tenant_id: tenantId,
-          titulo: tituloLimpo,
-          texto: textoLimpo,
-          ordem: modelos.length,
-        };
-
-        const { data, error } = await supabase
-          .from("whatsapp_templates")
-          .insert([novoRegistro])
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        if (data) {
-          setModelos((prev) => [...prev, data]);
-        } else {
-          setModelos((prev) => [
-            ...prev,
-            { id: `modelo-${Date.now()}`, ...novoRegistro },
-          ]);
-        }
-      }
-    } catch (err) {
-      console.error("Erro ao salvar no Supabase:", err);
-      // Fallback em caso de erro
-      if (modeloEditando) {
-        setModelos((prev) =>
-          prev.map((m) =>
-            m.id === modeloEditando.id
-              ? { ...m, titulo: tituloLimpo, texto: textoLimpo }
-              : m,
-          ),
-        );
-      } else {
-        setModelos((prev) => [
-          ...prev,
-          {
-            id: `modelo-${Date.now()}`,
-            tenant_id: tenantId,
-            titulo: tituloLimpo,
-            texto: textoLimpo,
-          },
-        ]);
-      }
-    } finally {
-      setSalvando(false);
-      setModo("lista");
-      setModeloEditando(null);
+    if (modeloEditando) {
+      setModelos((prev) =>
+        prev.map((m) =>
+          m.id === modeloEditando.id
+            ? { ...m, titulo: tituloForm.trim(), texto: textoForm.trim() }
+            : m,
+        ),
+      );
+    } else {
+      const novo = {
+        id: `modelo-${Date.now()}`,
+        titulo: tituloForm.trim(),
+        texto: textoForm.trim(),
+      };
+      setModelos((prev) => [...prev, novo]);
     }
+
+    setModo("lista");
   };
 
   // Inserir tag de variável no editor
@@ -360,30 +220,14 @@ export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
         className="modal-whatsapp-card"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* CABEÇALHO COM IDENTIFICAÇÃO DA CLIENTE */}
+        {/* CABEÇALHO */}
         <div className="modal-whatsapp-header">
-          <div className="modal-whatsapp-header-info">
-            <div className="modal-whatsapp-icon-badge">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="modal-whatsapp-titulo">
-                {modo === "lista" && "Mensagens via WhatsApp"}
-                {modo === "previa" && "Prévia da Mensagem"}
-                {modo === "editor" &&
-                  (modeloEditando ? "Editar Modelo" : "Novo Modelo de Mensagem")}
-              </h3>
-              <p className="modal-whatsapp-destinatario">
-                Para: <strong>{agendamento.cliente || "Cliente"}</strong>
-                {agendamento.telefone && (
-                  <span className="destinatario-telefone"> • {agendamento.telefone}</span>
-                )}
-              </p>
-            </div>
-          </div>
-
+          <h3 className="modal-whatsapp-titulo">
+            {modo === "lista" && "Mensagens via WhatsApp"}
+            {modo === "previa" && "Prévia da Mensagem"}
+            {modo === "editor" &&
+              (modeloEditando ? "Editar Modelo" : "Novo Modelo de Mensagem")}
+          </h3>
           <button
             type="button"
             className="btn-fechar-whatsapp"
@@ -395,127 +239,90 @@ export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
         </div>
 
         {/* ========================================================
-            VISÃO 1: LISTA DE MENSAGENS (Sincronizada no Supabase)
+            VISÃO 1: LISTA DE MENSAGENS (Fiel à imagem de referência)
             ======================================================== */}
         {modo === "lista" && (
-          <div className="whatsapp-tab-content">
+          <>
             <p className="modal-whatsapp-subtitulo">
               Selecione a mensagem para envio:
             </p>
 
-            {loading ? (
-              <div className="whatsapp-carregando">
-                <Loader2 size={24} className="spinner-carregando" />
-                <span>Carregando modelos do seu salão...</span>
-              </div>
-            ) : (
-              <div className="lista-modelos-whatsapp">
-                {modelos.map((m) => (
-                  <div
-                    key={m.id}
-                    className="item-modelo-whatsapp"
-                    onClick={() => handleSelecionarModelo(m)}
-                    title="Clique para enviar esta mensagem"
-                  >
-                    <div className="item-modelo-conteudo">
-                      <span className="item-modelo-titulo">{m.titulo}</span>
-                      <span className="item-modelo-preview">
-                        {m.texto.slice(0, 60)}...
-                      </span>
-                    </div>
-
-                    <div
-                      className="item-modelo-acoes"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        className="btn-acao-modelo editar"
-                        onClick={(e) => handleEditarModelo(m, e)}
-                        title="Editar este modelo"
-                      >
-                        <Edit2 size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-acao-modelo excluir"
-                        onClick={(e) => handleExcluirModelo(m.id, e)}
-                        title="Excluir este modelo"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                      <ChevronRight size={16} className="item-seta-indicador" />
-                    </div>
-                  </div>
-                ))}
-
-                {/* Opção de Escrever Mensagem Livre */}
+            <div className="lista-modelos-whatsapp">
+              {modelos.map((m) => (
                 <div
-                  className="item-modelo-whatsapp item-escrever-livre"
-                  onClick={handleEscreverLivre}
+                  key={m.id}
+                  className="item-modelo-whatsapp"
+                  onClick={() => handleSelecionarModelo(m)}
+                  title="Clique para enviar esta mensagem"
                 >
-                  <div className="item-modelo-conteudo">
-                    <span className="item-modelo-titulo">
-                      <MessageSquare size={16} />
-                      Escrever Mensagem Livre
-                    </span>
-                    <span className="item-modelo-preview">
-                      Digite um texto personalizado agora
-                    </span>
+                  <span className="item-modelo-titulo">{m.titulo}</span>
+                  <div
+                    className="item-modelo-acoes"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      className="btn-acao-modelo editar"
+                      onClick={(e) => handleEditarModelo(m, e)}
+                      title="Editar este modelo"
+                    >
+                      <Edit2 size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-acao-modelo excluir"
+                      onClick={(e) => handleExcluirModelo(m.id, e)}
+                      title="Excluir este modelo"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
-                  <ChevronRight size={16} className="item-seta-indicador" />
                 </div>
+              ))}
+
+              {/* Opção de Escrever Mensagem Livre */}
+              <div
+                className="item-modelo-whatsapp item-escrever-livre"
+                onClick={handleEscreverLivre}
+              >
+                <span className="item-modelo-titulo">
+                  <MessageSquare size={16} />
+                  Escrever Mensagem Livre
+                </span>
               </div>
-            )}
+            </div>
 
             <button
               type="button"
               className="btn-criar-novo-modelo"
               onClick={handleNovoModelo}
-              disabled={loading}
             >
               <Plus size={16} />
               <span>Criar Novo Modelo</span>
             </button>
-          </div>
+          </>
         )}
 
         {/* ========================================================
-            VISÃO 2: PRÉVIA INTERATIVA (Estilo Bolha do WhatsApp)
+            VISÃO 2: PRÉVIA E DISPARO DA MENSAGEM
             ======================================================== */}
         {modo === "previa" && (
           <div className="previa-container">
-            <div className="whatsapp-chat-preview-box">
-              <div className="whatsapp-chat-header">
-                <div className="whatsapp-avatar-small">
-                  <User size={14} />
-                </div>
-                <div className="whatsapp-contact-info">
-                  <span className="whatsapp-contact-name">
-                    {agendamento.cliente || "Cliente"}
-                  </span>
-                  <span className="whatsapp-contact-status">online</span>
-                </div>
+            <div className="cliente-destinatario-badge">
+              <div className="cliente-destinatario-info">
+                <Phone size={15} />
+                <span>{agendamento.cliente || "Cliente"}</span>
               </div>
-
-              <div className="whatsapp-chat-bubble">
-                <textarea
-                  className="textarea-bubble-whatsapp"
-                  value={textoPrevia}
-                  onChange={(e) => setTextoPrevia(e.target.value)}
-                  placeholder="Digite ou personalize sua mensagem..."
-                  rows={5}
-                />
-                <div className="whatsapp-bubble-footer">
-                  <span className="whatsapp-bubble-time">{horaAtual}</span>
-                  <span className="whatsapp-bubble-checks">✓✓</span>
-                </div>
-              </div>
+              <span>{agendamento.telefone || "Sem número cadastrado"}</span>
             </div>
 
-            <p className="dica-edicao-previa">
-              💡 Você pode editar o texto acima antes de enviar.
-            </p>
+            <textarea
+              className="textarea-previa-whatsapp"
+              value={textoPrevia}
+              onChange={(e) => setTextoPrevia(e.target.value)}
+              placeholder="Digite ou personalize sua mensagem..."
+              rows={6}
+            />
 
             <div className="previa-acoes">
               <button
@@ -523,25 +330,26 @@ export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
                 className="btn-voltar-whatsapp"
                 onClick={() => setModo("lista")}
               >
-                <ArrowLeft size={16} />
-                <span>Voltar</span>
+                <ArrowLeft size={16} style={{ verticalAlign: "middle", marginRight: "4px" }} />
+                Voltar
               </button>
 
               <button
                 type="button"
-                className="btn-copiar-whatsapp"
+                className="btn-voltar-whatsapp"
                 onClick={handleCopiarTexto}
                 title="Copiar texto para colar"
+                style={{ flex: "0.8" }}
               >
                 {copiado ? (
                   <>
-                    <Check size={16} color="#16A34A" />
-                    <span>Copiado!</span>
+                    <Check size={16} color="#16A34A" style={{ verticalAlign: "middle", marginRight: "4px" }} />
+                    Copiado!
                   </>
                 ) : (
                   <>
-                    <Copy size={16} />
-                    <span>Copiar</span>
+                    <Copy size={16} style={{ verticalAlign: "middle", marginRight: "4px" }} />
+                    Copiar
                   </>
                 )}
               </button>
@@ -552,7 +360,7 @@ export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
                 onClick={handleEnviarWhatsapp}
               >
                 <Send size={16} />
-                <span>Enviar no WhatsApp</span>
+                <span>Enviar</span>
               </button>
             </div>
           </div>
@@ -572,13 +380,12 @@ export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
                 onChange={(e) => setTituloForm(e.target.value)}
                 required
                 placeholder="Ex: Confirmação de Retorno 15 dias"
-                disabled={salvando}
               />
             </div>
 
             <div className="tags-variaveis-container">
               <span className="tags-variaveis-titulo">
-                <Sparkles size={12} />
+                <Sparkles size={12} style={{ display: "inline", marginRight: "4px" }} />
                 Clique para inserir variáveis automáticas:
               </span>
               <div className="chips-variaveis">
@@ -636,7 +443,6 @@ export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
                 required
                 rows={5}
                 placeholder="Ex: Olá {cliente}, passando para confirmar seu horário de {servico} às {horario}..."
-                disabled={salvando}
               />
             </div>
 
@@ -645,23 +451,11 @@ export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
                 type="button"
                 className="btn-voltar-whatsapp"
                 onClick={() => setModo("lista")}
-                disabled={salvando}
               >
                 Cancelar
               </button>
-              <button
-                type="submit"
-                className="btn-salvar-modelo"
-                disabled={salvando}
-              >
-                {salvando ? (
-                  <>
-                    <Loader2 size={16} className="spinner-carregando" />
-                    <span>Salvando...</span>
-                  </>
-                ) : (
-                  <span>Salvar Modelo</span>
-                )}
+              <button type="submit" className="btn-salvar-modelo">
+                Salvar Modelo
               </button>
             </div>
           </form>
@@ -670,3 +464,4 @@ export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
     </div>
   );
 }
+
