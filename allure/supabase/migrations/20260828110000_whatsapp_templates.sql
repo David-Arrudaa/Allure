@@ -17,3 +17,4 @@ DROP POLICY IF EXISTS "Tenant Isolation Policy - Whatsapp Templates" ON public.w
 CREATE POLICY "Tenant Isolation Policy - Whatsapp Templates" ON public.whatsapp_templates
     FOR ALL
     USING (tenant_id = public.current_tenant_id());
+

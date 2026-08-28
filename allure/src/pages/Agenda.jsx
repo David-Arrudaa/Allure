@@ -20,6 +20,7 @@ import {
 import { ModalAgendamento } from "../components/domain/ModalAgendamento";
 import { ModalPagamento } from "../components/domain/ModalPagamento/ModalPagamento";
 import { ModalMensagensWhatsapp } from "../components/domain/ModalMensagensWhatsapp";
+import { DatePickerPopover } from "../components/ui/DatePickerPopover";
 import { supabase } from "../services/supabase";
 import { Skeleton } from "../components/ui/Skeleton"; // <-- IMPORTAÇÃO DO SKELETON
 import "./Agenda.css";
@@ -81,6 +82,7 @@ export function Agenda() {
   const [profissionais, setProfissionais] = useState([]);
   const [profissionaisSelecionados, setProfissionaisSelecionados] = useState([]);
   const [isFiltroProfAberto, setIsFiltroProfAberto] = useState(false);
+  const [isDatePickerAberto, setIsDatePickerAberto] = useState(false);
   const filtroProfRef = useRef(null);
 
   useEffect(() => {
@@ -514,146 +516,166 @@ export function Agenda() {
         </div>
       )}
 
-      {/* TOPBAR COM FILTRO DINÂMICO DE PROFISSIONAIS */}
+      {/* TOPBAR ORGANIZADA: ESQUERDA (TÍTULO E DATA) E DIREITA (CONTROLES E AÇÃO) */}
       <div className="agenda-topbar">
-        <div className="agenda-info-navegacao">
-          <div className="agenda-info">
+        {/* LADO ESQUERDO: Título, Contagem do Dia e Seletor de Data */}
+        <div className="agenda-header-esquerda">
+          <div className="agenda-titulo-linha">
             <h2>Agenda Inteligente</h2>
-            <div className="data-formatada">
-              {formatarDataExibicao(dataSelecionada)}
-              <label className="btn-calendario-icon" title="Escolher data">
-                <Calendar size={18} />
-                <input
-                  type="date"
-                  className="input-data-invisivel"
-                  value={dataSelecionadaString}
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      const [ano, mes, dia] = e.target.value.split("-");
-                      setDataSelecionada(new Date(ano, mes - 1, dia));
-                    }
-                  }}
-                />
-              </label>
-            </div>
-          </div>
-
-          <div className="agenda-controles-agrupados">
-            <div className="agenda-botoes-nav">
-              <button onClick={diaAnterior}>&lt; Anterior</button>
-              <button onClick={irParaHoje}>Hoje</button>
-              <button onClick={proximoDia}>Próxima &gt;</button>
-            </div>
-
-            {/* DROPDOWN DE FILTRO DINÂMICO DE PROFISSIONAIS */}
-            <div className="filtro-profissionais-wrapper" ref={filtroProfRef}>
-              <button
-                type="button"
-                className={`btn-filtro-profissionais ${isFiltroProfAberto ? "ativo" : ""}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsFiltroProfAberto(!isFiltroProfAberto);
-                }}
-                title="Filtrar profissionais visíveis na agenda"
-              >
-                <Users size={16} />
-                <span className="btn-filtro-texto">Profissionais</span>
-                <span className="badge-contador-prof">
-                  {profissionais.length > 0 && profissionaisSelecionados.length === profissionais.length
-                    ? `Todas (${profissionais.length})`
-                    : `${profissionaisSelecionados.length}/${profissionais.length}`}
-                </span>
-                <ChevronDown size={14} className={`seta-filtro ${isFiltroProfAberto ? "girada" : ""}`} />
-              </button>
-
-              {isFiltroProfAberto && (
-                <div
-                  className="dropdown-filtro-profissionais"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="dropdown-filtro-header">
-                    <div className="dropdown-filtro-titulo">
-                      <Filter size={15} />
-                      <span>Filtrar Equipe</span>
-                    </div>
-                    <div className="dropdown-filtro-acoes-rapidas">
-                      <button
-                        type="button"
-                        onClick={selecionarTodasProfissionais}
-                        className="btn-acao-filtro"
-                      >
-                        Todas
-                      </button>
-                      <button
-                        type="button"
-                        onClick={desmarcarTodasProfissionais}
-                        className="btn-acao-filtro"
-                      >
-                        Nenhuma
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="dropdown-filtro-lista">
-                    {profissionais.map((prof) => {
-                      const isChecked = profissionaisSelecionados.includes(prof.id);
-                      const qtdAgendamentos = agendamentosDoDia.filter(
-                        (ag) => ag.profissionalId === prof.id,
-                      ).length;
-
-                      return (
-                        <label
-                          key={prof.id}
-                          className={`item-filtro-prof ${isChecked ? "selecionado" : ""}`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleProfissional(prof.id)}
-                            className="checkbox-filtro-prof"
-                          />
-                          <div className="avatar-filtro-prof">
-                            {prof.foto ? (
-                              <img src={prof.foto} alt={prof.nome} />
-                            ) : (
-                              <span>{prof.nome.charAt(0)}</span>
-                            )}
-                          </div>
-                          <span className="nome-filtro-prof">{prof.nome}</span>
-                          {qtdAgendamentos > 0 && (
-                            <span
-                              className="badge-qtd-agendamentos"
-                              title={`${qtdAgendamentos} agendamento(s) hoje`}
-                            >
-                              {qtdAgendamentos}
-                            </span>
-                          )}
-                        </label>
-                      );
-                    })}
-                  </div>
-
-                  <div className="dropdown-filtro-footer">
-                    <span>
-                      Exibindo {profissionaisExibidos.length} de {profissionais.length} profissionais
-                    </span>
-                  </div>
-                </div>
+            <div className="badge-qtd-dia">
+              {isLoading ? (
+                <Skeleton width="60px" height="14px" />
+              ) : (
+                `${qtdAtendimentosDia} ${qtdAtendimentosDia === 1 ? "agendamento" : "agendamentos"}`
               )}
             </div>
           </div>
+
+          <div className="data-formatada-wrapper">
+            <div
+              className="data-formatada"
+              onClick={() => setIsDatePickerAberto(!isDatePickerAberto)}
+              title="Clique para escolher a data"
+            >
+              <span>{formatarDataExibicao(dataSelecionada)}</span>
+              <button
+                type="button"
+                className="btn-calendario-icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsDatePickerAberto(!isDatePickerAberto);
+                }}
+                title="Abrir calendário"
+              >
+                <Calendar size={15} />
+              </button>
+            </div>
+
+            <DatePickerPopover
+              isOpen={isDatePickerAberto}
+              onClose={() => setIsDatePickerAberto(false)}
+              dataSelecionada={dataSelecionada}
+              onSelectData={(novaData) => setDataSelecionada(novaData)}
+            />
+          </div>
         </div>
 
-        <button
-          className="btn-novo"
-          onClick={() => {
-            setAgendamentoEditando(null);
-            setIsModalOpen(true);
-          }}
-          disabled={isLoading}
-        >
-          <Plus size={20} /> Novo Agendamento
-        </button>
+        {/* LADO DIREITO: Navegação de Dias, Filtro de Profissionais e Botão Novo */}
+        <div className="agenda-header-direita">
+          <div className="agenda-botoes-nav">
+            <button onClick={diaAnterior}>&lt; Anterior</button>
+            <button onClick={irParaHoje}>Hoje</button>
+            <button onClick={proximoDia}>Próxima &gt;</button>
+          </div>
+
+          {/* DROPDOWN DE FILTRO DINÂMICO DE PROFISSIONAIS */}
+          <div className="filtro-profissionais-wrapper" ref={filtroProfRef}>
+            <button
+              type="button"
+              className={`btn-filtro-profissionais ${isFiltroProfAberto ? "ativo" : ""}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsFiltroProfAberto(!isFiltroProfAberto);
+              }}
+              title="Filtrar profissionais visíveis na agenda"
+            >
+              <Users size={16} />
+              <span className="btn-filtro-texto">Profissionais</span>
+              <span className="badge-contador-prof">
+                {profissionais.length > 0 && profissionaisSelecionados.length === profissionais.length
+                  ? `Todas (${profissionais.length})`
+                  : `${profissionaisSelecionados.length}/${profissionais.length}`}
+              </span>
+              <ChevronDown size={14} className={`seta-filtro ${isFiltroProfAberto ? "girada" : ""}`} />
+            </button>
+
+            {isFiltroProfAberto && (
+              <div
+                className="dropdown-filtro-profissionais"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="dropdown-filtro-header">
+                  <div className="dropdown-filtro-titulo">
+                    <Filter size={15} />
+                    <span>Filtrar Equipe</span>
+                  </div>
+                  <div className="dropdown-filtro-acoes-rapidas">
+                    <button
+                      type="button"
+                      onClick={selecionarTodasProfissionais}
+                      className="btn-acao-filtro"
+                    >
+                      Todas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={desmarcarTodasProfissionais}
+                      className="btn-acao-filtro"
+                    >
+                      Nenhuma
+                    </button>
+                  </div>
+                </div>
+
+                <div className="dropdown-filtro-lista">
+                  {profissionais.map((prof) => {
+                    const isChecked = profissionaisSelecionados.includes(prof.id);
+                    const qtdAgendamentos = agendamentosDoDia.filter(
+                      (ag) => ag.profissionalId === prof.id,
+                    ).length;
+
+                    return (
+                      <label
+                        key={prof.id}
+                        className={`item-filtro-prof ${isChecked ? "selecionado" : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleProfissional(prof.id)}
+                          className="checkbox-filtro-prof"
+                        />
+                        <div className="avatar-filtro-prof">
+                          {prof.foto ? (
+                            <img src={prof.foto} alt={prof.nome} />
+                          ) : (
+                            <span>{prof.nome.charAt(0)}</span>
+                          )}
+                        </div>
+                        <span className="nome-filtro-prof">{prof.nome}</span>
+                        {qtdAgendamentos > 0 && (
+                          <span
+                            className="badge-qtd-agendamentos"
+                            title={`${qtdAgendamentos} agendamento(s) hoje`}
+                          >
+                            {qtdAgendamentos}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <div className="dropdown-filtro-footer">
+                  <span>
+                    Exibindo {profissionaisExibidos.length} de {profissionais.length} profissionais
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            className="btn-novo"
+            onClick={() => {
+              setAgendamentoEditando(null);
+              setIsModalOpen(true);
+            }}
+            disabled={isLoading}
+          >
+            <Plus size={18} /> Novo Agendamento
+          </button>
+        </div>
       </div>
 
       <div className="agenda-wrapper">
