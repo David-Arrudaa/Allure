@@ -1,0 +1,7 @@
+src/components/domain/ModalHistorico/index.jsx:5:import "./ModalHistorico.css";
+src/components/domain/ModalHistorico/index.jsx:33:export function ModalHistorico({ isOpen, onClose, cliente }) {
+src/pages/Clientes/index.jsx:4:import { ModalHistorico } from "../../components/domain/ModalHistorico";
+src/pages/Clientes/index.jsx:13:  const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false);
+src/pages/Clientes/index.jsx:134:                            setModalHistoricoAberto(true);
+src/pages/Clientes/index.jsx:201:      <ModalHistorico
+src/pages/Clientes/index.jsx:203:        onClose={() => setModalHistoricoAberto(false)}

@@ -1,5 +1,6 @@
 import { Calendar, Plus } from "lucide-react";
 import { Skeleton } from "../../components/ui/Skeleton";
+import Button from "../../components/ui/Button";
 import { formatarDataExibicao, formatarDataInput } from "./utils";
 
 export function AgendaTopbar({
@@ -75,12 +76,13 @@ export function AgendaTopbar({
       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "12px" }}>
         <div style={{ display: "flex", gap: "8px", width: "100%" }} className="max-md:flex-col">
           <div style={{ position: "relative" }} className="max-md:w-full">
-            <button
-              className="py-[0.8rem] px-6 rounded-xl text-[0.95rem] font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all duration-300 hover:-translate-y-0.5 max-md:w-full bg-slate-50 text-slate-800 border border-slate-300 shadow-[0_4px_12px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.1)]"
+            <Button
+              variant="secondary"
+              className="max-md:w-full"
               onClick={(e) => { e.stopPropagation(); setIsFiltroAberto(!isFiltroAberto); }}
             >
               Filtro Profissionais
-            </button>
+            </Button>
             {isFiltroAberto && (
               <div
                 style={{ position: "absolute", top: "100%", right: 0, marginTop: "4px", backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "8px", padding: "12px", zIndex: 1000, boxShadow: "0 4px 12px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column", gap: "10px", minWidth: "180px" }}
@@ -107,8 +109,9 @@ export function AgendaTopbar({
               </div>
             )}
           </div>
-          <button
-            className="bg-gradient-to-br from-[var(--cor-primaria)] to-[#a03c53] text-white border-none py-[0.8rem] px-6 rounded-xl text-[0.95rem] font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all duration-300 shadow-[0_4px_12px_rgba(199,75,103,0.2)] hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(199,75,103,0.3)] max-md:w-full"
+          <Button
+            variant="primary"
+            className="max-md:w-full"
             onClick={() => {
               setAgendamentoEditando(null);
               setIsModalOpen(true);
@@ -116,7 +119,7 @@ export function AgendaTopbar({
             disabled={isLoading}
           >
             <Plus size={20} /> Novo Agendamento
-          </button>
+          </Button>
         </div>
 
         <div style={{ display: "flex", gap: "12px", fontSize: "0.75rem", fontWeight: "600", color: "#64748B" }}>

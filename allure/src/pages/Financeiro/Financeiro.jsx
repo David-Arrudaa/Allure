@@ -18,6 +18,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { Pagination } from "../../components/ui/Pagination";
 import { ModalRecebimentoAvulso } from "../../components/domain/ModalRecebimentoAvulso";
 import { useAuth } from "../../contexts/AuthContext";
+import Button from "../../components/ui/Button";
 import "./Financeiro.css";
 
 export function Financeiro() {
@@ -451,25 +452,12 @@ export function Financeiro() {
               </option>
             ))}
           </select>
-          <button
+          <Button
+            variant="primary"
             onClick={() => setIsModalAvulsoOpen(true)}
-            style={{
-              padding: "0.6rem 1rem",
-              borderRadius: "8px",
-              fontWeight: "600",
-              fontSize: "0.85rem",
-              cursor: "pointer",
-              transition: "all 0.2s",
-              border: "none",
-              backgroundColor: "#22C55E",
-              color: "#FFFFFF",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px"
-            }}
           >
             <Plus size={16} /> Nova Venda
-          </button>
+          </Button>
         </div>
       </div>
 

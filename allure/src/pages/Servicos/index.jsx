@@ -4,23 +4,22 @@ import { ModalServico } from "../../components/domain/ModalServico";
 import { supabase } from "../../services/supabase";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useAuth } from "../../contexts/AuthContext";
+import Button from "../../components/ui/Button";
+import { Modal } from "../../components/ui/Modal";
 
 export function Servicos() {
   const { profile } = useAuth();
   const [busca, setBusca] = useState("");
   const [modalAberto, setModalAberto] = useState(false);
 
-  // <-- ESTADO DE CARREGAMENTO -->
   const [isLoading, setIsLoading] = useState(true);
 
-  // Novos estados para o banco de dados
   const [servicos, setServicos] = useState([]);
   const [servicoEditando, setServicoEditando] = useState(null);
   const [servicoParaExcluir, setServicoParaExcluir] = useState(null);
 
-  // Busca os serviços direto do Supabase
   const buscarServicos = async () => {
-    setIsLoading(true); // Começa a carregar
+    setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from("servicos")
@@ -32,16 +31,14 @@ export function Servicos() {
     } catch (error) {
       console.error("Erro ao buscar serviços:", error.message);
     } finally {
-      setIsLoading(false); // Termina de carregar
+      setIsLoading(false);
     }
   };
 
-  // Roda a busca assim que a tela abre
   useEffect(() => {
     buscarServicos();
   }, []);
 
-  // Função para deletar o serviço do banco
   const confirmarExclusao = async () => {
     if (!servicoParaExcluir) return;
 
@@ -54,7 +51,7 @@ export function Servicos() {
       if (error) throw error;
 
       setServicoParaExcluir(null);
-      buscarServicos(); // Atualiza a tabela
+      buscarServicos();
     } catch (error) {
       console.error("Erro ao excluir serviço:", error.message);
       alert(
@@ -63,7 +60,6 @@ export function Servicos() {
     }
   };
 
-  // Filtro instantâneo
   const servicosFiltrados = servicos.filter((servico) =>
     servico.nome.toLowerCase().includes(busca.toLowerCase()),
   );
@@ -77,17 +73,18 @@ export function Servicos() {
         </div>
 
         {profile?.is_admin && (
-          <button
-            className="btn-novo max-md:w-full max-md:justify-center"
+          <Button
+            variant="primary"
+            className="max-md:w-full max-md:justify-center"
             onClick={() => {
-              setServicoEditando(null); // Garante que abra o modal limpo
+              setServicoEditando(null);
               setModalAberto(true);
             }}
-            disabled={isLoading} // Desabilita o botão enquanto carrega
+            disabled={isLoading}
           >
             <Plus size={18} strokeWidth={2.5} />
             Novo Serviço
-          </button>
+          </Button>
         )}
       </div>
 
@@ -100,7 +97,7 @@ export function Servicos() {
               placeholder="Buscar serviço por nome..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              disabled={isLoading} // Trava a busca enquanto carrega
+              disabled={isLoading}
               className="w-full py-3 pr-4 pl-[2.8rem] border border-[var(--cor-borda)] rounded-lg text-[0.95rem] text-[var(--cor-texto)] bg-slate-50 outline-none transition-all duration-200 focus:border-[var(--cor-primaria)] focus:bg-white focus:shadow-[0_0_0_3px_rgba(199,75,103,0.1)]"
             />
           </div>
@@ -126,19 +123,9 @@ export function Servicos() {
                       <Skeleton width="80px" height="20px" />
                     </td>
                     <td className="p-4 text-[0.95rem] text-[var(--cor-texto)] border-b border-slate-100 align-middle last:border-b-0 max-md:p-[0.8rem_0.4rem] max-md:text-[0.85rem] max-md:whitespace-normal">
-                      <div
-                        className="flex gap-1.5"
-                      >
-                        <Skeleton
-                          width="32px"
-                          height="32px"
-                          borderRadius="6px"
-                        />
-                        <Skeleton
-                          width="32px"
-                          height="32px"
-                          borderRadius="6px"
-                        />
+                      <div className="flex gap-1.5">
+                        <Skeleton width="32px" height="32px" borderRadius="6px" />
+                        <Skeleton width="32px" height="32px" borderRadius="6px" />
                       </div>
                     </td>
                   </tr>
@@ -156,23 +143,25 @@ export function Servicos() {
                       <div className="flex gap-1.5">
                         {profile?.is_admin && (
                           <>
-                            <button
-                              className="bg-transparent border-none p-1.5 rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all duration-200 hover:bg-blue-50 hover:text-blue-500"
+                            <Button
+                              size="icon"
+                              variant="ghost"
                               title="Editar Serviço"
                               onClick={() => {
                                 setServicoEditando(servico);
                                 setModalAberto(true);
                               }}
                             >
-                              <Edit2 size={18} />
-                            </button>
-                            <button
-                              className="bg-transparent border-none p-1.5 rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all duration-200 hover:bg-red-50 hover:text-red-500"
+                              <Edit2 size={18} className="text-blue-500" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
                               title="Excluir Serviço"
                               onClick={() => setServicoParaExcluir(servico)}
                             >
-                              <Trash2 size={18} />
-                            </button>
+                              <Trash2 size={18} className="text-red-500" />
+                            </Button>
                           </>
                         )}
                       </div>
@@ -181,14 +170,7 @@ export function Servicos() {
                 ))
               ) : (
                 <tr>
-                  <td
-                    colSpan="3"
-                    style={{
-                      textAlign: "center",
-                      padding: "3rem",
-                      color: "#94A3B8",
-                    }}
-                  >
+                  <td colSpan="3" className="text-center p-12 text-slate-400">
                     Nenhum serviço encontrado com a busca "{busca}".
                   </td>
                 </tr>
@@ -198,57 +180,42 @@ export function Servicos() {
         </div>
       </div>
 
-      {/* Janela Modal conectada ao estado de edição */}
       <ModalServico
         isOpen={modalAberto}
         servico={servicoEditando}
         onClose={() => {
           setModalAberto(false);
           setServicoEditando(null);
-          buscarServicos(); // Recarrega a tabela ao salvar/fechar
+          buscarServicos();
         }}
       />
 
-      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
-      {servicoParaExcluir && (
-        <div
-          className="modal-overlay"
-          onClick={() => setServicoParaExcluir(null)}
-        >
-          <div
-            className="modal-box modal-exclusao"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3
-              style={{
-                fontSize: "1.25rem",
-                color: "#1E293B",
-                marginBottom: "0.5rem",
-              }}
+      <Modal
+        isOpen={!!servicoParaExcluir}
+        onClose={() => setServicoParaExcluir(null)}
+        title="Confirmar Exclusão"
+      >
+        <div className="space-y-4">
+          <p className="text-slate-600 text-sm">
+            Tem certeza que deseja apagar o serviço{" "}
+            <strong>{servicoParaExcluir?.nome}</strong> do sistema?
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="secondary"
+              onClick={() => setServicoParaExcluir(null)}
             >
-              Confirmar Exclusão
-            </h3>
-            <p style={{ color: "#475569", marginBottom: "1.5rem" }}>
-              Tem certeza que deseja apagar o serviço{" "}
-              <strong>{servicoParaExcluir.nome}</strong> do sistema?
-            </p>
-            <div className="modal-exclusao-acoes">
-              <button
-                className="btn-cancelar"
-                onClick={() => setServicoParaExcluir(null)}
-              >
-                Cancelar
-              </button>
-              <button
-                className="btn-confirmar-exclusao"
-                onClick={confirmarExclusao}
-              >
-                Sim, apagar
-              </button>
-            </div>
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={confirmarExclusao}
+            >
+              Sim, apagar
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

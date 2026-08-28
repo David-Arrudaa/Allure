@@ -114,7 +114,7 @@ test.describe('Gestão de Clientes', () => {
     await page.click('button:has-text("Nova Cliente")');
     await expect(page.locator('text=Nova Cliente').first()).toBeVisible();
     await page.fill('input[name="nome"]', 'Novo Cliente Adicionado');
-    await page.fill('input[name="telefone"]', '11888888888');
+    await page.fill('input[placeholder="(00) 00000-0000"]', '11888888888');
     await page.click('button[type="submit"]:has-text("Salvar")');
     
     // Should close modal (we might need to mock the endpoint properly to avoid errors)

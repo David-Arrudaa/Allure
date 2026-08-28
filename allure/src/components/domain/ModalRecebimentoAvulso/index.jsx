@@ -1,11 +1,16 @@
 import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "../../../services/supabase";
 import { useTenant } from "../../../contexts/TenantContext";
-import "./ModalRecebimentoAvulso.css"; // Create this file next
+import { useAuth } from "../../../contexts/AuthContext";
+import { Modal } from "../../ui/Modal";
+import Button from "../../ui/Button";
+import { maskCurrencyInput, parseCurrencyToNumber } from "../../../utils/masks";
+import { FORM_STYLES } from "../../../config/theme";
 
 export function ModalRecebimentoAvulso({ isOpen, onClose, onSave }) {
   const { tenant } = useTenant();
+  const { user, profile } = useAuth();
   const [produtos, setProdutos] = useState([]);
   const [produtoSelecionado, setProdutoSelecionado] = useState("");
   const [valor, setValor] = useState("");
@@ -15,6 +20,13 @@ export function ModalRecebimentoAvulso({ isOpen, onClose, onSave }) {
   );
   const [isSaving, setIsSaving] = useState(false);
 
+  // Busca e seleção de Cliente
+  const [buscaCliente, setBuscaCliente] = useState("");
+  const [clientesBanco, setClientesBanco] = useState([]);
+  const [clienteSelecionado, setClienteSelecionado] = useState(null);
+  const [isBuscandoCliente, setIsBuscandoCliente] = useState(false);
+  const [digitandoCliente, setDigitandoCliente] = useState(false);
+
   useEffect(() => {
     if (isOpen && tenant?.id) {
       carregarProdutos();
@@ -22,8 +34,41 @@ export function ModalRecebimentoAvulso({ isOpen, onClose, onSave }) {
       setValor("");
       setFormaPagamento("Pix");
       setDataRecebimento(new Date().toISOString().split("T")[0]);
+      setBuscaCliente("");
+      setClienteSelecionado(null);
+      setClientesBanco([]);
+      setDigitandoCliente(false);
     }
   }, [isOpen, tenant]);
+
+  // Autocomplete de Clientes com debounce
+  useEffect(() => {
+    if (!isOpen || !digitandoCliente || buscaCliente.trim().length < 2) {
+      setClientesBanco([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsBuscandoCliente(true);
+      try {
+        const { data, error } = await supabase
+          .from("customers")
+          .select("id, nome, telefone")
+          .ilike("nome", `%${buscaCliente.trim()}%`)
+          .limit(5);
+
+        if (!error && data) {
+          setClientesBanco(data);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar clientes:", err);
+      } finally {
+        setIsBuscandoCliente(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [buscaCliente, digitandoCliente, isOpen]);
 
   const carregarProdutos = async () => {
     try {
@@ -38,10 +83,11 @@ export function ModalRecebimentoAvulso({ isOpen, onClose, onSave }) {
   const handleProdutoChange = (e) => {
     const prodId = e.target.value;
     setProdutoSelecionado(prodId);
-    
+
     const produtoEncontrado = produtos.find(p => p.id === prodId || p.id === Number(prodId));
     if (produtoEncontrado) {
-      setValor(String(produtoEncontrado.preco || "0.00").replace(".", ","));
+      const precoNumerico = Number(produtoEncontrado.preco || 0);
+      setValor(maskCurrencyInput(Math.round(precoNumerico * 100)));
     }
   };
 
@@ -53,8 +99,9 @@ export function ModalRecebimentoAvulso({ isOpen, onClose, onSave }) {
     try {
       const produtoObj = produtos.find(p => p.id === produtoSelecionado || p.id === Number(produtoSelecionado));
       const nomeServico = produtoObj ? `Venda: ${produtoObj.nome}` : "Recebimento Avulso";
-      
-      const valorFormatado = Number(valor.replace(",", "."));
+      const valorFormatado = parseCurrencyToNumber(valor);
+      const profissionalId = profile?.id || user?.id;
+      const customerId = clienteSelecionado ? clienteSelecionado.id : null;
 
       const { error } = await supabase.from("appointments").insert([{
         servico: nomeServico,
@@ -64,91 +111,151 @@ export function ModalRecebimentoAvulso({ isOpen, onClose, onSave }) {
         pagamento: "pago",
         forma_pagamento: formaPagamento,
         duracao: 0,
-        tenant_id: tenant.id
-        // profissional_id: null? might be better to set to a default or leave null if allowed
+        tenant_id: tenant.id,
+        profissional_id: profissionalId,
+        customer_id: customerId,
       }]);
 
       if (error) throw error;
 
       if (produtoObj) {
-        // Baixar o estoque do produto
         await supabase.from("produtos")
           .update({ estoque: Math.max(0, produtoObj.estoque - 1) })
           .eq("id", produtoObj.id)
           .eq("tenant_id", tenant.id);
       }
 
+      toast.success("Venda registrada com sucesso!");
       if (onSave) onSave();
       onClose();
     } catch (error) {
       console.error("Erro ao salvar recebimento:", error.message);
-      alert("Erro ao salvar.");
+      toast.error("Erro ao salvar recebimento.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="modal-overlay">
-      <div className="modal-box recebimento-box">
-        <div className="modal-header">
-          <h2>Recebimento Avulso (Venda)</h2>
-          <button className="btn-fechar" onClick={onClose}><X size={20} /></button>
+    <Modal isOpen={isOpen} onClose={onClose} title="Recebimento Avulso (Venda)">
+      <form onSubmit={handleSalvar} className="space-y-5 pb-6">
+        {/* BUSCA DE CLIENTE (OPCIONAL/PESQUISÁVEL) */}
+        <div className="flex flex-col gap-2 relative">
+          <label className={FORM_STYLES.label}>Cliente (Opcional)</label>
+          <input
+            type="text"
+            placeholder="Buscar por nome da cliente..."
+            value={clienteSelecionado ? clienteSelecionado.nome : buscaCliente}
+            onFocus={() => {
+              if (buscaCliente.trim().length >= 2) setDigitandoCliente(true);
+            }}
+            onBlur={() => {
+              setTimeout(() => setDigitandoCliente(false), 200);
+            }}
+            onChange={(e) => {
+              setDigitandoCliente(true);
+              setBuscaCliente(e.target.value);
+              setClienteSelecionado(null);
+            }}
+            className={FORM_STYLES.input}
+          />
+
+          {digitandoCliente && buscaCliente.trim().length >= 2 && !clienteSelecionado && (
+            <div
+              className="absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-40 overflow-y-auto mt-1"
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              {isBuscandoCliente ? (
+                <div className="p-3 text-xs text-slate-500 text-center italic">
+                  Buscando clientes...
+                </div>
+              ) : clientesBanco.length > 0 ? (
+                clientesBanco.map((c) => (
+                  <div
+                    key={c.id}
+                    onClick={() => {
+                      setClienteSelecionado(c);
+                      setBuscaCliente(c.nome);
+                      setClientesBanco([]);
+                      setDigitandoCliente(false);
+                    }}
+                    className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 text-xs text-slate-700 font-medium"
+                  >
+                    <strong>{c.nome}</strong> {c.telefone ? `- ${c.telefone}` : ""}
+                  </div>
+                ))
+              ) : (
+                <div className="p-3 text-xs text-slate-500 text-center italic">
+                  Nenhum cliente encontrado.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <form onSubmit={handleSalvar} className="form-recebimento">
-          <div className="form-grupo">
-            <label>Produto</label>
-            <select value={produtoSelecionado} onChange={handleProdutoChange} required>
-              <option value="" disabled>Selecione um produto...</option>
-              {produtos.map(p => (
-                <option key={p.id} value={p.id}>{p.nome}</option>
-              ))}
-            </select>
-          </div>
+        <div className={FORM_STYLES.group}>
+          <label className={FORM_STYLES.label}>Produto</label>
+          <select
+            value={produtoSelecionado}
+            onChange={handleProdutoChange}
+            required
+            className={FORM_STYLES.select}
+          >
+            <option value="" disabled>Selecione um produto...</option>
+            {produtos.map(p => (
+              <option key={p.id} value={p.id}>{p.nome}</option>
+            ))}
+          </select>
+        </div>
 
-          <div className="form-linha-dupla">
-            <div className="form-grupo">
-              <label>Valor (R$)</label>
-              <input
-                type="text"
-                placeholder="Ex: 50,00"
-                value={valor}
-                onChange={e => setValor(e.target.value)}
-                required
-              />
-            </div>
-            <div className="form-grupo">
-              <label>Data</label>
-              <input
-                type="date"
-                value={dataRecebimento}
-                onChange={e => setDataRecebimento(e.target.value)}
-                required
-              />
-            </div>
+        <div className={FORM_STYLES.row}>
+          <div className={FORM_STYLES.group}>
+            <label className={FORM_STYLES.label}>Valor (R$)</label>
+            <input
+              type="text"
+              placeholder="R$ 0,00"
+              value={valor}
+              onChange={e => setValor(maskCurrencyInput(e.target.value))}
+              required
+              className={FORM_STYLES.input}
+            />
           </div>
+          <div className={FORM_STYLES.group}>
+            <label className={FORM_STYLES.label}>Data</label>
+            <input
+              type="date"
+              value={dataRecebimento}
+              onChange={e => setDataRecebimento(e.target.value)}
+              required
+              className={FORM_STYLES.input}
+            />
+          </div>
+        </div>
 
-          <div className="form-grupo">
-            <label>Forma de Pagamento</label>
-            <select value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)} required>
-              <option value="Pix">Pix</option>
-              <option value="Dinheiro">Dinheiro</option>
-              <option value="Cartão de Crédito">Cartão de Crédito</option>
-              <option value="Cartão de Débito">Cartão de Débito</option>
-            </select>
-          </div>
+        <div className={FORM_STYLES.group}>
+          <label className={FORM_STYLES.label}>Forma de Pagamento</label>
+          <select
+            value={formaPagamento}
+            onChange={e => setFormaPagamento(e.target.value)}
+            required
+            className={FORM_STYLES.select}
+          >
+            <option value="Pix">Pix</option>
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Cartão de Crédito">Cartão de Crédito</option>
+            <option value="Cartão de Débito">Cartão de Débito</option>
+          </select>
+        </div>
 
-          <div className="modal-footer">
-            <button type="button" className="btn-cancelar" onClick={onClose} disabled={isSaving}>Cancelar</button>
-            <button type="submit" className="btn-salvar" disabled={isSaving}>
-              {isSaving ? "Salvando..." : "Salvar Recebimento"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className={FORM_STYLES.actions}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isSaving}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" disabled={isSaving}>
+            {isSaving ? "Salvando..." : "Salvar Recebimento"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

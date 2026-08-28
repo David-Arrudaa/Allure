@@ -1,4 +1,5 @@
 import { MessageCircle, Save } from "lucide-react";
+import Button from "../../components/ui/Button";
 import "./Configuracoes.css";
 
 export function Configuracoes() {
@@ -46,10 +47,10 @@ export function Configuracoes() {
                 </label>
               </div>
 
-              <button type="button" className="btn-salvar-config">
+              <Button type="button" variant="primary">
                 <Save size={18} />
                 Salvar Configurações
-              </button>
+              </Button>
             </form>
           </div>
         </div>
@@ -70,7 +71,7 @@ export function Configuracoes() {
                 fontSize: "0.9rem",
               }}
             >
-              Nenhuma avaliação de cliente recebida ainda.
+              Nenhuma avaliação cadastrada ainda.
             </div>
           </div>
         </div>
