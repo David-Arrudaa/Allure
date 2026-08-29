@@ -133,91 +133,86 @@ export function CalendarGrid({
                             </div>
                           )}
                           {ag.status !== "bloqueio" ? (
-                            <>
-                              <button
-                                type="button"
-                                className="flex w-[30px] h-[30px] bg-transparent rounded-lg items-center justify-center cursor-pointer border-none text-slate-500 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 max-md:w-7 max-md:h-7"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setMenuAbertoId(menuAbertoId === ag.id ? null : ag.id);
-                                }}
-                                title="Opções"
-                              >
-                                <MoreVertical size={20} />
-                              </button>
-
-                              {menuAbertoId === ag.id && (
-                                <div className="flex flex-col absolute top-8 !right-0 !left-auto !transform-none bg-white border border-slate-300 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.2)] p-1.5 !z-[9999] gap-1 min-w-[180px] animate-in fade-in slide-in-from-top-1">
+                                <>
                                   <button
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      setAgendamentoParaWhatsApp(ag);
-                                      setIsModalWhatsAppAberto(true);
-                                      setMenuAbertoId(null);
+                                      setMenuAbertoId(menuAbertoId === ag.id ? null : ag.id);
                                     }}
-                                    className="flex items-center gap-2.5 w-full py-2 px-3 bg-white border border-transparent rounded-md text-[0.85rem] font-semibold text-slate-700 no-underline cursor-pointer text-left box-border transition-colors duration-200 hover:bg-slate-100"
+                                    className="bg-transparent border-none p-1 rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all duration-200 hover:bg-slate-100 hover:text-slate-600"
+                                    title="Opções"
                                   >
-                                    <span style={{ color: "#22C55E", display: "flex" }}>
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>
-                                    </span>
-                                    Mensagens (WhatsApp)
+                                    <MoreVertical size={16} />
                                   </button>
-                                  <div style={{ height: "1px", backgroundColor: "#E2E8F0", margin: "4px 0" }}></div>
-                                  <button
-                                    className="flex items-center gap-2.5 w-full py-2 px-3 bg-white border border-transparent rounded-md text-[0.85rem] font-semibold text-slate-700 no-underline cursor-pointer text-left box-border transition-colors duration-200 hover:bg-slate-100"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      handleAbrirPagamento(ag, e);
-                                      setMenuAbertoId(null);
-                                    }}
-                                  >
-                                    <CircleDollarSign size={16} color={ag.pagamento === "pago" ? "#64748B" : "#10B981"} />
-                                    {ag.pagamento === "pago" ? "Estornar Pagamento" : "Receber Pagamento"}
-                                  </button>
-                                  {ag.status !== "cancelado" && (
-                                    <button
-                                      className="flex items-center gap-2.5 w-full py-2 px-3 bg-white border border-transparent rounded-md text-[0.85rem] font-semibold text-slate-700 no-underline cursor-pointer text-left box-border transition-colors duration-200 hover:bg-slate-100"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        alterarStatus(ag.id, ag.status === "confirmado" ? "pendente" : "confirmado");
-                                        setMenuAbertoId(null);
-                                      }}
-                                    >
-                                      <Check size={16} color={ag.status === "confirmado" ? "#F59E0B" : "#22C55E"} />
-                                      {ag.status === "confirmado" ? "Remover Confirmação" : "Confirmar Presença"}
-                                    </button>
+                                  {menuAbertoId === ag.id && (
+                                    <div className={`absolute top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-[2000] flex flex-col w-48 overflow-hidden ${indexProf === 0 ? "left-0" : "right-0"}`}>
+                                      <button
+                                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center gap-2"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setAgendamentoParaWhatsApp(ag);
+                                          setIsModalWhatsAppAberto(true);
+                                          setMenuAbertoId(null);
+                                        }}
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+                                        </svg>
+                                        Mensagem WhatsApp
+                                      </button>
+                                      <div className="h-px bg-slate-100"></div>
+                                      <button
+                                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          if (ag.pagamento !== "pago") {
+                                            handleAbrirPagamento(ag, e);
+                                          } else {
+                                            setAgendamentoParaDesfazerPagamento(ag);
+                                          }
+                                          setMenuAbertoId(null);
+                                        }}
+                                      >
+                                        <CircleDollarSign size={16} className={ag.pagamento === "pago" ? "text-amber-500" : "text-emerald-500"} />
+                                        {ag.pagamento === "pago" ? "Desfazer Pagamento" : "Receber"}
+                                      </button>
+                                      <div className="h-px bg-slate-100"></div>
+                                      <button
+                                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          if (ag.status !== "cancelado") {
+                                            const confirmar = window.confirm("Deseja marcar este agendamento como cancelado?");
+                                            if (confirmar) alterarStatus(ag.id, "cancelado");
+                                          } else {
+                                            const confirmar = window.confirm("Deseja restaurar este agendamento?");
+                                            if (confirmar) alterarStatus(ag.id, "pendente");
+                                          }
+                                          setMenuAbertoId(null);
+                                        }}
+                                      >
+                                        <AlertOctagon size={16} className={ag.status === "cancelado" ? "text-blue-500" : "text-slate-500"} />
+                                        {ag.status === "cancelado" ? "Restaurar" : "Cancelar Cliente"}
+                                      </button>
+                                      <div className="h-px bg-slate-100"></div>
+                                      <button
+                                        className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setAgendamentoParaExcluir(ag);
+                                          setMenuAbertoId(null);
+                                        }}
+                                      >
+                                        <Trash2 size={16} /> Excluir
+                                      </button>
+                                    </div>
                                   )}
-                                  <button
-                                    className="flex items-center gap-2.5 w-full py-2 px-3 bg-white border border-transparent rounded-md text-[0.85rem] font-semibold text-slate-700 no-underline cursor-pointer text-left box-border transition-colors duration-200 hover:bg-slate-100"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      alterarStatus(ag.id, ag.status === "cancelado" ? "pendente" : "cancelado");
-                                      setMenuAbertoId(null);
-                                    }}
-                                  >
-                                    <X size={16} color={ag.status === "cancelado" ? "#3B82F6" : "#EF4444"} />
-                                    {ag.status === "cancelado" ? "Restaurar Agendamento" : "Cancelar Agendamento"}
-                                  </button>
-                                  <div style={{ height: "1px", backgroundColor: "#E2E8F0", margin: "4px 0" }}></div>
-                                  <button
-                                    className="flex items-center gap-2.5 w-full py-2 px-3 bg-white border border-transparent rounded-md text-[0.85rem] font-semibold text-red-500 no-underline cursor-pointer text-left box-border transition-colors duration-200 hover:bg-slate-100"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setAgendamentoParaExcluir(ag);
-                                      setMenuAbertoId(null);
-                                    }}
-                                  >
-                                    <Trash2 size={16} />
-                                    Apagar do Sistema
-                                  </button>
-                                </div>
-                              )}
-                            </>
+</>
                           ) : (
                             <button
                               onClick={(e) => {
