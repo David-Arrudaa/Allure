@@ -1,0 +1,190 @@
+/* DatePickerPopover.css - Calendário Moderno de Alta Fidelidade */
+
+.datepicker-popover-container {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 290px;
+  background-color: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow:
+    0 20px 40px -10px rgba(15, 23, 42, 0.18),
+    0 4px 12px rgba(0, 0, 0, 0.06);
+  padding: 1rem;
+  z-index: 1200;
+  animation: datepickerFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  box-sizing: border-box;
+}
+
+/* --- CABEÇALHO COM MÊS E ANO --- */
+.datepicker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.85rem;
+  padding: 0 2px;
+}
+
+.datepicker-titulo-mes-ano {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.datepicker-mes {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.2px;
+}
+
+.datepicker-ano {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.datepicker-nav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.datepicker-nav-btn:hover {
+  background-color: #f5f3ff;
+  border-color: #c4b5fd;
+  color: #7c3aed;
+  transform: scale(1.05);
+}
+
+/* --- DIAS DA SEMANA --- */
+.datepicker-semana-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.datepicker-dia-semana {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+/* --- GRADE DE DIAS --- */
+.datepicker-grade-dias {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 0.75rem;
+}
+
+.datepicker-dia-btn {
+  aspect-ratio: 1;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+}
+
+.datepicker-dia-btn:hover:not(.selecionado) {
+  background-color: #f5f3ff;
+  color: #7c3aed;
+}
+
+/* Dias fora do mês atual */
+.datepicker-dia-btn.outro-mes {
+  color: #cbd5e1;
+  font-weight: 400;
+}
+
+.datepicker-dia-btn.outro-mes:hover {
+  color: #94a3b8;
+}
+
+/* Dia de Hoje (quando não selecionado) */
+.datepicker-dia-btn.hoje:not(.selecionado) {
+  color: #7c3aed;
+  font-weight: 700;
+  background-color: #faf5ff;
+}
+
+.bolinha-hoje {
+  position: absolute;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #7c3aed;
+}
+
+/* Dia Selecionado */
+.datepicker-dia-btn.selecionado {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(124, 58, 237, 0.35);
+  transform: scale(1.04);
+}
+
+/* --- ATALHOS RÁPIDOS NO RODAPÉ --- */
+.datepicker-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 0.65rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.datepicker-btn-atalho {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.datepicker-btn-atalho:hover {
+  background-color: #ede9fe;
+  color: #7c3aed;
+  border-color: #c4b5fd;
+}
+
+/* Animação suave de abertura */
+@keyframes datepickerFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
