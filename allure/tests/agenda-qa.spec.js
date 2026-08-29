@@ -80,16 +80,18 @@ test.describe('Agenda - Usability QA', () => {
   });
 
   test('Interação com filtro de profissionais', async ({ page }) => {
-    const filterBtn = page.locator('button:has-text("Filtro Profissionais")');
+    // The button text was changed from "Filtro Profissionais" to "Profissionais"
+    const filterBtn = page.locator('button:has-text("Profissionais")');
     await filterBtn.click();
-    
-    await expect(page.locator('text=Exibir colunas:')).toBeVisible();
-    
+
+    // The dropdown text was changed from "Exibir colunas:" to "Filtrar Equipe"
+    await expect(page.locator('text=Filtrar Equipe')).toBeVisible();
+
     const checkboxes = page.locator('input[type="checkbox"]');
     if (await checkboxes.count() > 0) {
       await expect(checkboxes.first()).toBeVisible();
     }
-    
+
     // Toggle the filter back off
     await filterBtn.click();
   });
