@@ -4,6 +4,8 @@ import { ModalCliente } from "../../components/domain/ModalCliente";
 import { ModalHistorico } from "../../components/domain/ModalHistorico";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Pagination } from "../../components/ui/Pagination";
+import { Modal } from "../../components/ui/Modal";
+import Button from "../../components/ui/Button";
 import { useClientes } from "../../hooks/useClientes";
 
 export function Clientes() {
@@ -43,26 +45,27 @@ export function Clientes() {
       <div className="flex justify-between items-center mb-8 pb-4 border-b border-[var(--cor-borda)] max-md:flex-col max-md:items-stretch max-md:gap-4">
         <div>
           <h2 className="text-2xl text-[var(--cor-texto)] font-bold mb-1">Gestão de Clientes</h2>
-          <p className="text-slate-500 text-sm">
+          <div className="text-slate-500 text-sm">
             {isLoading ? (
               <Skeleton width="200px" height="16px" />
             ) : (
               `Visualize e gerencie as clientes do salão (${totalClientes} cadastradas)`
             )}
-          </p>
+          </div>
         </div>
 
-        <button
-          className="btn-novo max-md:w-full max-md:justify-center"
+        <Button
+          variant="primary"
           onClick={() => {
             setClienteEditando(null);
             setModalAberto(true);
           }}
           disabled={isLoading}
+          className="max-md:w-full max-md:justify-center"
         >
           <Plus size={18} strokeWidth={2.5} />
           Nova Cliente
-        </button>
+        </Button>
       </div>
 
       <div className="flex-1 flex flex-col">
@@ -103,7 +106,7 @@ export function Clientes() {
                       <Skeleton width="90px" height="20px" />
                     </td>
                     <td className="p-4 text-[0.95rem] text-[var(--cor-texto)] border-b border-slate-100 align-middle last:border-b-0 max-md:flex max-md:justify-between max-md:items-center max-md:py-[0.8rem] max-md:px-0 max-md:text-right max-md:pb-2 max-md:border-none max-md:before:content-['Ações:'] max-md:before:font-semibold max-md:before:text-slate-500 max-md:before:text-[0.85rem] max-md:before:mr-auto">
-                      <div style={{ display: "flex", gap: "6px" }} className="flex gap-2">
+                      <div className="flex gap-2">
                         <Skeleton width="32px" height="32px" borderRadius="6px" />
                         <Skeleton width="32px" height="32px" borderRadius="6px" />
                         <Skeleton width="32px" height="32px" borderRadius="6px" />
@@ -125,35 +128,38 @@ export function Clientes() {
                     </td>
                     <td className="p-4 text-[0.95rem] text-[var(--cor-texto)] border-b border-slate-100 align-middle last:border-b-0 max-md:flex max-md:justify-between max-md:items-center max-md:py-[0.8rem] max-md:px-0 max-md:text-right max-md:pb-2 max-md:border-none max-md:before:content-['Ações:'] max-md:before:font-semibold max-md:before:text-slate-500 max-md:before:text-[0.85rem] max-md:before:mr-auto">
                       <div className="flex gap-2">
-                        <button
-                          className="bg-transparent border-none p-1.5 rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all duration-200 hover:bg-purple-100 hover:text-purple-600"
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           title="Ver Histórico"
                           onClick={() => {
                             setClienteParaHistorico(cliente);
                             setModalHistoricoAberto(true);
                           }}
                         >
-                          <ClipboardList size={18} />
-                        </button>
+                          <ClipboardList size={18} className="text-purple-600" />
+                        </Button>
 
-                        <button
-                          className="bg-transparent border-none p-1.5 rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all duration-200 hover:bg-blue-50 hover:text-blue-500"
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           title="Editar Cliente"
                           onClick={() => {
                             setClienteEditando(cliente);
                             setModalAberto(true);
                           }}
                         >
-                          <Edit2 size={18} />
-                        </button>
+                          <Edit2 size={18} className="text-blue-500" />
+                        </Button>
 
-                        <button
-                          className="bg-transparent border-none p-1.5 rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all duration-200 hover:bg-red-50 hover:text-red-500"
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           title="Excluir Cliente"
                           onClick={() => setClienteParaExcluir(cliente)}
                         >
-                          <Trash2 size={18} />
-                        </button>
+                          <Trash2 size={18} className="text-red-500" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -162,11 +168,7 @@ export function Clientes() {
                 <tr>
                   <td
                     colSpan="4"
-                    style={{
-                      textAlign: "center",
-                      padding: "3rem",
-                      color: "#94A3B8",
-                    }}
+                    className="text-center p-12 text-slate-400"
                   >
                     {busca.length > 0 && busca.length < 3
                       ? "Digite pelo menos 3 letras para buscar..."
@@ -203,38 +205,33 @@ export function Clientes() {
         cliente={clienteParaHistorico}
       />
 
-      {clienteParaExcluir && (
-        <div
-          className="modal-overlay"
-          onClick={() => setClienteParaExcluir(null)}
-        >
-          <div
-            className="modal-box modal-exclusao"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3>Confirmar Exclusão</h3>
-            <p>
-              Tem certeza que deseja apagar a cliente{" "}
-              <strong>{clienteParaExcluir.nome}</strong>?
-            </p>
-            <div className="modal-exclusao-acoes">
-              <button
-                className="btn-cancelar"
-                onClick={() => setClienteParaExcluir(null)}
-              >
-                Cancelar
-              </button>
-              <button
-                className="btn-confirmar-exclusao"
-                onClick={confirmarExclusao}
-                disabled={isSalvando}
-              >
-                Sim, apagar
-              </button>
-            </div>
+      <Modal
+        isOpen={!!clienteParaExcluir}
+        onClose={() => setClienteParaExcluir(null)}
+        title="Confirmar Exclusão"
+      >
+        <div className="space-y-4">
+          <p className="text-slate-600 text-sm">
+            Tem certeza que deseja apagar a cliente{" "}
+            <strong>{clienteParaExcluir?.nome}</strong>?
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="secondary"
+              onClick={() => setClienteParaExcluir(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={confirmarExclusao}
+              disabled={isSalvando}
+            >
+              Sim, apagar
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

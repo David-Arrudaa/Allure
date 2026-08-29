@@ -1,7 +1,9 @@
-import { X, CalendarDays, Trash2 } from "lucide-react";
+import { CalendarDays, Trash2 } from "lucide-react";
 import { ModalAgendamento } from "../../components/domain/ModalAgendamento";
 import { ModalPagamento } from "../../components/domain/ModalPagamento/ModalPagamento";
 import { ModalWhatsApp } from "../../components/domain/ModalWhatsApp";
+import { Modal } from "../../components/ui/Modal";
+import Button from "../../components/ui/Button";
 import { formatarDataInput } from "./utils";
 import { supabase } from "../../services/supabase";
 
@@ -90,92 +92,87 @@ export function AgendaModals({
         agendamento={agendamentoParaWhatsApp}
       />
 
-      {isModalRecorrenciaAberto && (
-        <div className="modal-overlay" onClick={() => setIsModalRecorrenciaAberto(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "550px" }}>
-            <div className="modal-header" style={{ marginBottom: "1rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div style={{ padding: "8px", backgroundColor: "#E0F2FE", borderRadius: "8px", color: "#0284C7" }}>
-                  <CalendarDays size={24} />
-                </div>
-                <div>
-                  <h2 style={{ margin: 0, fontSize: "1.25rem", color: "#1E293B" }}>Série de Agendamentos</h2>
-                  <p style={{ margin: "2px 0 0", fontSize: "0.85rem", color: "#64748B" }}>
-                    Visualizando horários futuros de <strong>{grupoRecorrenciaFoco?.cliente}</strong>.
-                  </p>
-                </div>
-              </div>
-              <button className="btn-fechar" onClick={() => setIsModalRecorrenciaAberto(false)}>
-                <X size={20} />
-              </button>
+      <Modal
+        isOpen={isModalRecorrenciaAberto}
+        onClose={() => setIsModalRecorrenciaAberto(false)}
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ padding: "8px", backgroundColor: "#E0F2FE", borderRadius: "8px", color: "#0284C7" }}>
+              <CalendarDays size={24} />
             </div>
-
-            {loadingRecorrencia ? (
-              <p style={{ textAlign: "center", color: "#64748B", padding: "2rem" }}>Carregando horários...</p>
-            ) : (
-              <div style={{ maxHeight: "350px", overflowY: "auto", paddingRight: "8px", display: "flex", flexDirection: "column", gap: "8px" }}>
-                {listaRecorrencia.map((item) => {
-                  const dataObj = new Date(item.data_horario);
-                  const dataFormatada = `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}`;
-                  const horaFormatada = dataObj.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-
-                  return (
-                    <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", border: "1px solid #E2E8F0", borderRadius: "8px", backgroundColor: "#F8FAFC" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #CBD5E1", borderRadius: "6px", padding: "4px 8px", fontWeight: "700", color: "#334155" }}>
-                          {dataFormatada}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: "600", color: "#0F172A", fontSize: "0.95rem" }}>{horaFormatada}</div>
-                          <div style={{ fontSize: "0.8rem", color: "#64748B" }}>{item.status}</div>
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <button
-                          onClick={() => {
-                            setAgendamentoEditando({
-                              id: item.id,
-                              cliente: item.customers?.nome,
-                              profissionalId: item.profissional_id,
-                              servico: item.servico,
-                              horarioInicio: horaFormatada,
-                              data: formatarDataInput(dataObj),
-                              duracao: 60,
-                              valor: String(item.valor).replace(".", ","),
-                              status: item.status,
-                              grupo_recorrencia: item.grupo_recorrencia,
-                            });
-                            setIsModalRecorrenciaAberto(false);
-                            setIsModalOpen(true);
-                          }}
-                          style={{ padding: "6px 12px", backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px", color: "#475569", fontWeight: "600", cursor: "pointer" }}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => setItemRecorrenciaParaExcluir(item)}
-                          style={{ padding: "6px", backgroundColor: "#FEE2E2", border: "none", borderRadius: "6px", color: "#EF4444", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                          title="Excluir apenas este"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid #E2E8F0" }}>
-              <button
-                onClick={() => setModalExclusaoSerieAberto(true)}
-                style={{ width: "100%", padding: "10px", backgroundColor: "#FEF2F2", color: "#EF4444", border: "1px solid #FECACA", borderRadius: "8px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}
-              >
-                Excluir Todos os Futuros Desta Série
-              </button>
+            <div>
+              <span style={{ fontSize: "1.25rem", color: "#1E293B", display: "block" }}>Série de Agendamentos</span>
+              <span style={{ margin: "2px 0 0", fontSize: "0.85rem", color: "#64748B", fontWeight: "normal", display: "block" }}>
+                Visualizando horários futuros de <strong>{grupoRecorrenciaFoco?.cliente}</strong>.
+              </span>
             </div>
           </div>
+        }
+      >
+        {loadingRecorrencia ? (
+          <p style={{ textAlign: "center", color: "#64748B", padding: "2rem" }}>Carregando horários...</p>
+        ) : (
+          <div style={{ maxHeight: "350px", overflowY: "auto", paddingRight: "8px", display: "flex", flexDirection: "column", gap: "8px" }}>
+            {listaRecorrencia.map((item) => {
+              const dataObj = new Date(item.data_horario);
+              const dataFormatada = `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}`;
+              const horaFormatada = dataObj.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+              return (
+                <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", border: "1px solid #E2E8F0", borderRadius: "8px", backgroundColor: "#F8FAFC" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #CBD5E1", borderRadius: "6px", padding: "4px 8px", fontWeight: "700", color: "#334155" }}>
+                      {dataFormatada}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: "600", color: "#0F172A", fontSize: "0.95rem" }}>{horaFormatada}</div>
+                      <div style={{ fontSize: "0.8rem", color: "#64748B" }}>{item.status}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      onClick={() => {
+                        setAgendamentoEditando({
+                          id: item.id,
+                          cliente: item.customers?.nome,
+                          profissionalId: item.profissional_id,
+                          servico: item.servico,
+                          horarioInicio: horaFormatada,
+                          data: formatarDataInput(dataObj),
+                          duracao: 60,
+                          valor: String(item.valor).replace(".", ","),
+                          status: item.status,
+                          grupo_recorrencia: item.grupo_recorrencia,
+                        });
+                        setIsModalRecorrenciaAberto(false);
+                        setIsModalOpen(true);
+                      }}
+                      style={{ padding: "6px 12px", backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px", color: "#475569", fontWeight: "600", cursor: "pointer" }}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => setItemRecorrenciaParaExcluir(item)}
+                      style={{ padding: "6px", backgroundColor: "#FEE2E2", border: "none", borderRadius: "6px", color: "#EF4444", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                      title="Excluir apenas este"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid #E2E8F0" }}>
+          <button
+            onClick={() => setModalExclusaoSerieAberto(true)}
+            style={{ width: "100%", padding: "10px", backgroundColor: "#FEF2F2", color: "#EF4444", border: "1px solid #FECACA", borderRadius: "8px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}
+          >
+            Excluir Todos os Futuros Desta Série
+          </button>
         </div>
-      )}
+      </Modal>
 
       {modalExclusaoSerieAberto && (
         <div className="modal-overlay" onClick={() => setModalExclusaoSerieAbertoState(false)} style={{ zIndex: 1200 }}>

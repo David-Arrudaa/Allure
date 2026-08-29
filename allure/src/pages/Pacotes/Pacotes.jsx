@@ -1,4 +1,5 @@
 import { Package, Plus } from "lucide-react";
+import Button from "../../components/ui/Button";
 
 export function Pacotes() {
   return (
@@ -9,10 +10,10 @@ export function Pacotes() {
             <Package className="w-6 h-6 text-purple-600" />
             Gestão de Pacotes
           </h1>
-          <button className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+          <Button variant="primary">
             <Plus className="w-5 h-5" />
             Novo Pacote
-          </button>
+          </Button>
         </div>
       </header>
       

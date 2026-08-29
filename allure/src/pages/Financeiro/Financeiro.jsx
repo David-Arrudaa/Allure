@@ -17,11 +17,14 @@ import {
   AlertCircle,
   ShoppingBag,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "../../services/supabase";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Pagination } from "../../components/ui/Pagination";
 import { ModalRecebimentoAvulso } from "../../components/domain/ModalRecebimentoAvulso";
 import { useAuth } from "../../contexts/AuthContext";
+import Button from "../../components/ui/Button";
+import { Modal } from "../../components/ui/Modal";
 import "./Financeiro.css";
 
 export function Financeiro() {
@@ -51,7 +54,7 @@ export function Financeiro() {
   const [busca, setBusca] = useState("");
   const [filtroFuncionariaGeral, setFiltroFuncionariaGeral] = useState("");
   const [loading, setLoading] = useState(true);
-  
+
   const [isModalAvulsoOpen, setIsModalAvulsoOpen] = useState(false);
   const [vendaEditando, setVendaEditando] = useState(null);
   const [vendaParaExcluir, setVendaParaExcluir] = useState(null);
@@ -118,7 +121,7 @@ export function Financeiro() {
       let queryGeral = supabase
         .from("appointments")
         .select(
-          `id, valor, servico, data_horario, forma_pagamento, duracao, customer_id, profissional_id, customers ( id, nome ), profissionais ( id, nome )`,
+          `id, valor, servico, data_horario, forma_pagamento, duracao, customer_id, profissional_id, produto_id, quantidade, customers ( nome ), profissionais ( id, nome )`,
         )
         .gte("data_horario", inicioFiltro)
         .lte("data_horario", fimFiltro)
@@ -145,8 +148,11 @@ export function Financeiro() {
           const clienteNome = item.customers?.nome || "Cliente Removido";
           if (busca && !clienteNome.toLowerCase().includes(busca.toLowerCase()))
             return;
-          
-          if (filtroFuncionariaGeral && item.profissionais?.id !== filtroFuncionariaGeral)
+
+          if (
+            filtroFuncionariaGeral &&
+            item.profissionais?.id !== filtroFuncionariaGeral
+          )
             return;
 
           const valorNum = Number(item.valor) || 0;
@@ -169,9 +175,13 @@ export function Financeiro() {
           }
 
           const dataObj = new Date(item.data_horario);
+
+          // Venda avulsa: duracao 0 ou serviço prefixado com "Venda:"
           const isVenda =
             item.duracao === 0 ||
-            String(item.servico || "").toLowerCase().startsWith("venda:");
+            String(item.servico || "")
+              .toLowerCase()
+              .startsWith("venda:");
 
           historicoGeral.push({
             id: item.id,
@@ -186,6 +196,8 @@ export function Financeiro() {
             dataIso: item.data_horario ? item.data_horario.split("T")[0] : "",
             dataOrd: dataObj.getTime(),
             isVenda: isVenda,
+            produtoId: item.produto_id,
+            quantidade: item.quantidade,
           });
         });
       }
@@ -220,35 +232,56 @@ export function Financeiro() {
     }
   };
 
+  // EXCLUSÃO DE VENDA COM DEVOLUÇÃO DE ESTOQUE
   const handleConfirmarExclusaoVenda = async () => {
     if (!vendaParaExcluir || isExcluindoVenda) return;
     setIsExcluindoVenda(true);
+
     try {
       const tenantId = profile?.tenant_id;
-      if (vendaParaExcluir.servico && tenantId) {
-        // Extrair nome do produto e quantidade
-        const match = vendaParaExcluir.servico.match(
-          /Venda:\s*(.*?)(?:\s*\((\d+)x\))?$/i,
-        );
-        const nomeProd = match
-          ? match[1]?.trim()
-          : vendaParaExcluir.servico.replace(/^Venda:\s*/i, "").trim();
-        const qtd = match && match[2] ? Number(match[2]) : 1;
 
-        if (nomeProd) {
-          const { data: prods } = await supabase
+      // Devolve ao estoque a quantidade baixada na venda.
+      // Caminho principal: produto_id/quantidade gravados na venda.
+      // Fallback: vendas antigas (anteriores a essas colunas) ainda dependem do
+      // parse de "Venda: <nome> (<n>x)" — frágil, mas evita perder a devolução.
+      if (tenantId) {
+        let produtoIdAlvo = vendaParaExcluir.produtoId || null;
+        let qtd = Number(vendaParaExcluir.quantidade) || null;
+
+        if (!produtoIdAlvo && vendaParaExcluir.servico) {
+          const match = vendaParaExcluir.servico.match(
+            /Venda:\s*(.*?)(?:\s*\((\d+)x\))?$/i,
+          );
+          const nomeProd = match
+            ? match[1]?.trim()
+            : vendaParaExcluir.servico.replace(/^Venda:\s*/i, "").trim();
+          if (!qtd) qtd = match && match[2] ? Number(match[2]) : 1;
+
+          if (nomeProd) {
+            const { data: prods } = await supabase
+              .from("produtos")
+              .select("id")
+              .eq("tenant_id", tenantId)
+              .ilike("nome", nomeProd)
+              .limit(1);
+            if (prods && prods[0]) produtoIdAlvo = prods[0].id;
+          }
+        }
+
+        if (produtoIdAlvo) {
+          // Relê o estoque no momento da exclusão para não usar valor defasado
+          const { data: prodAtual } = await supabase
             .from("produtos")
-            .select("id, estoque")
+            .select("estoque")
+            .eq("id", produtoIdAlvo)
             .eq("tenant_id", tenantId)
-            .ilike("nome", nomeProd)
-            .limit(1);
+            .single();
 
-          if (prods && prods[0]) {
-            const estoqueAtual = Number(prods[0].estoque || 0);
+          if (prodAtual) {
             await supabase
               .from("produtos")
-              .update({ estoque: estoqueAtual + qtd })
-              .eq("id", prods[0].id)
+              .update({ estoque: Number(prodAtual.estoque || 0) + (qtd || 1) })
+              .eq("id", produtoIdAlvo)
               .eq("tenant_id", tenantId);
           }
         }
@@ -262,11 +295,12 @@ export function Financeiro() {
       if (error) throw error;
 
       setVendaParaExcluir(null);
+      toast.success("Venda excluída e estoque devolvido.");
       await carregarMetricasGerais();
       await carregarDesempenhoEquipe();
     } catch (err) {
       console.error("Erro ao excluir venda:", err);
-      alert("Erro ao excluir venda: " + (err.message || err));
+      toast.error("Erro ao excluir venda: " + (err.message || err));
     } finally {
       setIsExcluindoVenda(false);
     }
@@ -466,7 +500,6 @@ export function Financeiro() {
     paginaProf * itensPorPagina,
   );
 
-
   return (
     <div className="financeiro-container">
       <div className="financeiro-header">
@@ -519,28 +552,9 @@ export function Financeiro() {
               </option>
             ))}
           </select>
-          <button
-            onClick={() => {
-              setVendaEditando(null);
-              setIsModalAvulsoOpen(true);
-            }}
-            style={{
-              padding: "0.6rem 1rem",
-              borderRadius: "8px",
-              fontWeight: "600",
-              fontSize: "0.85rem",
-              cursor: "pointer",
-              transition: "all 0.2s",
-              border: "none",
-              backgroundColor: "#22C55E",
-              color: "#FFFFFF",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px"
-            }}
-          >
+          <Button variant="primary" onClick={() => setIsModalAvulsoOpen(true)}>
             <Plus size={16} /> Nova Venda
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -561,7 +575,8 @@ export function Financeiro() {
         <div className="metric-card destaque">
           <div className="metric-info">
             <span>
-              {profile?.is_admin ? "TOTAL FATURADO" : "MEU TOTAL PRODUZIDO"} ({mesSelecionado === "Ano" ? "ANO" : "MÊS"})
+              {profile?.is_admin ? "TOTAL FATURADO" : "MEU TOTAL PRODUZIDO"} (
+              {mesSelecionado === "Ano" ? "ANO" : "MÊS"})
             </span>
             <h2>
               {loading ? (
@@ -577,9 +592,14 @@ export function Financeiro() {
         </div>
 
         {!profile?.is_admin ? (
-          <div className="metric-card" style={{ borderColor: "#10B981", backgroundColor: "#F0FDF4" }}>
+          <div
+            className="metric-card"
+            style={{ borderColor: "#10B981", backgroundColor: "#F0FDF4" }}
+          >
             <div className="metric-info">
-              <span style={{ color: "#166534", fontWeight: "700" }}>MINHA COMISSÃO ({metricas.comissaoTaxa || 50}%)</span>
+              <span style={{ color: "#166534", fontWeight: "700" }}>
+                MINHA COMISSÃO ({metricas.comissaoTaxa || 50}%)
+              </span>
               <h2 style={{ color: "#15803D" }}>
                 {loading ? (
                   <Skeleton width="100px" height="36px" />
@@ -612,12 +632,16 @@ export function Financeiro() {
 
         <div className="metric-card">
           <div className="metric-info">
-            <span>{!profile?.is_admin ? "RECEBIDO EM PIX" : "ENTRADAS EM DINHEIRO"}</span>
+            <span>
+              {!profile?.is_admin ? "RECEBIDO EM PIX" : "ENTRADAS EM DINHEIRO"}
+            </span>
             <h2>
               {loading ? (
                 <Skeleton width="100px" height="36px" />
               ) : (
-                formatarMoeda(!profile?.is_admin ? metricas.pix : metricas.dinheiro)
+                formatarMoeda(
+                  !profile?.is_admin ? metricas.pix : metricas.dinheiro,
+                )
               )}
             </h2>
           </div>
@@ -628,12 +652,18 @@ export function Financeiro() {
 
         <div className="metric-card">
           <div className="metric-info">
-            <span>{!profile?.is_admin ? "CARTÃO / DINHEIRO" : "ENTRADAS EM CARTÃO"}</span>
+            <span>
+              {!profile?.is_admin ? "CARTÃO / DINHEIRO" : "ENTRADAS EM CARTÃO"}
+            </span>
             <h2>
               {loading ? (
                 <Skeleton width="100px" height="36px" />
               ) : (
-                formatarMoeda(!profile?.is_admin ? (metricas.cartao + metricas.dinheiro) : metricas.cartao)
+                formatarMoeda(
+                  !profile?.is_admin
+                    ? metricas.cartao + metricas.dinheiro
+                    : metricas.cartao,
+                )
               )}
             </h2>
           </div>
@@ -652,7 +682,9 @@ export function Financeiro() {
           <div className="section-title">
             <User size={20} />
             <h3>
-              {profile?.is_admin ? "Comissão e Desempenho da Equipe" : "Minha Comissão e Desempenho"}
+              {profile?.is_admin
+                ? "Comissão e Desempenho da Equipe"
+                : "Minha Comissão e Desempenho"}
               <span
                 style={{
                   fontSize: "0.85rem",
@@ -958,8 +990,21 @@ export function Financeiro() {
                         }}
                       >
                         <Percent size={16} color="#16A34A" />
-                        <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "#166534" }}>
-                          Sua Taxa de Comissão: <strong>{funcionarias.find((f) => f.id === profSelecionada)?.comissaoPct}%</strong>
+                        <span
+                          style={{
+                            fontSize: "0.85rem",
+                            fontWeight: "600",
+                            color: "#166534",
+                          }}
+                        >
+                          Sua Taxa de Comissão:{" "}
+                          <strong>
+                            {
+                              funcionarias.find((f) => f.id === profSelecionada)
+                                ?.comissaoPct
+                            }
+                            %
+                          </strong>
                         </span>
                       </div>
                     )}
@@ -990,14 +1035,14 @@ export function Financeiro() {
                   <div className="tabela-financeira mt-10">
                     <div
                       className="tabela-cabecalho prof-table"
-                      style={{ gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr" }}
+                      style={{
+                        gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr",
+                      }}
                     >
                       <span>Data</span>
                       <span>Cliente</span>
                       <span>Serviço</span>
-                      <span style={{ textAlign: "right" }}>
-                        Valor Serviço
-                      </span>
+                      <span style={{ textAlign: "right" }}>Valor Serviço</span>
                       <span style={{ textAlign: "right" }}>
                         {profile?.is_admin ? "Comissão" : "Minha Comissão"}
                       </span>
@@ -1006,21 +1051,25 @@ export function Financeiro() {
                       <div
                         key={item.id}
                         className="tabela-linha prof-table"
-                        style={{ gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr" }}
+                        style={{
+                          gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr",
+                        }}
                       >
                         <span className="texto-secundario">{item.data}</span>
                         <strong>{item.cliente}</strong>
                         <span>
                           <span className="tag-forma">{item.servico}</span>
                         </span>
-                        <span
-                          style={{ textAlign: "right", color: "#64748B" }}
-                        >
+                        <span style={{ textAlign: "right", color: "#64748B" }}>
                           {item.valor}
                         </span>
                         <span
                           className="valor-recebido"
-                          style={{ textAlign: "right", color: "#059669", fontWeight: "700" }}
+                          style={{
+                            textAlign: "right",
+                            color: "#059669",
+                            fontWeight: "700",
+                          }}
                         >
                           {item.comissaoItem}
                         </span>
@@ -1070,8 +1119,10 @@ export function Financeiro() {
               style={{ fontSize: "0.85rem", padding: "0.4rem 0.6rem" }}
             >
               <option value="">Todas as funcionárias</option>
-              {funcionarias.map(f => (
-                <option key={f.id} value={f.id}>{f.nome}</option>
+              {funcionarias.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.nome}
+                </option>
               ))}
             </select>
             {expandirHistorico ? (
@@ -1127,50 +1178,44 @@ export function Financeiro() {
                 {historicoPaginado.map((item) => (
                   <div key={item.id} className="tabela-linha geral-table">
                     <strong>{item.cliente}</strong>
-                    <div className="celula-servico-venda">
+                    <span className="texto-secundario">
                       {item.isVenda && (
-                        <span className="badge-venda-item">
-                          <ShoppingBag size={12} /> Venda
+                        <span className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[0.65rem] font-bold align-middle">
+                          <ShoppingBag size={10} /> VENDA
                         </span>
                       )}
-                      <span className="texto-secundario">{item.servico}</span>
-                    </div>
+                      {item.servico}
+                    </span>
                     <span>
                       <span className="tag-forma">{item.forma}</span>
                     </span>
                     <span className="texto-secundario">{item.data}</span>
-                    <span className="valor-recebido">{item.valor}</span>
-                    <div className="acoes-tabela-venda">
-                      {item.isVenda ? (
-                        <>
-                          <button
-                            type="button"
-                            className="btn-acao-tabela btn-editar-venda"
+                    <span className="valor-recebido flex items-center justify-between gap-2">
+                      {item.valor}
+                      {item.isVenda && (
+                        <span className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
                             title="Editar Venda"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                            onClick={() => {
                               setVendaEditando(item);
                               setIsModalAvulsoOpen(true);
                             }}
                           >
-                            <Edit2 size={15} />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-acao-tabela btn-excluir-venda"
+                            <Edit2 size={15} className="text-blue-500" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
                             title="Excluir Venda"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setVendaParaExcluir(item);
-                            }}
+                            onClick={() => setVendaParaExcluir(item)}
                           >
-                            <Trash2 size={15} />
-                          </button>
-                        </>
-                      ) : (
-                        <span className="texto-secundario" style={{ opacity: 0.4 }}>-</span>
+                            <Trash2 size={15} className="text-red-500" />
+                          </Button>
+                        </span>
                       )}
-                    </div>
+                    </span>
                   </div>
                 ))}
 
@@ -1193,9 +1238,8 @@ export function Financeiro() {
         )}
       </div>
 
-      {/* MODAL DE CRIAÇÃO E EDIÇÃO DE VENDA */}
-      <ModalRecebimentoAvulso 
-        isOpen={isModalAvulsoOpen} 
+      <ModalRecebimentoAvulso
+        isOpen={isModalAvulsoOpen}
         vendaEditando={vendaEditando}
         onClose={() => {
           setIsModalAvulsoOpen(false);
@@ -1209,68 +1253,38 @@ export function Financeiro() {
         }}
       />
 
-      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE VENDA */}
-      {vendaParaExcluir && (
-        <div
-          className="modal-overlay"
-          onClick={() => !isExcluindoVenda && setVendaParaExcluir(null)}
-        >
-          <div
-            className="modal-box modal-exclusao-venda-box"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <div className="modal-header-titulo-wrapper">
-                <div className="modal-header-icone icone-excluir-venda">
-                  <Trash2 size={20} />
-                </div>
-                <h2>Excluir Venda</h2>
-              </div>
-              <button
-                className="btn-fechar"
-                onClick={() => setVendaParaExcluir(null)}
-                disabled={isExcluindoVenda}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="modal-exclusao-venda-conteudo">
-              <p className="texto-aviso-exclusao">
-                Tem certeza que deseja excluir esta venda de{" "}
-                <strong>"{vendaParaExcluir.servico}"</strong> no valor de{" "}
-                <strong>{vendaParaExcluir.valor}</strong>?
-              </p>
-              <div className="box-alerta-estoque-devolucao">
-                <AlertCircle size={18} className="icone-alerta-devolucao" />
-                <span>
-                  O valor será debitado do faturamento e as unidades vendidas serão{" "}
-                  <strong>devolvidas ao estoque do produto</strong>.
-                </span>
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="btn-cancelar"
-                onClick={() => setVendaParaExcluir(null)}
-                disabled={isExcluindoVenda}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn-confirmar-exclusao-final"
-                onClick={handleConfirmarExclusaoVenda}
-                disabled={isExcluindoVenda}
-              >
-                {isExcluindoVenda ? "Excluindo..." : "Confirmar Exclusão"}
-              </button>
-            </div>
+      <Modal
+        isOpen={!!vendaParaExcluir}
+        onClose={() => !isExcluindoVenda && setVendaParaExcluir(null)}
+        title="Excluir Venda"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">
+            <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
+            <p>
+              Excluir <strong>{vendaParaExcluir?.servico}</strong> no valor de{" "}
+              <strong>{vendaParaExcluir?.valor}</strong>? O estoque do produto
+              será devolvido. Esta ação não pode ser desfeita.
+            </p>
+          </div>
+          <div className="flex items-center justify-end gap-3 !pt-6 !mt-6 !pb-4 border-t border-slate-100">
+            <Button
+              variant="secondary"
+              onClick={() => setVendaParaExcluir(null)}
+              disabled={isExcluindoVenda}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleConfirmarExclusaoVenda}
+              disabled={isExcluindoVenda}
+            >
+              {isExcluindoVenda ? "Excluindo..." : "Confirmar Exclusão"}
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

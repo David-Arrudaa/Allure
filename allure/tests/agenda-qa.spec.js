@@ -71,25 +71,27 @@ test.describe('Agenda - Usability QA', () => {
   test('Abertura do modal de Novo Agendamento', async ({ page }) => {
     await page.click('button:has-text("Novo Agendamento")');
     await expect(page.locator('h2:has-text("Novo Agendamento")')).toBeVisible();
-    
-    await expect(page.getByPlaceholder('Digite o nome da cliente...')).toBeVisible();
-    await expect(page.locator('.modal-box input[type="date"]').first()).toBeVisible();
-    await expect(page.locator('.modal-box input[type="time"]').first()).toBeVisible();
 
-    await page.locator('.btn-fechar').first().click();
+    await expect(page.getByPlaceholder('Digite o nome da cliente...')).toBeVisible();
+    await expect(page.locator('input[type="date"]').first()).toBeVisible();
+    await expect(page.locator('input[type="time"]').first()).toBeVisible();
+
+    await page.locator('button[aria-label="Fechar modal"]').first().click();
   });
 
   test('Interação com filtro de profissionais', async ({ page }) => {
-    const filterBtn = page.locator('button:has-text("Filtro Profissionais")');
+    // The button text was changed from "Filtro Profissionais" to "Profissionais"
+    const filterBtn = page.locator('button:has-text("Profissionais")');
     await filterBtn.click();
-    
-    await expect(page.locator('text=Exibir colunas:')).toBeVisible();
-    
+
+    // The dropdown text was changed from "Exibir colunas:" to "Filtrar Equipe"
+    await expect(page.locator('text=Filtrar Equipe')).toBeVisible();
+
     const checkboxes = page.locator('input[type="checkbox"]');
     if (await checkboxes.count() > 0) {
       await expect(checkboxes.first()).toBeVisible();
     }
-    
+
     // Toggle the filter back off
     await filterBtn.click();
   });
