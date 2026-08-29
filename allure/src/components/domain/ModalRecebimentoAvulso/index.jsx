@@ -226,10 +226,6 @@ export function ModalRecebimentoAvulso({
     setValor(maskCurrencyInput(Math.round(total * 100)));
   };
 
-  const produtoSelecionadoObj = produtos.find(
-    (p) => String(p.id) === String(produtoSelecionadoId),
-  );
-
   const handleProdutoChange = (e) => {
     const prodId = e.target.value;
     setProdutoSelecionado(prodId);
