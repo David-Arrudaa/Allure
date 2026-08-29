@@ -146,7 +146,7 @@ export function CalendarGrid({
                                     <MoreVertical size={16} />
                                   </button>
                                   {menuAbertoId === ag.id && (
-                                    <div className={`absolute top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-[2000] flex flex-col w-48 overflow-hidden ${indexProf === 0 ? "left-0" : "right-0"}`}>
+                                    <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-[2000] flex flex-col w-48 overflow-hidden">
                                       <button
                                         className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center gap-2"
                                         onClick={(e) => {
@@ -168,11 +168,7 @@ export function CalendarGrid({
                                         onClick={(e) => {
                                           e.preventDefault();
                                           e.stopPropagation();
-                                          if (ag.pagamento !== "pago") {
-                                            handleAbrirPagamento(ag, e);
-                                          } else {
-                                            setAgendamentoParaDesfazerPagamento(ag);
-                                          }
+                                          handleAbrirPagamento(ag, e);
                                           setMenuAbertoId(null);
                                         }}
                                       >

@@ -12,13 +12,19 @@ import {
   ChevronDown,
   ChevronUp,
   Percent,
+  Edit2,
+  Trash2,
+  AlertCircle,
+  ShoppingBag,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "../../services/supabase";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Pagination } from "../../components/ui/Pagination";
 import { ModalRecebimentoAvulso } from "../../components/domain/ModalRecebimentoAvulso";
 import { useAuth } from "../../contexts/AuthContext";
 import Button from "../../components/ui/Button";
+import { Modal } from "../../components/ui/Modal";
 import "./Financeiro.css";
 
 export function Financeiro() {
@@ -50,6 +56,9 @@ export function Financeiro() {
   const [loading, setLoading] = useState(true);
   
   const [isModalAvulsoOpen, setIsModalAvulsoOpen] = useState(false);
+  const [vendaEditando, setVendaEditando] = useState(null);
+  const [vendaParaExcluir, setVendaParaExcluir] = useState(null);
+  const [isExcluindoVenda, setIsExcluindoVenda] = useState(false);
 
   // ESTADOS DE PAGINAÇÃO (Limite de 20)
   const [paginaGeral, setPaginaGeral] = useState(1);
@@ -112,7 +121,7 @@ export function Financeiro() {
       let queryGeral = supabase
         .from("appointments")
         .select(
-          `id, valor, servico, data_horario, forma_pagamento, customers ( nome ), profissionais ( id, nome )`,
+          `id, valor, servico, data_horario, forma_pagamento, duracao, customer_id, profissional_id, produto_id, quantidade, customers ( nome ), profissionais ( id, nome )`,
         )
         .gte("data_horario", inicioFiltro)
         .lte("data_horario", fimFiltro)
@@ -163,14 +172,27 @@ export function Financeiro() {
           }
 
           const dataObj = new Date(item.data_horario);
+
+          // Venda avulsa: duracao 0 ou serviço prefixado com "Venda:"
+          const isVenda =
+            item.duracao === 0 ||
+            String(item.servico || "").toLowerCase().startsWith("venda:");
+
           historicoGeral.push({
             id: item.id,
             cliente: clienteNome,
+            clienteId: item.customer_id,
+            profissionalId: item.profissional_id,
             servico: item.servico,
             valor: formatarMoeda(valorNum),
+            valorNum: valorNum,
             forma: forma,
             data: `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}/${dataObj.getFullYear()}`,
+            dataIso: item.data_horario ? item.data_horario.split("T")[0] : "",
             dataOrd: dataObj.getTime(),
+            isVenda: isVenda,
+            produtoId: item.produto_id,
+            quantidade: item.quantidade,
           });
         });
       }
@@ -202,6 +224,80 @@ export function Financeiro() {
       console.error("Erro geral:", error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // EXCLUSÃO DE VENDA COM DEVOLUÇÃO DE ESTOQUE
+  const handleConfirmarExclusaoVenda = async () => {
+    if (!vendaParaExcluir || isExcluindoVenda) return;
+    setIsExcluindoVenda(true);
+
+    try {
+      const tenantId = profile?.tenant_id;
+
+      // Devolve ao estoque a quantidade baixada na venda.
+      // Caminho principal: produto_id/quantidade gravados na venda.
+      // Fallback: vendas antigas (anteriores a essas colunas) ainda dependem do
+      // parse de "Venda: <nome> (<n>x)" — frágil, mas evita perder a devolução.
+      if (tenantId) {
+        let produtoIdAlvo = vendaParaExcluir.produtoId || null;
+        let qtd = Number(vendaParaExcluir.quantidade) || null;
+
+        if (!produtoIdAlvo && vendaParaExcluir.servico) {
+          const match = vendaParaExcluir.servico.match(
+            /Venda:\s*(.*?)(?:\s*\((\d+)x\))?$/i,
+          );
+          const nomeProd = match
+            ? match[1]?.trim()
+            : vendaParaExcluir.servico.replace(/^Venda:\s*/i, "").trim();
+          if (!qtd) qtd = match && match[2] ? Number(match[2]) : 1;
+
+          if (nomeProd) {
+            const { data: prods } = await supabase
+              .from("produtos")
+              .select("id")
+              .eq("tenant_id", tenantId)
+              .ilike("nome", nomeProd)
+              .limit(1);
+            if (prods && prods[0]) produtoIdAlvo = prods[0].id;
+          }
+        }
+
+        if (produtoIdAlvo) {
+          // Relê o estoque no momento da exclusão para não usar valor defasado
+          const { data: prodAtual } = await supabase
+            .from("produtos")
+            .select("estoque")
+            .eq("id", produtoIdAlvo)
+            .eq("tenant_id", tenantId)
+            .single();
+
+          if (prodAtual) {
+            await supabase
+              .from("produtos")
+              .update({ estoque: Number(prodAtual.estoque || 0) + (qtd || 1) })
+              .eq("id", produtoIdAlvo)
+              .eq("tenant_id", tenantId);
+          }
+        }
+      }
+
+      const { error } = await supabase
+        .from("appointments")
+        .delete()
+        .eq("id", vendaParaExcluir.id);
+
+      if (error) throw error;
+
+      setVendaParaExcluir(null);
+      toast.success("Venda excluída e estoque devolvido.");
+      await carregarMetricasGerais();
+      await carregarDesempenhoEquipe();
+    } catch (err) {
+      console.error("Erro ao excluir venda:", err);
+      toast.error("Erro ao excluir venda: " + (err.message || err));
+    } finally {
+      setIsExcluindoVenda(false);
     }
   };
 
@@ -1041,12 +1137,44 @@ export function Financeiro() {
                 {historicoPaginado.map((item) => (
                   <div key={item.id} className="tabela-linha geral-table">
                     <strong>{item.cliente}</strong>
-                    <span className="texto-secundario">{item.servico}</span>
+                    <span className="texto-secundario">
+                      {item.isVenda && (
+                        <span className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[0.65rem] font-bold align-middle">
+                          <ShoppingBag size={10} /> VENDA
+                        </span>
+                      )}
+                      {item.servico}
+                    </span>
                     <span>
                       <span className="tag-forma">{item.forma}</span>
                     </span>
                     <span className="texto-secundario">{item.data}</span>
-                    <span className="valor-recebido">{item.valor}</span>
+                    <span className="valor-recebido flex items-center justify-between gap-2">
+                      {item.valor}
+                      {item.isVenda && (
+                        <span className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Editar Venda"
+                            onClick={() => {
+                              setVendaEditando(item);
+                              setIsModalAvulsoOpen(true);
+                            }}
+                          >
+                            <Edit2 size={15} className="text-blue-500" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Excluir Venda"
+                            onClick={() => setVendaParaExcluir(item)}
+                          >
+                            <Trash2 size={15} className="text-red-500" />
+                          </Button>
+                        </span>
+                      )}
+                    </span>
                   </div>
                 ))}
 
@@ -1069,14 +1197,53 @@ export function Financeiro() {
         )}
       </div>
 
-      <ModalRecebimentoAvulso 
-        isOpen={isModalAvulsoOpen} 
-        onClose={() => setIsModalAvulsoOpen(false)}
+      <ModalRecebimentoAvulso
+        isOpen={isModalAvulsoOpen}
+        vendaEditando={vendaEditando}
+        onClose={() => {
+          setIsModalAvulsoOpen(false);
+          setVendaEditando(null);
+        }}
         onSave={() => {
           setIsModalAvulsoOpen(false);
+          setVendaEditando(null);
           carregarMetricasGerais();
+          carregarDesempenhoEquipe();
         }}
       />
+
+      <Modal
+        isOpen={!!vendaParaExcluir}
+        onClose={() => !isExcluindoVenda && setVendaParaExcluir(null)}
+        title="Excluir Venda"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">
+            <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
+            <p>
+              Excluir <strong>{vendaParaExcluir?.servico}</strong> no valor de{" "}
+              <strong>{vendaParaExcluir?.valor}</strong>? O estoque do produto será
+              devolvido. Esta ação não pode ser desfeita.
+            </p>
+          </div>
+          <div className="flex items-center justify-end gap-3 !pt-6 !mt-6 !pb-4 border-t border-slate-100">
+            <Button
+              variant="secondary"
+              onClick={() => setVendaParaExcluir(null)}
+              disabled={isExcluindoVenda}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleConfirmarExclusaoVenda}
+              disabled={isExcluindoVenda}
+            >
+              {isExcluindoVenda ? "Excluindo..." : "Confirmar Exclusão"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
