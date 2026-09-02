@@ -1,16 +1,10 @@
 @import "tailwindcss";
 
-/* 
-  RESET CSS
-  Garante que todos os navegadores comecem do zero, sem margens indesejadas.
-*/
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* Reset (margin/padding/box-sizing) vem do Preflight do Tailwind.
+   Não redeclarar `*` aqui: regra sem @layer vence qualquer utility,
+   o que quebrava p-10/px-8 e forçava !important. */
 
-/* 
+/*
   VARIÁVEIS CSS (Temas e Identidade LUZZ)
 */
 :root {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AlertTriangle, Minus, Plus } from "lucide-react";
 import { supabase } from "../../../services/supabase";
@@ -7,6 +8,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { Modal } from "../../ui/Modal";
 import Button from "../../ui/Button";
 import { maskCurrencyInput, parseCurrencyToNumber } from "../../../utils/masks";
+import { toDateInputValue, dateInputToTimestamp } from "../../../utils/dates";
 import { FORM_STYLES } from "../../../config/theme";
 
 export function ModalRecebimentoAvulso({
@@ -17,6 +19,7 @@ export function ModalRecebimentoAvulso({
 }) {
   const { tenant } = useTenant();
   const { user, profile } = useAuth();
+  const queryClient = useQueryClient();
 
   // tenant_id do profissional logado é a fonte confiável; o contexto é fallback
   const tenantId = profile?.tenant_id || user?.tenant_id || tenant?.id;
@@ -33,9 +36,7 @@ export function ModalRecebimentoAvulso({
   const [valor, setValor] = useState("");
   const [profissionalId, setProfissionalId] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("Pix");
-  const [dataRecebimento, setDataRecebimento] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+  const [dataRecebimento, setDataRecebimento] = useState(toDateInputValue());
   const [isSaving, setIsSaving] = useState(false);
   const [erroMsg, setErroMsg] = useState("");
 
@@ -151,8 +152,8 @@ export function ModalRecebimentoAvulso({
         setDataRecebimento(
           vendaEditando.dataIso ||
             (vendaEditando.data_horario
-              ? vendaEditando.data_horario.split("T")[0]
-              : new Date().toISOString().split("T")[0]),
+              ? toDateInputValue(new Date(vendaEditando.data_horario))
+              : toDateInputValue()),
         );
 
         if (vendaEditando.clienteId) {
@@ -172,7 +173,7 @@ export function ModalRecebimentoAvulso({
         setQtdOriginal(1);
         setValor("");
         setFormaPagamento("Pix");
-        setDataRecebimento(new Date().toISOString().split("T")[0]);
+        setDataRecebimento(toDateInputValue());
         setBuscaCliente("");
         setClienteSelecionado(null);
         setClientesBanco([]);
@@ -271,10 +272,9 @@ export function ModalRecebimentoAvulso({
     setErroMsg("");
 
     try {
-      const agora = new Date();
-      const horaStr = String(agora.getHours()).padStart(2, "0");
-      const minStr = String(agora.getMinutes()).padStart(2, "0");
-      const dataHorarioCompleto = `${dataRecebimento}T${horaStr}:${minStr}:00-03:00`;
+      // Data local + hora atual, convertidas ao instante real. O offset fixo
+      // "-03:00" anterior quebrava no horário de verão e em outros fusos.
+      const dataHorarioCompleto = dateInputToTimestamp(dataRecebimento);
 
       const nomeProduto = produtoSelecionadoObj
         ? produtoSelecionadoObj.nome
@@ -288,9 +288,45 @@ export function ModalRecebimentoAvulso({
         forma_pagamento: formaPagamento,
         profissional_id: profissionalId,
         customer_id: clienteSelecionado?.id || null,
+        produto_id: produtoSelecionado || null,
+        quantidade: Number(quantidade) || 1,
       };
 
+      // Estoque sempre via RPC atômica: o UPDATE acontece dentro do banco
+      // (estoque = estoque + delta), sem ler o saldo antes. Duas vendas
+      // simultâneas do mesmo produto não se sobrescrevem, e saldo negativo
+      // é recusado pela própria função.
       if (isEdicao) {
+        // Baixa/devolução ANTES do update: se o estoque recusar, a venda não muda.
+        if (mesmoProdutoDaEdicao) {
+          const delta = Number(qtdOriginal) - Number(quantidade);
+          if (delta !== 0) {
+            const { error } = await supabase.rpc("ajustar_estoque", {
+              p_produto_id: produtoSelecionadoObj.id,
+              p_delta: delta,
+            });
+            if (error) throw error;
+          }
+        } else {
+          const { error: erroDebito } = await supabase.rpc("ajustar_estoque", {
+            p_produto_id: produtoSelecionadoObj.id,
+            p_delta: -Number(quantidade),
+          });
+          if (erroDebito) throw erroDebito;
+
+          if (produtoOriginalId) {
+            const { error: erroDevolucao } = await supabase.rpc(
+              "ajustar_estoque",
+              {
+                p_produto_id: produtoOriginalId,
+                p_delta: Number(qtdOriginal),
+              },
+            );
+            // Devolução ao produto antigo não bloqueia a edição; só registra.
+            if (erroDevolucao) console.error(erroDevolucao);
+          }
+        }
+
         const { error: updateError } = await supabase
           .from("appointments")
           .update(payload)
@@ -299,54 +335,14 @@ export function ModalRecebimentoAvulso({
 
         if (updateError) throw updateError;
 
-        if (mesmoProdutoDaEdicao) {
-          // Mesmo produto: aplica só a diferença de quantidade
-          if (produtoSelecionadoObj?.estoque !== undefined) {
-            const diferenca = Number(qtdOriginal) - Number(quantidade);
-            const novoEstoque = Math.max(
-              0,
-              Number(produtoSelecionadoObj.estoque || 0) + diferenca,
-            );
-            await supabase
-              .from("produtos")
-              .update({ estoque: novoEstoque })
-              .eq("id", produtoSelecionadoObj.id)
-              .eq("tenant_id", tenantId);
-          }
-        } else {
-          // Produto trocado: devolve ao antigo e debita do novo
-          const produtoAntigo = produtos.find(
-            (p) => String(p.id) === String(produtoOriginalId),
-          );
-          if (produtoAntigo?.estoque !== undefined) {
-            await supabase
-              .from("produtos")
-              .update({
-                estoque: Math.max(
-                  0,
-                  Number(produtoAntigo.estoque || 0) + Number(qtdOriginal),
-                ),
-              })
-              .eq("id", produtoAntigo.id)
-              .eq("tenant_id", tenantId);
-          }
-          if (produtoSelecionadoObj?.estoque !== undefined) {
-            await supabase
-              .from("produtos")
-              .update({
-                estoque: Math.max(
-                  0,
-                  Number(produtoSelecionadoObj.estoque || 0) -
-                    Number(quantidade),
-                ),
-              })
-              .eq("id", produtoSelecionadoObj.id)
-              .eq("tenant_id", tenantId);
-          }
-        }
-
         toast.success("Venda atualizada com sucesso!");
       } else {
+        const { error: erroEstoque } = await supabase.rpc("ajustar_estoque", {
+          p_produto_id: produtoSelecionadoObj.id,
+          p_delta: -Number(quantidade),
+        });
+        if (erroEstoque) throw erroEstoque;
+
         const { error: insertError } = await supabase
           .from("appointments")
           .insert([
@@ -359,22 +355,22 @@ export function ModalRecebimentoAvulso({
             },
           ]);
 
-        if (insertError) throw insertError;
-
-        if (produtoSelecionadoObj?.estoque !== undefined) {
-          const novoEstoque = Math.max(
-            0,
-            Number(produtoSelecionadoObj.estoque || 0) - Number(quantidade),
-          );
-          await supabase
-            .from("produtos")
-            .update({ estoque: novoEstoque })
-            .eq("id", produtoSelecionadoObj.id)
-            .eq("tenant_id", tenantId);
+        if (insertError) {
+          // Compensa a baixa: sem isso o estoque some sem venda correspondente.
+          await supabase.rpc("ajustar_estoque", {
+            p_produto_id: produtoSelecionadoObj.id,
+            p_delta: Number(quantidade),
+          });
+          throw insertError;
         }
 
         toast.success("Venda registrada com sucesso!");
       }
+
+      // A venda grava em `appointments`, que também alimenta o cache da agenda.
+      // Como a escrita não passa pelo TanStack, invalidar aqui é o que impede
+      // a agenda de exibir dados defasados até o próximo refetch.
+      queryClient.invalidateQueries({ queryKey: ["agendamentos"] });
 
       if (onSave) onSave();
       onClose();

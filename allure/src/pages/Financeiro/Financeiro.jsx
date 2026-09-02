@@ -23,6 +23,11 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { Pagination } from "../../components/ui/Pagination";
 import { ModalRecebimentoAvulso } from "../../components/domain/ModalRecebimentoAvulso";
 import { useAuth } from "../../contexts/AuthContext";
+import {
+  localMonthRange,
+  localWeekRange,
+  toDateInputValue,
+} from "../../utils/dates";
 import Button from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
 import "./Financeiro.css";
@@ -107,16 +112,13 @@ export function Financeiro() {
       const anoNum = Number(anoSelecionado);
       let inicioFiltro, fimFiltro;
 
-      if (mesSelecionado === "Ano") {
-        inicioFiltro = `${anoNum}-01-01T00:00:00`;
-        fimFiltro = `${anoNum}-12-31T23:59:59`;
-      } else {
-        const mesIndex = meses.indexOf(mesSelecionado);
-        const mesFormatado = String(mesIndex + 1).padStart(2, "0");
-        const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
-        inicioFiltro = `${anoNum}-${mesFormatado}-01T00:00:00`;
-        fimFiltro = `${anoNum}-${mesFormatado}-${String(ultimoDiaMes).padStart(2, "0")}T23:59:59`;
-      }
+      // Janela em instantes UTC a partir do mês local. As strings sem offset
+      // usadas antes eram lidas como UTC pelo PostgREST, e vendas do fim do dia
+      // (já no dia seguinte em UTC) caíam fora do mês.
+      ({ inicio: inicioFiltro, fim: fimFiltro } = localMonthRange(
+        anoNum,
+        mesSelecionado === "Ano" ? null : meses.indexOf(mesSelecionado),
+      ));
 
       let queryGeral = supabase
         .from("appointments")
@@ -193,7 +195,9 @@ export function Financeiro() {
             valorNum: valorNum,
             forma: forma,
             data: `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}/${dataObj.getFullYear()}`,
-            dataIso: item.data_horario ? item.data_horario.split("T")[0] : "",
+            // toDateInputValue(dataObj), não split("T") — a string do Postgres
+            // vem em UTC e o corte pegaria o dia errado ao reabrir a edição.
+            dataIso: item.data_horario ? toDateInputValue(dataObj) : "",
             dataOrd: dataObj.getTime(),
             isVenda: isVenda,
             produtoId: item.produto_id,
@@ -244,55 +248,54 @@ export function Financeiro() {
       // Caminho principal: produto_id/quantidade gravados na venda.
       // Fallback: vendas antigas (anteriores a essas colunas) ainda dependem do
       // parse de "Venda: <nome> (<n>x)" — frágil, mas evita perder a devolução.
-      if (tenantId) {
-        let produtoIdAlvo = vendaParaExcluir.produtoId || null;
-        let qtd = Number(vendaParaExcluir.quantidade) || null;
+      let produtoIdAlvo = vendaParaExcluir.produtoId || null;
+      let qtd = Number(vendaParaExcluir.quantidade) || null;
 
-        if (!produtoIdAlvo && vendaParaExcluir.servico) {
-          const match = vendaParaExcluir.servico.match(
-            /Venda:\s*(.*?)(?:\s*\((\d+)x\))?$/i,
-          );
-          const nomeProd = match
-            ? match[1]?.trim()
-            : vendaParaExcluir.servico.replace(/^Venda:\s*/i, "").trim();
-          if (!qtd) qtd = match && match[2] ? Number(match[2]) : 1;
+      // Fallback: vendas anteriores às colunas produto_id/quantidade só têm o
+      // nome no texto "Venda: <nome> (<n>x)". Frágil, mas evita perder a devolução.
+      if (tenantId && !produtoIdAlvo && vendaParaExcluir.servico) {
+        const match = vendaParaExcluir.servico.match(
+          /Venda:\s*(.*?)(?:\s*\((\d+)x\))?$/i,
+        );
+        const nomeProd = match
+          ? match[1]?.trim()
+          : vendaParaExcluir.servico.replace(/^Venda:\s*/i, "").trim();
+        if (!qtd) qtd = match && match[2] ? Number(match[2]) : 1;
 
-          if (nomeProd) {
-            const { data: prods } = await supabase
-              .from("produtos")
-              .select("id")
-              .eq("tenant_id", tenantId)
-              .ilike("nome", nomeProd)
-              .limit(1);
-            if (prods && prods[0]) produtoIdAlvo = prods[0].id;
-          }
-        }
-
-        if (produtoIdAlvo) {
-          // Relê o estoque no momento da exclusão para não usar valor defasado
-          const { data: prodAtual } = await supabase
+        if (nomeProd) {
+          const { data: prods } = await supabase
             .from("produtos")
-            .select("estoque")
-            .eq("id", produtoIdAlvo)
+            .select("id")
             .eq("tenant_id", tenantId)
-            .single();
-
-          if (prodAtual) {
-            await supabase
-              .from("produtos")
-              .update({ estoque: Number(prodAtual.estoque || 0) + (qtd || 1) })
-              .eq("id", produtoIdAlvo)
-              .eq("tenant_id", tenantId);
-          }
+            .ilike("nome", nomeProd)
+            .limit(1);
+          if (prods && prods[0]) produtoIdAlvo = prods[0].id;
         }
       }
 
+      // Deleta a venda ANTES de devolver o estoque: se o delete falhar, nada
+      // foi devolvido. A ordem inversa criaria estoque sem venda excluída.
       const { error } = await supabase
         .from("appointments")
         .delete()
         .eq("id", vendaParaExcluir.id);
 
       if (error) throw error;
+
+      if (produtoIdAlvo) {
+        // RPC atômica (estoque = estoque + delta) em vez de ler-e-gravar,
+        // que perdia devoluções concorrentes.
+        const { error: erroEstoque } = await supabase.rpc("ajustar_estoque", {
+          p_produto_id: produtoIdAlvo,
+          p_delta: qtd || 1,
+        });
+        if (erroEstoque) {
+          console.error("Falha ao devolver estoque:", erroEstoque);
+          toast.warning(
+            "Venda excluída, mas o estoque não foi devolvido. Ajuste manualmente.",
+          );
+        }
+      }
 
       setVendaParaExcluir(null);
       toast.success("Venda excluída e estoque devolvido.");
@@ -313,35 +316,14 @@ export function Financeiro() {
       const anoNum = Number(anoSelecionado);
       let inicioFiltro, fimFiltro;
 
-      if (filtroDesempenho === "semana") {
-        const hoje = new Date();
-        const diaSemana = hoje.getDay();
-
-        const dataDomingo = new Date(
-          hoje.getFullYear(),
-          hoje.getMonth(),
-          hoje.getDate() - diaSemana,
-        );
-        const dataSabado = new Date(
-          dataDomingo.getFullYear(),
-          dataDomingo.getMonth(),
-          dataDomingo.getDate() + 6,
-        );
-
-        inicioFiltro = `${dataDomingo.getFullYear()}-${String(dataDomingo.getMonth() + 1).padStart(2, "0")}-${String(dataDomingo.getDate()).padStart(2, "0")}T00:00:00`;
-        fimFiltro = `${dataSabado.getFullYear()}-${String(dataSabado.getMonth() + 1).padStart(2, "0")}-${String(dataSabado.getDate()).padStart(2, "0")}T23:59:59`;
-      } else {
-        if (mesSelecionado === "Ano") {
-          inicioFiltro = `${anoNum}-01-01T00:00:00`;
-          fimFiltro = `${anoNum}-12-31T23:59:59`;
-        } else {
-          const mesIndex = meses.indexOf(mesSelecionado);
-          const mesFormatado = String(mesIndex + 1).padStart(2, "0");
-          const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
-          inicioFiltro = `${anoNum}-${mesFormatado}-01T00:00:00`;
-          fimFiltro = `${anoNum}-${mesFormatado}-${String(ultimoDiaMes).padStart(2, "0")}T23:59:59`;
-        }
-      }
+      // Mesma correção de fuso do histórico geral: janela local -> instante UTC.
+      ({ inicio: inicioFiltro, fim: fimFiltro } =
+        filtroDesempenho === "semana"
+          ? localWeekRange()
+          : localMonthRange(
+              anoNum,
+              mesSelecionado === "Ano" ? null : meses.indexOf(mesSelecionado),
+            ));
 
       let query = supabase
         .from("appointments")
@@ -1267,7 +1249,7 @@ export function Financeiro() {
               será devolvido. Esta ação não pode ser desfeita.
             </p>
           </div>
-          <div className="flex items-center justify-end gap-3 !pt-6 !mt-6 !pb-4 border-t border-slate-100">
+          <div className={FORM_STYLES.actions}>
             <Button
               variant="secondary"
               onClick={() => setVendaParaExcluir(null)}

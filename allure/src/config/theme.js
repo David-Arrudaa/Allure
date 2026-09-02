@@ -24,8 +24,11 @@ export const BUTTON_SIZES = {
 export const MODAL_STYLES = {
   overlay:
     "fixed inset-0 !z-[9999] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto",
+  // p-6/p-8 sem "!": o !p-[5px] anterior era um contorno para o reset global
+  // `* { padding: 0 }`, que vencia os utilitarios do Tailwind. Com o reset
+  // removido, o padding real do container volta a valer.
   container:
-    "bg-white rounded-3xl !p-[5px] shadow-2xl w-full max-h-[90vh] overflow-y-auto flex flex-col relative border border-slate-100 my-auto animate-in fade-in zoom-in-95 duration-200",
+    "bg-white rounded-3xl p-6 sm:p-8 shadow-2xl w-full max-h-[90vh] overflow-y-auto flex flex-col relative border border-slate-100 my-auto animate-in fade-in zoom-in-95 duration-200",
   header:
     "flex justify-between items-center pb-4 mb-5 border-b border-slate-100",
   title: "text-xl font-bold text-slate-800 tracking-tight",
@@ -45,6 +48,7 @@ export const FORM_STYLES = {
     "w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 bg-slate-50/50 focus:bg-white focus:outline-none focus:border-[var(--cor-primaria)] focus:ring-2 focus:ring-[var(--cor-primaria)]/20 transition-all text-sm min-h-[90px] resize-y",
   error: "text-red-500 text-xs font-medium flex items-center gap-1 mt-0.5",
   row: "grid grid-cols-1 sm:grid-cols-2 gap-5 mt-2",
+  // Sem !pb-4: o padding inferior agora vem do container do modal.
   actions:
-    "flex items-center justify-end gap-3 !pt-6 !mt-6 !pb-4 border-t border-slate-100",
+    "flex items-center justify-end gap-3 pt-6 mt-6 border-t border-slate-100",
 };

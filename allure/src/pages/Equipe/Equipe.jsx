@@ -505,7 +505,8 @@ export function Equipe() {
                   size="icon"
                   variant="ghost"
                   onClick={() => abrirModalExcluir(prof.id)}
-                  title="Excluir"
+                  title={prof.id === user?.id ? "Você não pode excluir sua própria conta" : "Excluir"}
+                  disabled={prof.id === user?.id}
                 >
                   <Trash2 size={18} className="text-red-500" />
                 </Button>
