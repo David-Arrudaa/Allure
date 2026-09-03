@@ -697,7 +697,7 @@ export function Agenda() {
           ))}
         </div>
 
-        <div className="grade-profissionais">
+        <div className={`grade-profissionais ${profissionaisExibidos.length === 1 ? "coluna-unica" : ""}`}>
           {/* SKELETONS NAS COLUNAS DE PROFISSIONAIS ENQUANTO CARREGA */}
           {isLoading ? (
             [1, 2, 3].map((col) => (
@@ -741,7 +741,7 @@ export function Agenda() {
                 return (
                   <div
                     key={prof.id}
-                    className={`coluna-profissional ${temMenuNestaColuna ? "tem-menu-aberto" : ""}`}
+                    className={`coluna-profissional ${profissionaisExibidos.length === 1 ? "coluna-unica" : ""} ${temMenuNestaColuna ? "tem-menu-aberto" : ""}`}
                   >
                     <div className="profissional-header">
                       {prof.foto ? (

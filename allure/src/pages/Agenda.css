@@ -508,18 +508,25 @@
   background-position: 0 74px; 
   min-height: 2974px !important;
   flex-wrap: nowrap !important;
-  width: 100% !important;
+  width: max-content;
+  min-width: 100% !important;
   overflow: visible !important;
 }
 
 .coluna-profissional {
-  flex: 1 1 0 !important;
-  min-width: 0 !important;
+  flex: 1 1 210px !important;
+  min-width: 210px !important;
   border-right: 1.5px solid #e2e8f0;
   background-color: #ffffff;
   position: relative;
   min-height: 2974px !important;
   overflow: visible !important;
+}
+
+.coluna-profissional.coluna-unica {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  width: 100% !important;
 }
 
 .coluna-profissional.tem-menu-aberto {

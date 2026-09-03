@@ -16,6 +16,7 @@ import {
   Trash2,
   AlertCircle,
   ShoppingBag,
+  FileText,
 } from "lucide-react";
 import { supabase } from "../../services/supabase";
 import { Skeleton } from "../../components/ui/Skeleton";
@@ -371,6 +372,8 @@ export function Financeiro() {
             id: item.id,
             cliente: clienteNome,
             servico: item.servico,
+            valorNum: valorNum,
+            comissaoNum: comissaoItemVal,
             valor: formatarMoeda(valorNum),
             comissaoItem: formatarMoeda(comissaoItemVal),
             data: `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}/${dataObj.getFullYear()}`,
@@ -441,6 +444,255 @@ export function Financeiro() {
       resumo[at.servico] = (resumo[at.servico] || 0) + 1;
     });
     return Object.entries(resumo).sort((a, b) => b[1] - a[1]);
+  };
+
+  const gerarRelatorioPDF = (profId) => {
+    const prof = funcionarias.find((f) => f.id === profId);
+    if (!prof) return;
+
+    const atendimentos = atendimentosPorProfissional[profId] || [];
+
+    // 1. Calcula o período de atendimento/venda formatado
+    let periodoFormatado = "";
+    const anoNum = Number(anoSelecionado);
+
+    if (filtroDesempenho === "semana") {
+      const hoje = new Date();
+      const diaSemana = hoje.getDay();
+      const dataDom = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - diaSemana);
+      const dataSab = new Date(dataDom.getFullYear(), dataDom.getMonth(), dataDom.getDate() + 6);
+      const dInicio = `${String(dataDom.getDate()).padStart(2, "0")}/${String(dataDom.getMonth() + 1).padStart(2, "0")}/${dataDom.getFullYear()}`;
+      const dFim = `${String(dataSab.getDate()).padStart(2, "0")}/${String(dataSab.getMonth() + 1).padStart(2, "0")}/${dataSab.getFullYear()}`;
+      periodoFormatado = `${dInicio} a ${dFim}`;
+    } else {
+      if (mesSelecionado === "Ano") {
+        periodoFormatado = `01/01/${anoNum} a 31/12/${anoNum}`;
+      } else {
+        const mesIndex = meses.indexOf(mesSelecionado);
+        const mesFormatado = String(mesIndex + 1).padStart(2, "0");
+        const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
+        periodoFormatado = `01/${mesFormatado}/${anoNum} a ${String(ultimoDiaMes).padStart(2, "0")}/${mesFormatado}/${anoNum}`;
+      }
+    }
+
+    // 2. Agrupa os atendimentos por serviço para o descritivo
+    const agrupamentoServicos = {};
+    let totalQtd = 0;
+    let totalValorServicos = 0;
+    let totalComissaoServicos = 0;
+
+    atendimentos.forEach((at) => {
+      const nomeServ = at.servico || "Outros Serviços";
+      const val = Number(at.valorNum) || 0;
+      const comiss = Number(at.comissaoNum) || 0;
+
+      if (!agrupamentoServicos[nomeServ]) {
+        agrupamentoServicos[nomeServ] = {
+          nome: nomeServ,
+          quantidade: 0,
+          valorTotal: 0,
+          comissaoTotal: 0,
+        };
+      }
+
+      agrupamentoServicos[nomeServ].quantidade += 1;
+      agrupamentoServicos[nomeServ].valorTotal += val;
+      agrupamentoServicos[nomeServ].comissaoTotal += comiss;
+
+      totalQtd += 1;
+      totalValorServicos += val;
+      totalComissaoServicos += comiss;
+    });
+
+    const formatarNum = (num) =>
+      new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(num || 0);
+
+    const linhasServicosHTML = Object.values(agrupamentoServicos)
+      .map(
+        (item) => `
+        <tr>
+          <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; color: #111;">${item.nome}</td>
+          <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; text-align: center; color: #111;">${item.quantidade}</td>
+          <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; text-align: right; color: #111;">${formatarNum(item.valorTotal)}</td>
+          <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; text-align: right; font-weight: 600; color: #111;">${formatarNum(item.comissaoTotal)}</td>
+        </tr>
+      `
+      )
+      .join("");
+
+    const htmlRelatorio = `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>Resumo Financeiro - ${prof.nome}</title>
+        <style>
+          @page { size: A4; margin: 18mm 15mm; }
+          body { 
+            font-family: Arial, Helvetica, sans-serif; 
+            color: #000000; 
+            margin: 0; 
+            padding: 0; 
+            background: #ffffff;
+          }
+          .topo-header {
+            text-align: center;
+            margin-bottom: 25px;
+            position: relative;
+          }
+          .titulo-empresa {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 18px;
+            color: #000000;
+          }
+          .titulo-documento {
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+          }
+          .nome-profissional {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 4px;
+          }
+          .periodo-venda {
+            font-size: 12px;
+            color: #333333;
+          }
+          .secao-titulo {
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-top: 25px;
+            margin-bottom: 6px;
+          }
+          .secao-subtitulo {
+            font-size: 12px;
+            font-style: italic;
+            margin-bottom: 4px;
+            color: #222222;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+          }
+          th {
+            background-color: #d9d9d9;
+            border: 1px solid #777777;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+          }
+          td {
+            border: 1px solid #777777;
+            padding: 5px 10px;
+            font-size: 12px;
+          }
+          .linha-total td {
+            font-weight: 700;
+            background-color: #ffffff;
+          }
+          .tabela-resumo td {
+            padding: 4px 10px;
+            font-size: 12px;
+          }
+          @media print {
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="topo-header">
+          <div class="titulo-documento">RESUMO FINANCEIRO</div>
+          <div class="nome-profissional">${prof.nome}</div>
+          <div class="periodo-venda">Período de Atendimento/Venda: ${periodoFormatado}</div>
+        </div>
+
+        <div class="secao-titulo">DESCRITIVO DAS RECEITAS VARIÁVEIS NO PERÍODO</div>
+        <div class="secao-subtitulo">Sobre Serviços</div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align: center; width: 55%;">Serviço</th>
+              <th style="text-align: center; width: 12%;">Quantidade</th>
+              <th style="text-align: center; width: 16%;">Valor em Serviços R$</th>
+              <th style="text-align: center; width: 17%;">Comissão Profissional R$</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linhasServicosHTML || '<tr><td colspan="4" style="text-align: center; padding: 15px; color: #666;">Nenhum atendimento realizado no período.</td></tr>'}
+            <tr class="linha-total">
+              <td style="text-align: right;">Total</td>
+              <td style="text-align: center;">${totalQtd}</td>
+              <td style="text-align: right;">${formatarNum(totalValorServicos)}</td>
+              <td style="text-align: right;">${formatarNum(totalComissaoServicos)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="secao-titulo">RESUMO</div>
+
+        <table class="tabela-resumo">
+          <thead>
+            <tr>
+              <th colspan="2" style="width: 50%;">Recebimentos</th>
+              <th colspan="2" style="width: 50%;">Descontos</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="border-right: none; width: 35%;">Sobre Serviços</td>
+              <td style="border-left: none; text-align: right; font-weight: 600; width: 15%;">${formatarNum(totalComissaoServicos)}</td>
+              <td style="border-right: none; width: 35%;">Abatimentos adicionais</td>
+              <td style="border-left: none; text-align: right; width: 15%;">0,00</td>
+            </tr>
+            <tr>
+              <td style="border-right: none;">Sobre Produtos Vendidos</td>
+              <td style="border-left: none; text-align: right;">0,00</td>
+              <td style="border-right: none;">Compra/Uso de Produtos</td>
+              <td style="border-left: none; text-align: right;">0,00</td>
+            </tr>
+            <tr>
+              <td style="border-right: none;">Sobre Pacotes Vendidos</td>
+              <td style="border-left: none; text-align: right;">0,00</td>
+              <td style="border-right: none;"></td>
+              <td style="border-left: none;"></td>
+            </tr>
+            <tr>
+              <td style="border-right: none;">Recebíveis adicionais</td>
+              <td style="border-left: none; text-align: right;">0,00</td>
+              <td style="border-right: none;"></td>
+              <td style="border-left: none;"></td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Por favor, permita popups para gerar e imprimir o PDF.");
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(htmlRelatorio);
+    printWindow.document.close();
+
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 400);
   };
 
   const anosDisponiveis = Array.from({ length: 4 }, (_, i) =>
@@ -966,14 +1218,43 @@ export function Financeiro() {
                     )}
                   </div>
 
-                  {profile?.is_admin && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                     <button
-                      className="btn-fechar"
-                      onClick={() => setProfSelecionada(null)}
+                      type="button"
+                      onClick={() => gerarRelatorioPDF(profSelecionada)}
+                      title="Gerar e Imprimir Relatório em PDF"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        backgroundColor: "var(--cor-primaria, #7c3aed)",
+                        color: "#ffffff",
+                        border: "none",
+                        padding: "8px 14px",
+                        borderRadius: "8px",
+                        fontWeight: "600",
+                        fontSize: "0.85rem",
+                        cursor: "pointer",
+                        boxShadow: "0 2px 6px rgba(124, 58, 237, 0.2)",
+                        transition: "all 0.2s ease",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
+                      onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
                     >
-                      <X size={18} />
+                      <FileText size={16} />
+                      <span>Gerar Relatório PDF</span>
                     </button>
-                  )}
+
+                    {profile?.is_admin && (
+                      <button
+                        className="btn-fechar"
+                        onClick={() => setProfSelecionada(null)}
+                        title="Fechar histórico"
+                      >
+                        <X size={18} />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="prof-resumo-tags">

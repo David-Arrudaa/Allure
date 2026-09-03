@@ -195,24 +195,16 @@
   }
 
   .tabela-servicos td:nth-child(2)::before {
-    content: "Duração:";
+    content: "Valor:";
     font-weight: 600;
     color: #64748b;
     font-size: 0.85rem;
   }
 
   .tabela-servicos td:nth-child(3)::before {
-    content: "Preço:";
-    font-weight: 600;
-    color: #64748b;
-    font-size: 0.85rem;
-  }
-
-  .tabela-servicos td:nth-child(4)::before {
     content: "Ações:";
     font-weight: 600;
     color: #64748b;
     font-size: 0.85rem;
-    margin-right: auto;
   }
 }
