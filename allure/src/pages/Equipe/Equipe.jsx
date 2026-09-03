@@ -171,7 +171,9 @@ export function Equipe() {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        toast.error("A imagem é muito grande. Escolha uma foto com menos de 5MB.");
+        toast.error(
+          "A imagem é muito grande. Escolha uma foto com menos de 5MB.",
+        );
         return;
       }
       const reader = new FileReader();
@@ -187,7 +189,9 @@ export function Equipe() {
 
     try {
       let novaOrdem =
-        dadosForm.ordem !== "" && dadosForm.ordem !== null && dadosForm.ordem !== undefined
+        dadosForm.ordem !== "" &&
+        dadosForm.ordem !== null &&
+        dadosForm.ordem !== undefined
           ? parseInt(dadosForm.ordem, 10)
           : 1;
 
@@ -229,7 +233,9 @@ export function Equipe() {
       }
 
       const tenantIdFinal =
-        profile?.tenant_id || user?.tenant_id || "11111111-1111-1111-1111-111111111111";
+        profile?.tenant_id ||
+        user?.tenant_id ||
+        "11111111-1111-1111-1111-111111111111";
 
       const dadosParaSalvar = {
         nome: formatarNome(dadosForm.nome.trim()),
@@ -252,15 +258,17 @@ export function Equipe() {
       } else {
         if (dadosForm.email && dadosForm.senha) {
           const adminAuthClient = createClient(
-            import.meta.env.VITE_SUPABASE_URL || "https://placeholder.supabase.co",
+            import.meta.env.VITE_SUPABASE_URL ||
+              "https://placeholder.supabase.co",
             import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key",
-            { auth: { persistSession: false, autoRefreshToken: false } }
+            { auth: { persistSession: false, autoRefreshToken: false } },
           );
 
-          const { data: authData, error: authError } = await adminAuthClient.auth.signUp({
-            email: dadosForm.email.trim(),
-            password: dadosForm.senha,
-          });
+          const { data: authData, error: authError } =
+            await adminAuthClient.auth.signUp({
+              email: dadosForm.email.trim(),
+              password: dadosForm.senha,
+            });
 
           if (authError) {
             const isUserAlreadyRegistered =
@@ -270,7 +278,10 @@ export function Equipe() {
 
             if (isUserAlreadyRegistered) {
               const profNaEquipe = equipe.find(
-                (p) => p.email && p.email.toLowerCase() === dadosForm.email.trim().toLowerCase()
+                (p) =>
+                  p.email &&
+                  p.email.toLowerCase() ===
+                    dadosForm.email.trim().toLowerCase(),
               );
 
               if (profNaEquipe) {
@@ -381,7 +392,7 @@ export function Equipe() {
     } catch (error) {
       console.error("Erro ao excluir profissional:", error.message);
       toast.error(
-        "Não foi possível excluir. Esta profissional já possui agendamentos no sistema."
+        "Não foi possível excluir. Esta profissional já possui agendamentos no sistema.",
       );
     }
   };
@@ -392,7 +403,7 @@ export function Equipe() {
   };
 
   const equipeFiltrada = equipe.filter((f) =>
-    f.nome.toLowerCase().includes(busca.toLowerCase())
+    f.nome.toLowerCase().includes(busca.toLowerCase()),
   );
 
   return (
@@ -501,15 +512,16 @@ export function Equipe() {
                 >
                   <Edit size={18} className="text-slate-600" />
                 </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => abrirModalExcluir(prof.id)}
-                  title={prof.id === user?.id ? "Você não pode excluir sua própria conta" : "Excluir"}
-                  disabled={prof.id === user?.id}
-                >
-                  <Trash2 size={18} className="text-red-500" />
-                </Button>
+                {prof.id !== profile?.id && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => abrirModalExcluir(prof.id)}
+                    title="Excluir"
+                  >
+                    <Trash2 size={18} className="text-red-500" />
+                  </Button>
+                )}
               </div>
             </div>
           ))
@@ -691,11 +703,7 @@ export function Equipe() {
             >
               Cancelar
             </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={carregandoForm}
-            >
+            <Button type="submit" variant="primary" disabled={carregandoForm}>
               {carregandoForm
                 ? "Salvando..."
                 : editandoId

@@ -54,21 +54,10 @@ export function AgendaTopbar({
   return (
     <div className="flex justify-between items-center mb-4 pb-4 border-b border-[var(--cor-borda)] flex-wrap gap-4 max-md:flex-col max-md:items-start max-md:flex-shrink-0 max-md:mb-3 max-md:pb-3">
       <div className="flex items-center gap-8 flex-wrap max-md:w-full max-md:justify-between">
-        <div className="agenda-info">
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "4px" }}>
-            <h2 className="m-0 text-[var(--cor-texto)] text-2xl font-bold tracking-tight">Agenda do Dia</h2>
-            <div
-              style={{
-                backgroundColor: "#F1F5F9",
-                color: "#475569",
-                padding: "4px 10px",
-                borderRadius: "20px",
-                fontSize: "0.75rem",
-                fontWeight: "700",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
+        <div className="flex flex-col">
+          <div className="flex items-center gap-3 mb-1">
+            <h2 className="text-[var(--cor-texto)] text-2xl font-bold tracking-tight">Agenda do Dia</h2>
+            <div className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs font-bold flex items-center">
               {isLoading ? (
                 <Skeleton width="60px" height="12px" />
               ) : (

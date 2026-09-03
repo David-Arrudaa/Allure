@@ -147,7 +147,9 @@ export function Financeiro() {
 
       if (data) {
         data.forEach((item) => {
-          const clienteNome = item.customers?.nome || "Cliente Removido";
+          const clienteNome =
+            item.customers?.nome ||
+            (item.customer_id ? "Cliente removido" : "—");
           if (busca && !clienteNome.toLowerCase().includes(busca.toLowerCase()))
             return;
 

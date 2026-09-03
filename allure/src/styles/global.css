@@ -1,8 +1,22 @@
 @import "tailwindcss";
 
-/* Reset (margin/padding/box-sizing) vem do Preflight do Tailwind.
-   Não redeclarar `*` aqui: regra sem @layer vence qualquer utility,
-   o que quebrava p-10/px-8 e forçava !important. */
+/*
+  RESET CSS
+  Garante que todos os navegadores comecem do zero, sem margens indesejadas.
+
+  IMPORTANTE: precisa ficar dentro de `@layer base`. O Tailwind 4 registra os
+  utilitários em layers, e regra fora de layer vence regra dentro de layer
+  independente de especificidade. Solto, este `*` derrubava p-*, px-*, pl-*,
+  m-* e mt-* em toda a aplicação — era a causa dos paddings "riscados" no
+  DevTools e da necessidade de !important no theme.js.
+*/
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+}
 
 /*
   VARIÁVEIS CSS (Temas e Identidade LUZZ)
@@ -12,8 +26,8 @@
   --cor-fundo: #e9eef5;
 
   --cor-texto: #0f172a;
-  --cor-primaria: #7c3aed;       /* Violeta Real / Roxo Luxo */
-  --cor-secundaria: #ede9fe;     /* Lavanda suave para seleções e hovers */
+  --cor-primaria: #7c3aed; /* Violeta Real / Roxo Luxo */
+  --cor-secundaria: #ede9fe; /* Lavanda suave para seleções e hovers */
   --cor-cards: #ffffff;
   --cor-borda: #cbd5e1;
 
@@ -22,7 +36,9 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
   background-color: var(--cor-fundo);
   color: var(--cor-texto);
   font-weight: 500;
