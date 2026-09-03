@@ -496,6 +496,10 @@
   transform: translateY(-50%);
 }
 
+.agenda-wrapper.coluna-unica {
+  overflow-x: hidden !important;
+}
+
 /* =========================================
    5. GRADE CENTRAL E PROFISSIONAIS
    ========================================= */
@@ -521,12 +525,23 @@
   position: relative;
   min-height: 2974px !important;
   overflow: visible !important;
+  box-sizing: border-box !important;
+}
+
+/* QUANDO APENAS 1 PROFISSIONAL ESTÁ SELECIONADA: TRAVA NA TELA SEM OVERFLOW */
+.grade-profissionais.coluna-unica {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 0 !important;
 }
 
 .coluna-profissional.coluna-unica {
   flex: 1 1 0 !important;
   min-width: 0 !important;
+  max-width: 100% !important;
   width: 100% !important;
+  border-right: none !important;
 }
 
 .coluna-profissional.tem-menu-aberto {
@@ -1052,13 +1067,21 @@
     font-size: 0.9rem;
   }
 
-  .grade-profissionais {
+  .grade-profissionais:not(.coluna-unica) {
     width: max-content !important;
   }
 
-  .coluna-profissional {
+  .coluna-profissional:not(.coluna-unica) {
     flex: 0 0 150px !important;
     min-width: 150px !important;
+  }
+
+  .grade-profissionais.coluna-unica,
+  .coluna-profissional.coluna-unica {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
   }
 
   .header-profissional-nome {
@@ -1074,7 +1097,12 @@
     font-size: 0.85rem;
   }
 
+  .card-acoes-topo {
+    flex-shrink: 0 !important;
+  }
+
   .btn-menu-card {
+    flex-shrink: 0 !important;
     width: 32px;
     height: 32px;
   }
@@ -1094,9 +1122,17 @@
     font-size: 0.82rem;
   }
 
-  .coluna-profissional {
+  .coluna-profissional:not(.coluna-unica) {
     flex: 0 0 135px !important;
     min-width: 135px !important;
+  }
+
+  .grade-profissionais.coluna-unica,
+  .coluna-profissional.coluna-unica {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
   }
 }
 

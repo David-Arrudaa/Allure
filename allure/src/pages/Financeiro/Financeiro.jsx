@@ -1112,15 +1112,8 @@ export function Financeiro() {
 
             {profSelecionada && (
               <div className="prof-detalhes-container">
-                <div
-                  className="prof-detalhes-header"
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <div>
+                <div className="prof-detalhes-header">
+                  <div className="prof-detalhes-header-info">
                     <h4>
                       {profile?.is_admin
                         ? `Histórico Detalhado: ${funcionarias.find((f) => f.id === profSelecionada)?.nome}`
@@ -1218,28 +1211,12 @@ export function Financeiro() {
                     )}
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                  <div className="prof-detalhes-header-acoes">
                     <button
                       type="button"
                       onClick={() => gerarRelatorioPDF(profSelecionada)}
+                      className="btn-gerar-relatorio-pdf"
                       title="Gerar e Imprimir Relatório em PDF"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        backgroundColor: "var(--cor-primaria, #7c3aed)",
-                        color: "#ffffff",
-                        border: "none",
-                        padding: "8px 14px",
-                        borderRadius: "8px",
-                        fontWeight: "600",
-                        fontSize: "0.85rem",
-                        cursor: "pointer",
-                        boxShadow: "0 2px 6px rgba(124, 58, 237, 0.2)",
-                        transition: "all 0.2s ease",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
-                      onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
                     >
                       <FileText size={16} />
                       <span>Gerar Relatório PDF</span>

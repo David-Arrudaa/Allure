@@ -686,7 +686,7 @@ export function Agenda() {
         </div>
       </div>
 
-      <div className="agenda-wrapper">
+      <div className={`agenda-wrapper ${profissionaisExibidos.length === 1 ? "coluna-unica" : ""}`}>
         <div className="coluna-horarios">
           <div className="espaco-cabecalho-horarios"></div>
           {horasDoDia.map((hora) => (
