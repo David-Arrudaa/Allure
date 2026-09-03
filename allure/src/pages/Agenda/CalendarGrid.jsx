@@ -27,17 +27,18 @@ export function CalendarGrid({
   const horasDoDia = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`);
 
   useEffect(() => {
-    if (mostrarLinhaTempo && linhaTempoRef.current) {
-      const container = linhaTempoRef.current.closest(".agenda-wrapper");
-      if (container) {
-        container.scrollTo({
-          top: linhaTempoRef.current.offsetTop - container.clientHeight / 2,
-          left: 0,
-          behavior: "smooth",
-        });
-      }
+    // 1.6 Agenda foco 8h
+    // Scroll inicial sempre vai para 08:00 (8 * 60 * 2 + 74 = 1034px)
+    // A linha vermelha do "agora" continua aparecendo se for o dia atual
+    const container = linhaTempoRef.current?.closest(".agenda-wrapper") || document.querySelector(".agenda-wrapper");
+    if (container) {
+      container.scrollTo({
+        top: 1034 - container.clientHeight / 2,
+        left: 0,
+        behavior: "smooth",
+      });
     }
-  }, [dataSelecionada, mostrarLinhaTempo, linhaTempoRef]);
+  }, [dataSelecionada, linhaTempoRef]);
 
   return (
     <div className="!flex flex-1 min-h-0 relative bg-slate-50 rounded-xl border border-slate-200 !overflow-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">

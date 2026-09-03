@@ -501,14 +501,16 @@ export function Equipe() {
                 >
                   <Edit size={18} className="text-slate-600" />
                 </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => abrirModalExcluir(prof.id)}
-                  title="Excluir"
-                >
-                  <Trash2 size={18} className="text-red-500" />
-                </Button>
+                {prof.id !== profile?.id && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => abrirModalExcluir(prof.id)}
+                    title="Excluir"
+                  >
+                    <Trash2 size={18} className="text-red-500" />
+                  </Button>
+                )}
               </div>
             </div>
           ))

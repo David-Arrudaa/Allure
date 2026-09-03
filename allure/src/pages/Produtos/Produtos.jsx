@@ -10,6 +10,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { Modal } from "../../components/ui/Modal";
 import Button from "../../components/ui/Button";
 import { maskCurrencyInput, parseCurrencyToNumber, formatCurrency } from "../../utils/masks";
+import { FORM_STYLES } from "../../config/theme";
 import "./Produtos.css";
 
 const produtoSchema = z.object({
@@ -287,24 +288,25 @@ export function Produtos() {
         isOpen={isModalOpen}
         onClose={fecharModal}
         title={produtoEditando ? "Editar Produto" : "Novo Produto"}
+        maxWidth="max-w-2xl"
       >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold text-slate-700">Nome do Produto *</label>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div className={FORM_STYLES.group}>
+            <label className={FORM_STYLES.label}>Nome do Produto *</label>
             <input
               type="text"
               placeholder="Ex: Shampo Pós-Química 500ml"
               {...register("nome")}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[var(--cor-primaria)]"
+              className={FORM_STYLES.input}
             />
             {errors.nome && (
-              <span className="text-red-500 text-xs font-medium">{errors.nome.message}</span>
+              <span className={FORM_STYLES.error}>{errors.nome.message}</span>
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-slate-700">Preço de Venda (R$) *</label>
+          <div className={FORM_STYLES.row}>
+            <div className={FORM_STYLES.group}>
+              <label className={FORM_STYLES.label}>Preço de Venda (R$) *</label>
               <Controller
                 name="preco"
                 control={control}
@@ -314,30 +316,30 @@ export function Produtos() {
                     placeholder="R$ 0,00"
                     value={value}
                     onChange={(e) => onChange(maskCurrencyInput(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[var(--cor-primaria)]"
+                    className={FORM_STYLES.input}
                   />
                 )}
               />
               {errors.preco && (
-                <span className="text-red-500 text-xs font-medium">{errors.preco.message}</span>
+                <span className={FORM_STYLES.error}>{errors.preco.message}</span>
               )}
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-slate-700">Quantidade em Estoque *</label>
+            <div className={FORM_STYLES.group}>
+              <label className={FORM_STYLES.label}>Quantidade em Estoque *</label>
               <input
                 type="number"
                 placeholder="Ex: 10"
                 {...register("estoque")}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[var(--cor-primaria)]"
+                className={FORM_STYLES.input}
               />
               {errors.estoque && (
-                <span className="text-red-500 text-xs font-medium">{errors.estoque.message}</span>
+                <span className={FORM_STYLES.error}>{errors.estoque.message}</span>
               )}
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className={FORM_STYLES.actions}>
             <Button
               type="button"
               variant="secondary"
