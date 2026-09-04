@@ -1,13 +1,21 @@
 @import "tailwindcss";
 
-/* 
+/*
   RESET CSS
   Garante que todos os navegadores comecem do zero, sem margens indesejadas.
+
+  IMPORTANTE: precisa ficar dentro de `@layer base`. O Tailwind 4 registra os
+  utilitários em layers, e regra fora de layer vence regra dentro de layer
+  independente de especificidade. Solto, este `*` derrubava p-*, px-*, pl-*,
+  m-* e mt-* em toda a aplicação — era a causa dos paddings "riscados" no
+  DevTools e da necessidade de !important nos componentes.
 */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 }
 
 /* 
