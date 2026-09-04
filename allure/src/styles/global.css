@@ -8,7 +8,11 @@
   utilitários em layers, e regra fora de layer vence regra dentro de layer
   independente de especificidade. Solto, este `*` derrubava p-*, px-*, pl-*,
   m-* e mt-* em toda a aplicação — era a causa dos paddings "riscados" no
+<<<<<<< HEAD
   DevTools e da necessidade de !important no theme.js.
+=======
+  DevTools e da necessidade de !important nos componentes.
+>>>>>>> feature/ajustes-v1
 */
 @layer base {
   * {

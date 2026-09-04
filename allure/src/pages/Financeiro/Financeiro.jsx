@@ -23,11 +23,14 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { Pagination } from "../../components/ui/Pagination";
 import { ModalRecebimentoAvulso } from "../../components/domain/ModalRecebimentoAvulso";
 import { useAuth } from "../../contexts/AuthContext";
+<<<<<<< HEAD
 import {
   localMonthRange,
   localWeekRange,
   toDateInputValue,
 } from "../../utils/dates";
+=======
+>>>>>>> feature/ajustes-v1
 import Button from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
 import "./Financeiro.css";
@@ -245,6 +248,7 @@ export function Financeiro() {
 
     try {
       const tenantId = profile?.tenant_id;
+<<<<<<< HEAD
 
       // Devolve ao estoque a quantidade baixada na venda.
       // Caminho principal: produto_id/quantidade gravados na venda.
@@ -263,15 +267,61 @@ export function Financeiro() {
           ? match[1]?.trim()
           : vendaParaExcluir.servico.replace(/^Venda:\s*/i, "").trim();
         if (!qtd) qtd = match && match[2] ? Number(match[2]) : 1;
+=======
+>>>>>>> feature/ajustes-v1
 
-        if (nomeProd) {
-          const { data: prods } = await supabase
+      // Devolve ao estoque a quantidade baixada na venda.
+      // Caminho principal: produto_id/quantidade gravados na venda.
+      // Fallback: vendas antigas (anteriores a essas colunas) ainda dependem do
+      // parse de "Venda: <nome> (<n>x)" — frágil, mas evita perder a devolução.
+      if (tenantId) {
+        let produtoIdAlvo = vendaParaExcluir.produtoId || null;
+        let qtd = Number(vendaParaExcluir.quantidade) || null;
+
+        if (!produtoIdAlvo && vendaParaExcluir.servico) {
+          const match = vendaParaExcluir.servico.match(
+            /Venda:\s*(.*?)(?:\s*\((\d+)x\))?$/i,
+          );
+          const nomeProd = match
+            ? match[1]?.trim()
+            : vendaParaExcluir.servico.replace(/^Venda:\s*/i, "").trim();
+          if (!qtd) qtd = match && match[2] ? Number(match[2]) : 1;
+
+          if (nomeProd) {
+            const { data: prods } = await supabase
+              .from("produtos")
+              .select("id")
+              .eq("tenant_id", tenantId)
+              .ilike("nome", nomeProd)
+              .limit(1);
+            if (prods && prods[0]) produtoIdAlvo = prods[0].id;
+          }
+        }
+
+        if (produtoIdAlvo) {
+          // Relê o estoque no momento da exclusão para não usar valor defasado
+          const { data: prodAtual } = await supabase
             .from("produtos")
+<<<<<<< HEAD
             .select("id")
             .eq("tenant_id", tenantId)
             .ilike("nome", nomeProd)
             .limit(1);
           if (prods && prods[0]) produtoIdAlvo = prods[0].id;
+=======
+            .select("estoque")
+            .eq("id", produtoIdAlvo)
+            .eq("tenant_id", tenantId)
+            .single();
+
+          if (prodAtual) {
+            await supabase
+              .from("produtos")
+              .update({ estoque: Number(prodAtual.estoque || 0) + (qtd || 1) })
+              .eq("id", produtoIdAlvo)
+              .eq("tenant_id", tenantId);
+          }
+>>>>>>> feature/ajustes-v1
         }
       }
 
@@ -536,7 +586,14 @@ export function Financeiro() {
               </option>
             ))}
           </select>
+<<<<<<< HEAD
           <Button variant="primary" onClick={() => setIsModalAvulsoOpen(true)}>
+=======
+          <Button
+            variant="primary"
+            onClick={() => setIsModalAvulsoOpen(true)}
+          >
+>>>>>>> feature/ajustes-v1
             <Plus size={16} /> Nova Venda
           </Button>
         </div>
@@ -1124,11 +1181,10 @@ export function Financeiro() {
               <div className="tabela-financeira">
                 <div className="tabela-cabecalho geral-table">
                   <span>Cliente</span>
-                  <span>Serviço / Item</span>
+                  <span>Serviço</span>
                   <span>Forma de Pagto.</span>
                   <span>Data</span>
                   <span>Valor</span>
-                  <span style={{ textAlign: "center" }}>Ações</span>
                 </div>
                 {[1, 2, 3, 4, 5].map((item) => (
                   <div
@@ -1136,7 +1192,7 @@ export function Financeiro() {
                     className="tabela-linha geral-table"
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1.5fr 1.8fr 1fr 1fr 1fr 80px",
+                      gridTemplateColumns: "1.5fr 1.5fr 1fr 1fr 1fr",
                       alignItems: "center",
                     }}
                   >
@@ -1145,7 +1201,6 @@ export function Financeiro() {
                     <Skeleton width="80px" height="24px" borderRadius="12px" />
                     <Skeleton width="90px" height="20px" />
                     <Skeleton width="80%" height="20px" />
-                    <Skeleton width="50px" height="20px" />
                   </div>
                 ))}
               </div>
@@ -1153,11 +1208,10 @@ export function Financeiro() {
               <div className="tabela-financeira">
                 <div className="tabela-cabecalho geral-table">
                   <span>Cliente</span>
-                  <span>Serviço / Item</span>
+                  <span>Serviço</span>
                   <span>Forma de Pagto.</span>
                   <span>Data</span>
                   <span>Valor</span>
-                  <span style={{ textAlign: "center" }}>Ações</span>
                 </div>
                 {historicoPaginado.map((item) => (
                   <div key={item.id} className="tabela-linha geral-table">
@@ -1247,11 +1301,19 @@ export function Financeiro() {
             <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
             <p>
               Excluir <strong>{vendaParaExcluir?.servico}</strong> no valor de{" "}
+<<<<<<< HEAD
               <strong>{vendaParaExcluir?.valor}</strong>? O estoque do produto
               será devolvido. Esta ação não pode ser desfeita.
             </p>
           </div>
           <div className={FORM_STYLES.actions}>
+=======
+              <strong>{vendaParaExcluir?.valor}</strong>? O estoque do produto será
+              devolvido. Esta ação não pode ser desfeita.
+            </p>
+          </div>
+          <div className="flex items-center justify-end gap-3 !pt-6 !mt-6 !pb-4 border-t border-slate-100">
+>>>>>>> feature/ajustes-v1
             <Button
               variant="secondary"
               onClick={() => setVendaParaExcluir(null)}

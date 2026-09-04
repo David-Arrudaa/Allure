@@ -120,6 +120,7 @@ export function Layout() {
             <span className="nav-label">Financeiro</span>
           </NavLink>
 
+          {/* 
           <NavLink
             to="/configuracoes"
             className="nav-item"
@@ -128,7 +129,8 @@ export function Layout() {
           >
             <Settings size={20} />
             <span className="nav-label">Configurações</span>
-          </NavLink>
+          </NavLink> 
+          */}
         </nav>
 
         {/* RODAPÉ DO MENU */}
