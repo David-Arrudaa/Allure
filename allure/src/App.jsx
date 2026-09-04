@@ -1,9 +1,14 @@
 import React from "react";
+import { Toaster } from "sonner";
 import { AppRoutes } from "./routes";
 
 function App() {
-  // A responsabilidade de mostrar conteúdo saiu daqui e foi para o AppRoutes!
-  return <AppRoutes />;
+  return (
+    <>
+      <Toaster position="top-right" richColors closeButton />
+      <AppRoutes />
+    </>
+  );
 }
 
 export default App;
