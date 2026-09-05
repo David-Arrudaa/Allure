@@ -1,5 +1,4 @@
 import { supabase } from "./supabase";
-import { z } from "zod";
 
 export async function fetchClientes(paginaAtual = 1, itensPorPagina = 25, termoBusca = "") {
   let countQuery = supabase
@@ -60,56 +59,20 @@ export async function fetchClientes(paginaAtual = 1, itensPorPagina = 25, termoB
     };
   });
 
-  const resultFormatado = z.array(z.object({
-    id: z.any(),
-    nome: z.string(),
-    telefone: z.string(),
-    is_whatsapp: z.boolean(),
-    observacoes: z.string().nullable().optional(),
-    ultimaVisita: z.string(),
-    originalData: z.any()
-  })).safeParse(listaFormatada);
-
-  if (!resultFormatado.success) {
-    console.error("Erro de validação nos dados de clientes:", resultFormatado.error);
-    // Podemos retornar os dados originais se não quisermos quebrar a tela, 
-    // ou apenas os que passaram na validação.
-  }
-
   return {
-    clientes: resultFormatado.success ? resultFormatado.data : listaFormatada,
+    clientes: listaFormatada,
     totalCount: count || 0
   };
 }
 
 export async function createCliente(payload) {
-  let finalPayload = { ...payload };
-  if (!finalPayload.tenant_id) {
-    try {
-      const profStr = localStorage.getItem("@Allure:profissional");
-      if (profStr) {
-        const prof = JSON.parse(profStr);
-        if (prof.tenant_id) finalPayload.tenant_id = prof.tenant_id;
-      }
-    } catch (e) {}
-  }
-  const { data, error } = await supabase.from("customers").insert([finalPayload]).select().single();
+  const { data, error } = await supabase.from("customers").insert([payload]).select().single();
   if (error) throw error;
   return data;
 }
 
 export async function updateCliente(id, payload) {
-  let finalPayload = { ...payload };
-  if (!finalPayload.tenant_id) {
-    try {
-      const profStr = localStorage.getItem("@Allure:profissional");
-      if (profStr) {
-        const prof = JSON.parse(profStr);
-        if (prof.tenant_id) finalPayload.tenant_id = prof.tenant_id;
-      }
-    } catch (e) {}
-  }
-  const { data, error } = await supabase.from("customers").update(finalPayload).eq("id", id).select().single();
+  const { data, error } = await supabase.from("customers").update(payload).eq("id", id).select().single();
   if (error) throw error;
   return data;
 }

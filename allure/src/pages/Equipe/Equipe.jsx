@@ -1,59 +1,20 @@
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { toast } from "sonner";
 import {
   UserPlus,
   Search,
   Trash2,
   Briefcase,
+  X,
   AlertTriangle,
   Edit,
   Camera,
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
-import { supabase } from "../../services/supabase";
+import { supabase } from "../../services/supabase"; // Importação do banco de dados
 import { useAuth } from "../../contexts/AuthContext";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { ModalReativarProfissional } from "../../components/domain/ModalReativarProfissional";
-import { Modal } from "../../components/ui/Modal";
-import Button from "../../components/ui/Button";
 import "./Equipe.css";
-
-const getEquipeSchema = (isEditing) =>
-  z
-    .object({
-      nome: z.string().trim().min(1, "Nome completo é obrigatório"),
-      especialidade: z.string().trim().min(1, "Especialidade é obrigatória"),
-      telefone: z.string().optional(),
-      ordem: z.union([z.string(), z.number()]).optional(),
-      foto: z.string().optional().nullable(),
-      email: z
-        .string()
-        .trim()
-        .min(1, "E-mail é obrigatório")
-        .email("E-mail inválido"),
-      senha: z.string().optional(),
-      is_admin: z.boolean().default(false),
-    })
-    .superRefine((data, ctx) => {
-      if (!isEditing) {
-        if (!data.senha || data.senha.length < 8) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "A senha de acesso deve conter no mínimo 8 caracteres",
-            path: ["senha"],
-          });
-        }
-      } else if (data.senha && data.senha.length > 0 && data.senha.length < 8) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "A senha de acesso deve conter no mínimo 8 caracteres",
-          path: ["senha"],
-        });
-      }
-    });
 
 export function Equipe() {
   const { user, profile } = useAuth();
@@ -62,6 +23,7 @@ export function Equipe() {
   const [carregandoDados, setCarregandoDados] = useState(true);
   const [carregandoForm, setCarregandoForm] = useState(false);
 
+  // Controle do modal de reativação de login existente
   const [modalReativarInfo, setModalReativarInfo] = useState({
     aberto: false,
     email: "",
@@ -73,36 +35,22 @@ export function Equipe() {
   });
   const [carregandoReativacao, setCarregandoReativacao] = useState(false);
 
+  // Controle do modal principal (Cadastro/Edição)
   const [modalAberto, setModalAberto] = useState(false);
-  const [editandoId, setEditandoId] = useState(null);
+  const [editandoId, setEditandoId] = useState(null); // null = Criando; número = Editando
+  const [formFunc, setFormFunc] = useState({
+    nome: "",
+    especialidade: "",
+    telefone: "",
+    ordem: "",
+    foto: "",
+  });
 
+  // Controles do modal de exclusão
   const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
   const [profParaExcluir, setProfParaExcluir] = useState(null);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm({
-    resolver: (values, context, options) =>
-      zodResolver(getEquipeSchema(!!editandoId))(values, context, options),
-    defaultValues: {
-      nome: "",
-      especialidade: "",
-      telefone: "",
-      ordem: "1",
-      foto: "",
-      email: "",
-      senha: "",
-      is_admin: false,
-    },
-  });
-
-  const fotoWatch = watch("foto");
-
+  // 1. BUSCAR PROFISSIONAIS NO BANCO DE DADOS
   const buscarProfissionais = async () => {
     try {
       setCarregandoDados(true);
@@ -125,18 +73,19 @@ export function Equipe() {
     buscarProfissionais();
   }, []);
 
+  // Formata o nome para Primeira Letra Maiúscula
   const formatarNome = (texto) => {
-    if (!texto) return "";
     return texto.toLowerCase().replace(/(?:^|\s)\S/g, function (letra) {
       return letra.toUpperCase();
     });
   };
 
+  // Abre modal para NOVA profissional
   const abrirModalCadastro = () => {
     setEditandoId(null);
     const proximaOrdem =
       equipe.length > 0 ? Math.max(...equipe.map((p) => p.ordem || 0)) + 1 : 1;
-    reset({
+    setFormFunc({
       nome: "",
       especialidade: "",
       telefone: "",
@@ -149,9 +98,10 @@ export function Equipe() {
     setModalAberto(true);
   };
 
+  // Abre modal para EDITAR profissional
   const abrirModalEdicao = (prof) => {
     setEditandoId(prof.id);
-    reset({
+    setFormFunc({
       nome: prof.nome || "",
       especialidade: prof.especialidade || "",
       telefone: prof.telefone || "",
@@ -161,39 +111,43 @@ export function Equipe() {
           : "1",
       foto: prof.foto || "",
       email: prof.email || "",
-      senha: "",
+      senha: "", // Nunca carregamos a senha por segurança
       is_admin: prof.is_admin || false,
     });
     setModalAberto(true);
   };
 
+  // Lida com o upload da imagem
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        toast.error(
-          "A imagem é muito grande. Escolha uma foto com menos de 5MB.",
-        );
+        alert("A imagem é muito grande. Escolha uma foto com menos de 5MB.");
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
-        setValue("foto", reader.result, { shouldValidate: true });
+        setFormFunc({ ...formFunc, foto: reader.result });
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSalvar = async (dadosForm) => {
+  // 2. SALVAR COM REORDENAÇÃO INTELIGENTE
+  const handleSalvar = async (e) => {
+    e.preventDefault();
+    if (!formFunc.nome || !formFunc.especialidade) return;
+
+    if (!editandoId && formFunc.email && formFunc.senha && formFunc.senha.length < 8) {
+      alert("A senha de acesso deve conter no mínimo 8 caracteres para maior segurança.");
+      setCarregandoForm(false);
+      return;
+    }
+
     setCarregandoForm(true);
 
     try {
-      let novaOrdem =
-        dadosForm.ordem !== "" &&
-        dadosForm.ordem !== null &&
-        dadosForm.ordem !== undefined
-          ? parseInt(dadosForm.ordem, 10)
-          : 1;
+      let novaOrdem = formFunc.ordem !== "" ? parseInt(formFunc.ordem, 10) : 1;
 
       if (editandoId) {
         const profissionalAntiga = equipe.find((p) => p.id === editandoId);
@@ -232,19 +186,16 @@ export function Equipe() {
         }
       }
 
-      const tenantIdFinal =
-        profile?.tenant_id ||
-        user?.tenant_id ||
-        "11111111-1111-1111-1111-111111111111";
+      const tenantIdFinal = profile?.tenant_id || user?.tenant_id || "11111111-1111-1111-1111-111111111111";
 
       const dadosParaSalvar = {
-        nome: formatarNome(dadosForm.nome.trim()),
-        especialidade: formatarNome(dadosForm.especialidade.trim()),
-        telefone: dadosForm.telefone ? dadosForm.telefone.trim() : null,
+        nome: formFunc.nome.trim(),
+        especialidade: formFunc.especialidade.trim(),
+        telefone: formFunc.telefone.trim() || null,
         ordem: novaOrdem,
-        foto: dadosForm.foto || null,
-        email: dadosForm.email ? dadosForm.email.trim() : null,
-        is_admin: dadosForm.is_admin || false,
+        foto: formFunc.foto || null,
+        email: formFunc.email ? formFunc.email.trim() : null,
+        is_admin: formFunc.is_admin || false,
         tenant_id: tenantIdFinal,
       };
 
@@ -254,21 +205,20 @@ export function Equipe() {
           .update(dadosParaSalvar)
           .eq("id", editandoId);
         if (error) throw error;
-        toast.success("Profissional atualizado com sucesso!");
       } else {
-        if (dadosForm.email && dadosForm.senha) {
+        // Criar usuário no Auth (sem deslogar o admin)
+        // Isso requer que a confirmação de e-mail esteja desativada no Supabase (Autoconfirm)
+        if (formFunc.email && formFunc.senha) {
           const adminAuthClient = createClient(
-            import.meta.env.VITE_SUPABASE_URL ||
-              "https://placeholder.supabase.co",
+            import.meta.env.VITE_SUPABASE_URL || "https://placeholder.supabase.co",
             import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key",
-            { auth: { persistSession: false, autoRefreshToken: false } },
+            { auth: { persistSession: false, autoRefreshToken: false } }
           );
 
-          const { data: authData, error: authError } =
-            await adminAuthClient.auth.signUp({
-              email: dadosForm.email.trim(),
-              password: dadosForm.senha,
-            });
+          const { data: authData, error: authError } = await adminAuthClient.auth.signUp({
+            email: formFunc.email.trim(),
+            password: formFunc.senha,
+          });
 
           if (authError) {
             const isUserAlreadyRegistered =
@@ -277,18 +227,16 @@ export function Equipe() {
               authError.status === 422;
 
             if (isUserAlreadyRegistered) {
+              // Verificar se esse e-mail já pertence a alguém na equipe
               const profNaEquipe = equipe.find(
-                (p) =>
-                  p.email &&
-                  p.email.toLowerCase() ===
-                    dadosForm.email.trim().toLowerCase(),
+                (p) => p.email && p.email.toLowerCase() === formFunc.email.trim().toLowerCase()
               );
 
               if (profNaEquipe) {
                 setModalReativarInfo({
                   aberto: true,
-                  email: dadosForm.email.trim(),
-                  nome: dadosParaSalvar.nome,
+                  email: formFunc.email.trim(),
+                  nome: formFunc.nome.trim(),
                   tipo: "ja_na_equipe",
                   profNome: profNaEquipe.nome,
                   profObj: profNaEquipe,
@@ -297,10 +245,11 @@ export function Equipe() {
                 setCarregandoForm(false);
                 return;
               } else {
+                // E-mail existe no Auth (conta anterior), permitindo reativação
                 setModalReativarInfo({
                   aberto: true,
-                  email: dadosForm.email.trim(),
-                  nome: dadosParaSalvar.nome,
+                  email: formFunc.email.trim(),
+                  nome: formFunc.nome.trim(),
                   tipo: "reativar",
                   profNome: "",
                   profObj: null,
@@ -313,9 +262,9 @@ export function Equipe() {
 
             throw new Error("Erro ao criar login: " + authError.message);
           }
-
+          
           if (authData?.user) {
-            dadosParaSalvar.id = authData.user.id;
+            dadosParaSalvar.id = authData.user.id; // Vincula ao mesmo UUID
           }
         }
 
@@ -323,14 +272,13 @@ export function Equipe() {
           .from("profissionais")
           .insert([dadosParaSalvar]);
         if (error) throw error;
-        toast.success("Profissional cadastrado com sucesso!");
       }
 
       setModalAberto(false);
       buscarProfissionais();
     } catch (error) {
       console.error("Erro ao salvar profissional:", error.message);
-      toast.error("Erro ao salvar: " + error.message);
+      alert("Erro ao salvar: " + error.message);
     } finally {
       setCarregandoForm(false);
     }
@@ -356,13 +304,12 @@ export function Equipe() {
 
       if (error) throw error;
 
-      toast.success("Profissional reativado com sucesso!");
       setModalReativarInfo({ aberto: false });
       setModalAberto(false);
       buscarProfissionais();
     } catch (error) {
       console.error("Erro ao reativar profissional:", error.message);
-      toast.error("Erro ao reativar profissional: " + error.message);
+      alert("Erro ao reativar profissional: " + error.message);
     } finally {
       setCarregandoReativacao(false);
     }
@@ -385,13 +332,12 @@ export function Equipe() {
         .delete()
         .eq("id", profParaExcluir);
       if (error) throw error;
-      toast.success("Profissional excluído com sucesso!");
       setModalExcluirAberto(false);
       setProfParaExcluir(null);
       buscarProfissionais();
     } catch (error) {
       console.error("Erro ao excluir profissional:", error.message);
-      toast.error(
+      alert(
         "Não foi possível excluir. Esta profissional já possui agendamentos no sistema.",
       );
     }
@@ -424,15 +370,18 @@ export function Equipe() {
               className="input-busca"
             />
           </div>
-          <Button variant="primary" onClick={abrirModalCadastro}>
+          <button className="btn-acao-primaria" onClick={abrirModalCadastro}>
             <UserPlus size={18} />
             <span>Nova Profissional</span>
-          </Button>
+          </button>
         </div>
       </div>
 
       <div className="equipe-grid">
         {carregandoDados ? (
+          /* ========================================================= */
+          /* MÁGICA DOS SKELETONS AQUI - GERANDO 6 CARTÕES FANTASMAS   */
+          /* ========================================================= */
           [1, 2, 3, 4, 5, 6].map((item) => (
             <div
               key={item}
@@ -440,7 +389,9 @@ export function Equipe() {
               style={{ pointerEvents: "none" }}
             >
               <div className="equipe-card-info">
+                {/* Foto Fantasma */}
                 <Skeleton width="48px" height="48px" borderRadius="50%" />
+
                 <div
                   className="info-textos"
                   style={{
@@ -450,8 +401,11 @@ export function Equipe() {
                     marginLeft: "8px",
                   }}
                 >
+                  {/* Nome Fantasma */}
                   <Skeleton width="130px" height="18px" />
+                  {/* Especialidade Fantasma */}
                   <Skeleton width="90px" height="14px" />
+                  {/* Telefone Fantasma */}
                   <Skeleton width="100px" height="14px" />
                 </div>
               </div>
@@ -460,6 +414,7 @@ export function Equipe() {
                 className="equipe-card-acoes"
                 style={{ display: "flex", gap: "8px" }}
               >
+                {/* Botões de Ação Fantasmas */}
                 <Skeleton width="32px" height="32px" borderRadius="8px" />
                 <Skeleton width="32px" height="32px" borderRadius="8px" />
               </div>
@@ -504,24 +459,20 @@ export function Equipe() {
               </div>
 
               <div className="equipe-card-acoes">
-                <Button
-                  size="icon"
-                  variant="ghost"
+                <button
+                  className="btn-editar"
                   onClick={() => abrirModalEdicao(prof)}
                   title="Editar"
                 >
-                  <Edit size={18} className="text-slate-600" />
-                </Button>
-                {prof.id !== profile?.id && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => abrirModalExcluir(prof.id)}
-                    title="Excluir"
-                  >
-                    <Trash2 size={18} className="text-red-500" />
-                  </Button>
-                )}
+                  <Edit size={18} />
+                </button>
+                <button
+                  className="btn-excluir"
+                  onClick={() => abrirModalExcluir(prof.id)}
+                  title="Excluir"
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
             </div>
           ))
@@ -539,205 +490,215 @@ export function Equipe() {
         )}
       </div>
 
+      {/* Modais continuam normais daqui para baixo... */}
       {/* Modal de Cadastro / Edição */}
-      <Modal
-        isOpen={modalAberto}
-        onClose={() => setModalAberto(false)}
-        title={editandoId ? "Editar Profissional" : "Cadastrar Profissional"}
-      >
-        <form
-          onSubmit={handleSubmit(handleSalvar)}
-          className="space-y-4"
-          autoComplete="off"
-        >
-          <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-            <div className="w-14 h-14 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-              {fotoWatch ? (
-                <img
-                  src={fotoWatch}
-                  alt="Preview"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <Camera size={24} className="text-slate-400" />
-              )}
+      {modalAberto && (
+        <div className="modal-overlay">
+          <div
+            className="modal-content"
+            style={{ maxHeight: "90vh", overflowY: "auto" }}
+          >
+            <div className="modal-header">
+              <h3>
+                {editandoId ? "Editar Profissional" : "Cadastrar Profissional"}
+              </h3>
+              <button
+                className="btn-fechar"
+                onClick={() => setModalAberto(false)}
+              >
+                <X size={20} />
+              </button>
             </div>
-            <div className="space-y-1">
-              <label className="cursor-pointer inline-flex items-center px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-                Escolher Foto
+
+            <form onSubmit={handleSalvar} className="modal-form">
+              <div className="upload-foto-container">
+                <div className="avatar-preview">
+                  {formFunc.foto ? (
+                    <img src={formFunc.foto} alt="Preview" />
+                  ) : (
+                    <Camera size={24} color="#94a3b8" />
+                  )}
+                </div>
+                <div className="upload-foto-textos">
+                  <label className="btn-secundario upload-label">
+                    Escolher Foto
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFotoChange}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                  <span className="upload-dica">JPG, PNG. Max 5MB.</span>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Nome Completo *</label>
                 <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFotoChange}
-                  className="hidden"
+                  type="text"
+                  required
+                  placeholder="Ex: Amanda Lima"
+                  value={formFunc.nome}
+                  onChange={(e) =>
+                    setFormFunc({
+                      ...formFunc,
+                      nome: formatarNome(e.target.value),
+                    })
+                  }
                 />
-              </label>
-              <span className="block text-[0.7rem] text-slate-400">
-                JPG, PNG. Max 5MB.
-              </span>
-            </div>
-          </div>
+              </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold text-slate-700">
-              Nome Completo *
-            </label>
-            <input
-              type="text"
-              autoComplete="off"
-              placeholder="Ex: Amanda Lima"
-              {...register("nome")}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[var(--cor-primaria)]"
-            />
-            {errors.nome && (
-              <span className="text-xs text-red-500">
-                {errors.nome.message}
-              </span>
-            )}
-          </div>
+              <div className="form-group">
+                <label>Especialidade *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Nail Designer"
+                  value={formFunc.especialidade}
+                  onChange={(e) =>
+                    setFormFunc({
+                      ...formFunc,
+                      especialidade: formatarNome(e.target.value),
+                    })
+                  }
+                />
+              </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold text-slate-700">
-              Especialidade *
-            </label>
-            <input
-              type="text"
-              autoComplete="off"
-              placeholder="Ex: Nail Designer"
-              {...register("especialidade")}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[var(--cor-primaria)]"
-            />
-            {errors.especialidade && (
-              <span className="text-xs text-red-500">
-                {errors.especialidade.message}
-              </span>
-            )}
-          </div>
+              <div className="form-group">
+                <label>Telefone</label>
+                <input
+                  type="text"
+                  placeholder="(00) 00000-0000"
+                  value={formFunc.telefone}
+                  onChange={(e) =>
+                    setFormFunc({ ...formFunc, telefone: e.target.value })
+                  }
+                />
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-slate-700">
-                Telefone
-              </label>
-              <input
-                type="text"
-                autoComplete="off"
-                placeholder="(00) 00000-0000"
-                {...register("telefone")}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[var(--cor-primaria)]"
-              />
-            </div>
+              <div className="form-group">
+                <label>E-mail (Login) *</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="Ex: amanda@salao.com"
+                  value={formFunc.email}
+                  onChange={(e) =>
+                    setFormFunc({ ...formFunc, email: e.target.value })
+                  }
+                />
+              </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-slate-700">
-                Ordem de Exibição
-              </label>
-              <input
-                type="number"
-                placeholder="Ex: 1"
-                {...register("ordem")}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[var(--cor-primaria)]"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold text-slate-700">
-              E-mail (Login) *
-            </label>
-            <input
-              type="email"
-              autoComplete="off"
-              placeholder="Ex: amanda@salao.com"
-              {...register("email")}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[var(--cor-primaria)]"
-            />
-            {errors.email && (
-              <span className="text-xs text-red-500">
-                {errors.email.message}
-              </span>
-            )}
-          </div>
-
-          {!editandoId && (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-slate-700">
-                Senha Provisória *
-              </label>
-              <input
-                type="password"
-                autoComplete="new-password"
-                placeholder="Mínimo 8 caracteres"
-                {...register("senha")}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[var(--cor-primaria)]"
-              />
-              {errors.senha && (
-                <span className="text-xs text-red-500">
-                  {errors.senha.message}
-                </span>
+              {!editandoId && (
+                <div className="form-group">
+                  <label>Senha Provisória (Mínimo 8 caracteres) *</label>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    placeholder="Mínimo 8 caracteres"
+                    value={formFunc.senha}
+                    onChange={(e) =>
+                      setFormFunc({ ...formFunc, senha: e.target.value })
+                    }
+                  />
+                </div>
               )}
-            </div>
-          )}
 
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              type="checkbox"
-              id="isAdminCheckbox"
-              {...register("is_admin")}
-              className="rounded text-[var(--cor-primaria)] cursor-pointer"
-            />
-            <label
-              htmlFor="isAdminCheckbox"
-              className="text-sm text-slate-700 cursor-pointer"
-            >
-              Dar permissão de <strong>Administrador</strong> (Pode ver tudo)
-            </label>
-          </div>
+              <div className="form-group" style={{ flexDirection: "row", alignItems: "center", gap: "8px", marginTop: "0.5rem" }}>
+                <input
+                  type="checkbox"
+                  id="isAdminCheckbox"
+                  checked={formFunc.is_admin}
+                  onChange={(e) =>
+                    setFormFunc({ ...formFunc, is_admin: e.target.checked })
+                  }
+                  style={{ width: "auto" }}
+                />
+                <label htmlFor="isAdminCheckbox" style={{ marginBottom: 0, cursor: "pointer", fontWeight: "normal" }}>
+                  Dar permissão de <strong>Administrador</strong> (Pode ver tudo)
+                </label>
+              </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModalAberto(false)}
-              disabled={carregandoForm}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" variant="primary" disabled={carregandoForm}>
-              {carregandoForm
-                ? "Salvando..."
-                : editandoId
-                  ? "Salvar Alterações"
-                  : "Salvar Profissional"}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+              <div className="form-group">
+                <label>Ordem de Exibição na Agenda</label>
+                <input
+                  type="number"
+                  placeholder="Ex: 1"
+                  value={formFunc.ordem}
+                  onChange={(e) =>
+                    setFormFunc({ ...formFunc, ordem: e.target.value })
+                  }
+                />
+              </div>
 
-      {/* Modal de Confirmação de Exclusão */}
-      <Modal
-        isOpen={modalExcluirAberto}
-        onClose={cancelarExclusao}
-        title="Excluir Profissional"
-      >
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">
-            <AlertTriangle size={24} className="flex-shrink-0" />
-            <p>
-              Tem certeza que deseja excluir esta profissional? Esta ação não
-              poderá ser desfeita.
-            </p>
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={cancelarExclusao}>
-              Cancelar
-            </Button>
-            <Button variant="danger" onClick={confirmarExclusao}>
-              Sim, Excluir
-            </Button>
+              <div className="modal-acoes" style={{ marginTop: "1.5rem" }}>
+                <button
+                  type="button"
+                  className="btn-secundario"
+                  onClick={() => setModalAberto(false)}
+                  disabled={carregandoForm}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn-acao-primaria"
+                  disabled={carregandoForm}
+                >
+                  {carregandoForm
+                    ? "Salvando..."
+                    : editandoId
+                      ? "Salvar Alterações"
+                      : "Salvar Profissional"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-      </Modal>
+      )}
+
+      {/* Modal de Confirmação de Exclusão */}
+      {modalExcluirAberto && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-pequeno">
+            <div className="modal-header">
+              <h3
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  color: "#ef4444",
+                }}
+              >
+                <AlertTriangle size={20} />
+                Excluir Profissional
+              </h3>
+              <button className="btn-fechar" onClick={cancelarExclusao}>
+                <X size={20} />
+              </button>
+            </div>
+            <div
+              className="modal-body"
+              style={{ marginBottom: "1.5rem", color: "#475569" }}
+            >
+              <p>
+                Tem certeza que deseja excluir esta profissional? Esta ação não
+                poderá ser desfeita.
+              </p>
+            </div>
+            <div className="modal-acoes">
+              <button className="btn-secundario" onClick={cancelarExclusao}>
+                Cancelar
+              </button>
+              <button className="btn-acao-perigo" onClick={confirmarExclusao}>
+                Sim, Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Reativação / E-mail já existente */}
       <ModalReativarProfissional

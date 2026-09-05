@@ -16,23 +16,13 @@ import {
   Trash2,
   AlertCircle,
   ShoppingBag,
+  FileText,
 } from "lucide-react";
-import { toast } from "sonner";
 import { supabase } from "../../services/supabase";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Pagination } from "../../components/ui/Pagination";
 import { ModalRecebimentoAvulso } from "../../components/domain/ModalRecebimentoAvulso";
 import { useAuth } from "../../contexts/AuthContext";
-<<<<<<< HEAD
-import {
-  localMonthRange,
-  localWeekRange,
-  toDateInputValue,
-} from "../../utils/dates";
-=======
->>>>>>> feature/ajustes-v1
-import Button from "../../components/ui/Button";
-import { Modal } from "../../components/ui/Modal";
 import "./Financeiro.css";
 
 export function Financeiro() {
@@ -62,7 +52,7 @@ export function Financeiro() {
   const [busca, setBusca] = useState("");
   const [filtroFuncionariaGeral, setFiltroFuncionariaGeral] = useState("");
   const [loading, setLoading] = useState(true);
-
+  
   const [isModalAvulsoOpen, setIsModalAvulsoOpen] = useState(false);
   const [vendaEditando, setVendaEditando] = useState(null);
   const [vendaParaExcluir, setVendaParaExcluir] = useState(null);
@@ -115,18 +105,21 @@ export function Financeiro() {
       const anoNum = Number(anoSelecionado);
       let inicioFiltro, fimFiltro;
 
-      // Janela em instantes UTC a partir do mês local. As strings sem offset
-      // usadas antes eram lidas como UTC pelo PostgREST, e vendas do fim do dia
-      // (já no dia seguinte em UTC) caíam fora do mês.
-      ({ inicio: inicioFiltro, fim: fimFiltro } = localMonthRange(
-        anoNum,
-        mesSelecionado === "Ano" ? null : meses.indexOf(mesSelecionado),
-      ));
+      if (mesSelecionado === "Ano") {
+        inicioFiltro = `${anoNum}-01-01T00:00:00`;
+        fimFiltro = `${anoNum}-12-31T23:59:59`;
+      } else {
+        const mesIndex = meses.indexOf(mesSelecionado);
+        const mesFormatado = String(mesIndex + 1).padStart(2, "0");
+        const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
+        inicioFiltro = `${anoNum}-${mesFormatado}-01T00:00:00`;
+        fimFiltro = `${anoNum}-${mesFormatado}-${String(ultimoDiaMes).padStart(2, "0")}T23:59:59`;
+      }
 
       let queryGeral = supabase
         .from("appointments")
         .select(
-          `id, valor, servico, data_horario, forma_pagamento, duracao, customer_id, profissional_id, produto_id, quantidade, customers ( nome ), profissionais ( id, nome )`,
+          `id, valor, servico, data_horario, forma_pagamento, duracao, customer_id, profissional_id, customers ( id, nome ), profissionais ( id, nome )`,
         )
         .gte("data_horario", inicioFiltro)
         .lte("data_horario", fimFiltro)
@@ -150,16 +143,11 @@ export function Financeiro() {
 
       if (data) {
         data.forEach((item) => {
-          const clienteNome =
-            item.customers?.nome ||
-            (item.customer_id ? "Cliente removido" : "—");
+          const clienteNome = item.customers?.nome || "Cliente Removido";
           if (busca && !clienteNome.toLowerCase().includes(busca.toLowerCase()))
             return;
-
-          if (
-            filtroFuncionariaGeral &&
-            item.profissionais?.id !== filtroFuncionariaGeral
-          )
+          
+          if (filtroFuncionariaGeral && item.profissionais?.id !== filtroFuncionariaGeral)
             return;
 
           const valorNum = Number(item.valor) || 0;
@@ -182,13 +170,9 @@ export function Financeiro() {
           }
 
           const dataObj = new Date(item.data_horario);
-
-          // Venda avulsa: duracao 0 ou serviço prefixado com "Venda:"
           const isVenda =
             item.duracao === 0 ||
-            String(item.servico || "")
-              .toLowerCase()
-              .startsWith("venda:");
+            String(item.servico || "").toLowerCase().startsWith("venda:");
 
           historicoGeral.push({
             id: item.id,
@@ -200,13 +184,9 @@ export function Financeiro() {
             valorNum: valorNum,
             forma: forma,
             data: `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}/${dataObj.getFullYear()}`,
-            // toDateInputValue(dataObj), não split("T") — a string do Postgres
-            // vem em UTC e o corte pegaria o dia errado ao reabrir a edição.
-            dataIso: item.data_horario ? toDateInputValue(dataObj) : "",
+            dataIso: item.data_horario ? item.data_horario.split("T")[0] : "",
             dataOrd: dataObj.getTime(),
             isVenda: isVenda,
-            produtoId: item.produto_id,
-            quantidade: item.quantidade,
           });
         });
       }
@@ -241,92 +221,40 @@ export function Financeiro() {
     }
   };
 
-  // EXCLUSÃO DE VENDA COM DEVOLUÇÃO DE ESTOQUE
   const handleConfirmarExclusaoVenda = async () => {
     if (!vendaParaExcluir || isExcluindoVenda) return;
     setIsExcluindoVenda(true);
-
     try {
       const tenantId = profile?.tenant_id;
-<<<<<<< HEAD
-
-      // Devolve ao estoque a quantidade baixada na venda.
-      // Caminho principal: produto_id/quantidade gravados na venda.
-      // Fallback: vendas antigas (anteriores a essas colunas) ainda dependem do
-      // parse de "Venda: <nome> (<n>x)" — frágil, mas evita perder a devolução.
-      let produtoIdAlvo = vendaParaExcluir.produtoId || null;
-      let qtd = Number(vendaParaExcluir.quantidade) || null;
-
-      // Fallback: vendas anteriores às colunas produto_id/quantidade só têm o
-      // nome no texto "Venda: <nome> (<n>x)". Frágil, mas evita perder a devolução.
-      if (tenantId && !produtoIdAlvo && vendaParaExcluir.servico) {
+      if (vendaParaExcluir.servico && tenantId) {
+        // Extrair nome do produto e quantidade
         const match = vendaParaExcluir.servico.match(
           /Venda:\s*(.*?)(?:\s*\((\d+)x\))?$/i,
         );
         const nomeProd = match
           ? match[1]?.trim()
           : vendaParaExcluir.servico.replace(/^Venda:\s*/i, "").trim();
-        if (!qtd) qtd = match && match[2] ? Number(match[2]) : 1;
-=======
->>>>>>> feature/ajustes-v1
+        const qtd = match && match[2] ? Number(match[2]) : 1;
 
-      // Devolve ao estoque a quantidade baixada na venda.
-      // Caminho principal: produto_id/quantidade gravados na venda.
-      // Fallback: vendas antigas (anteriores a essas colunas) ainda dependem do
-      // parse de "Venda: <nome> (<n>x)" — frágil, mas evita perder a devolução.
-      if (tenantId) {
-        let produtoIdAlvo = vendaParaExcluir.produtoId || null;
-        let qtd = Number(vendaParaExcluir.quantidade) || null;
-
-        if (!produtoIdAlvo && vendaParaExcluir.servico) {
-          const match = vendaParaExcluir.servico.match(
-            /Venda:\s*(.*?)(?:\s*\((\d+)x\))?$/i,
-          );
-          const nomeProd = match
-            ? match[1]?.trim()
-            : vendaParaExcluir.servico.replace(/^Venda:\s*/i, "").trim();
-          if (!qtd) qtd = match && match[2] ? Number(match[2]) : 1;
-
-          if (nomeProd) {
-            const { data: prods } = await supabase
-              .from("produtos")
-              .select("id")
-              .eq("tenant_id", tenantId)
-              .ilike("nome", nomeProd)
-              .limit(1);
-            if (prods && prods[0]) produtoIdAlvo = prods[0].id;
-          }
-        }
-
-        if (produtoIdAlvo) {
-          // Relê o estoque no momento da exclusão para não usar valor defasado
-          const { data: prodAtual } = await supabase
+        if (nomeProd) {
+          const { data: prods } = await supabase
             .from("produtos")
-<<<<<<< HEAD
-            .select("id")
+            .select("id, estoque")
             .eq("tenant_id", tenantId)
             .ilike("nome", nomeProd)
             .limit(1);
-          if (prods && prods[0]) produtoIdAlvo = prods[0].id;
-=======
-            .select("estoque")
-            .eq("id", produtoIdAlvo)
-            .eq("tenant_id", tenantId)
-            .single();
 
-          if (prodAtual) {
+          if (prods && prods[0]) {
+            const estoqueAtual = Number(prods[0].estoque || 0);
             await supabase
               .from("produtos")
-              .update({ estoque: Number(prodAtual.estoque || 0) + (qtd || 1) })
-              .eq("id", produtoIdAlvo)
+              .update({ estoque: estoqueAtual + qtd })
+              .eq("id", prods[0].id)
               .eq("tenant_id", tenantId);
           }
->>>>>>> feature/ajustes-v1
         }
       }
 
-      // Deleta a venda ANTES de devolver o estoque: se o delete falhar, nada
-      // foi devolvido. A ordem inversa criaria estoque sem venda excluída.
       const { error } = await supabase
         .from("appointments")
         .delete()
@@ -334,28 +262,12 @@ export function Financeiro() {
 
       if (error) throw error;
 
-      if (produtoIdAlvo) {
-        // RPC atômica (estoque = estoque + delta) em vez de ler-e-gravar,
-        // que perdia devoluções concorrentes.
-        const { error: erroEstoque } = await supabase.rpc("ajustar_estoque", {
-          p_produto_id: produtoIdAlvo,
-          p_delta: qtd || 1,
-        });
-        if (erroEstoque) {
-          console.error("Falha ao devolver estoque:", erroEstoque);
-          toast.warning(
-            "Venda excluída, mas o estoque não foi devolvido. Ajuste manualmente.",
-          );
-        }
-      }
-
       setVendaParaExcluir(null);
-      toast.success("Venda excluída e estoque devolvido.");
       await carregarMetricasGerais();
       await carregarDesempenhoEquipe();
     } catch (err) {
       console.error("Erro ao excluir venda:", err);
-      toast.error("Erro ao excluir venda: " + (err.message || err));
+      alert("Erro ao excluir venda: " + (err.message || err));
     } finally {
       setIsExcluindoVenda(false);
     }
@@ -368,14 +280,35 @@ export function Financeiro() {
       const anoNum = Number(anoSelecionado);
       let inicioFiltro, fimFiltro;
 
-      // Mesma correção de fuso do histórico geral: janela local -> instante UTC.
-      ({ inicio: inicioFiltro, fim: fimFiltro } =
-        filtroDesempenho === "semana"
-          ? localWeekRange()
-          : localMonthRange(
-              anoNum,
-              mesSelecionado === "Ano" ? null : meses.indexOf(mesSelecionado),
-            ));
+      if (filtroDesempenho === "semana") {
+        const hoje = new Date();
+        const diaSemana = hoje.getDay();
+
+        const dataDomingo = new Date(
+          hoje.getFullYear(),
+          hoje.getMonth(),
+          hoje.getDate() - diaSemana,
+        );
+        const dataSabado = new Date(
+          dataDomingo.getFullYear(),
+          dataDomingo.getMonth(),
+          dataDomingo.getDate() + 6,
+        );
+
+        inicioFiltro = `${dataDomingo.getFullYear()}-${String(dataDomingo.getMonth() + 1).padStart(2, "0")}-${String(dataDomingo.getDate()).padStart(2, "0")}T00:00:00`;
+        fimFiltro = `${dataSabado.getFullYear()}-${String(dataSabado.getMonth() + 1).padStart(2, "0")}-${String(dataSabado.getDate()).padStart(2, "0")}T23:59:59`;
+      } else {
+        if (mesSelecionado === "Ano") {
+          inicioFiltro = `${anoNum}-01-01T00:00:00`;
+          fimFiltro = `${anoNum}-12-31T23:59:59`;
+        } else {
+          const mesIndex = meses.indexOf(mesSelecionado);
+          const mesFormatado = String(mesIndex + 1).padStart(2, "0");
+          const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
+          inicioFiltro = `${anoNum}-${mesFormatado}-01T00:00:00`;
+          fimFiltro = `${anoNum}-${mesFormatado}-${String(ultimoDiaMes).padStart(2, "0")}T23:59:59`;
+        }
+      }
 
       let query = supabase
         .from("appointments")
@@ -439,6 +372,8 @@ export function Financeiro() {
             id: item.id,
             cliente: clienteNome,
             servico: item.servico,
+            valorNum: valorNum,
+            comissaoNum: comissaoItemVal,
             valor: formatarMoeda(valorNum),
             comissaoItem: formatarMoeda(comissaoItemVal),
             data: `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}/${dataObj.getFullYear()}`,
@@ -511,6 +446,255 @@ export function Financeiro() {
     return Object.entries(resumo).sort((a, b) => b[1] - a[1]);
   };
 
+  const gerarRelatorioPDF = (profId) => {
+    const prof = funcionarias.find((f) => f.id === profId);
+    if (!prof) return;
+
+    const atendimentos = atendimentosPorProfissional[profId] || [];
+
+    // 1. Calcula o período de atendimento/venda formatado
+    let periodoFormatado = "";
+    const anoNum = Number(anoSelecionado);
+
+    if (filtroDesempenho === "semana") {
+      const hoje = new Date();
+      const diaSemana = hoje.getDay();
+      const dataDom = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - diaSemana);
+      const dataSab = new Date(dataDom.getFullYear(), dataDom.getMonth(), dataDom.getDate() + 6);
+      const dInicio = `${String(dataDom.getDate()).padStart(2, "0")}/${String(dataDom.getMonth() + 1).padStart(2, "0")}/${dataDom.getFullYear()}`;
+      const dFim = `${String(dataSab.getDate()).padStart(2, "0")}/${String(dataSab.getMonth() + 1).padStart(2, "0")}/${dataSab.getFullYear()}`;
+      periodoFormatado = `${dInicio} a ${dFim}`;
+    } else {
+      if (mesSelecionado === "Ano") {
+        periodoFormatado = `01/01/${anoNum} a 31/12/${anoNum}`;
+      } else {
+        const mesIndex = meses.indexOf(mesSelecionado);
+        const mesFormatado = String(mesIndex + 1).padStart(2, "0");
+        const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
+        periodoFormatado = `01/${mesFormatado}/${anoNum} a ${String(ultimoDiaMes).padStart(2, "0")}/${mesFormatado}/${anoNum}`;
+      }
+    }
+
+    // 2. Agrupa os atendimentos por serviço para o descritivo
+    const agrupamentoServicos = {};
+    let totalQtd = 0;
+    let totalValorServicos = 0;
+    let totalComissaoServicos = 0;
+
+    atendimentos.forEach((at) => {
+      const nomeServ = at.servico || "Outros Serviços";
+      const val = Number(at.valorNum) || 0;
+      const comiss = Number(at.comissaoNum) || 0;
+
+      if (!agrupamentoServicos[nomeServ]) {
+        agrupamentoServicos[nomeServ] = {
+          nome: nomeServ,
+          quantidade: 0,
+          valorTotal: 0,
+          comissaoTotal: 0,
+        };
+      }
+
+      agrupamentoServicos[nomeServ].quantidade += 1;
+      agrupamentoServicos[nomeServ].valorTotal += val;
+      agrupamentoServicos[nomeServ].comissaoTotal += comiss;
+
+      totalQtd += 1;
+      totalValorServicos += val;
+      totalComissaoServicos += comiss;
+    });
+
+    const formatarNum = (num) =>
+      new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(num || 0);
+
+    const linhasServicosHTML = Object.values(agrupamentoServicos)
+      .map(
+        (item) => `
+        <tr>
+          <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; color: #111;">${item.nome}</td>
+          <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; text-align: center; color: #111;">${item.quantidade}</td>
+          <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; text-align: right; color: #111;">${formatarNum(item.valorTotal)}</td>
+          <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; text-align: right; font-weight: 600; color: #111;">${formatarNum(item.comissaoTotal)}</td>
+        </tr>
+      `
+      )
+      .join("");
+
+    const htmlRelatorio = `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>Resumo Financeiro - ${prof.nome}</title>
+        <style>
+          @page { size: A4; margin: 18mm 15mm; }
+          body { 
+            font-family: Arial, Helvetica, sans-serif; 
+            color: #000000; 
+            margin: 0; 
+            padding: 0; 
+            background: #ffffff;
+          }
+          .topo-header {
+            text-align: center;
+            margin-bottom: 25px;
+            position: relative;
+          }
+          .titulo-empresa {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 18px;
+            color: #000000;
+          }
+          .titulo-documento {
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+          }
+          .nome-profissional {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 4px;
+          }
+          .periodo-venda {
+            font-size: 12px;
+            color: #333333;
+          }
+          .secao-titulo {
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-top: 25px;
+            margin-bottom: 6px;
+          }
+          .secao-subtitulo {
+            font-size: 12px;
+            font-style: italic;
+            margin-bottom: 4px;
+            color: #222222;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+          }
+          th {
+            background-color: #d9d9d9;
+            border: 1px solid #777777;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+          }
+          td {
+            border: 1px solid #777777;
+            padding: 5px 10px;
+            font-size: 12px;
+          }
+          .linha-total td {
+            font-weight: 700;
+            background-color: #ffffff;
+          }
+          .tabela-resumo td {
+            padding: 4px 10px;
+            font-size: 12px;
+          }
+          @media print {
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="topo-header">
+          <div class="titulo-documento">RESUMO FINANCEIRO</div>
+          <div class="nome-profissional">${prof.nome}</div>
+          <div class="periodo-venda">Período de Atendimento/Venda: ${periodoFormatado}</div>
+        </div>
+
+        <div class="secao-titulo">DESCRITIVO DAS RECEITAS VARIÁVEIS NO PERÍODO</div>
+        <div class="secao-subtitulo">Sobre Serviços</div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align: center; width: 55%;">Serviço</th>
+              <th style="text-align: center; width: 12%;">Quantidade</th>
+              <th style="text-align: center; width: 16%;">Valor em Serviços R$</th>
+              <th style="text-align: center; width: 17%;">Comissão Profissional R$</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linhasServicosHTML || '<tr><td colspan="4" style="text-align: center; padding: 15px; color: #666;">Nenhum atendimento realizado no período.</td></tr>'}
+            <tr class="linha-total">
+              <td style="text-align: right;">Total</td>
+              <td style="text-align: center;">${totalQtd}</td>
+              <td style="text-align: right;">${formatarNum(totalValorServicos)}</td>
+              <td style="text-align: right;">${formatarNum(totalComissaoServicos)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="secao-titulo">RESUMO</div>
+
+        <table class="tabela-resumo">
+          <thead>
+            <tr>
+              <th colspan="2" style="width: 50%;">Recebimentos</th>
+              <th colspan="2" style="width: 50%;">Descontos</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="border-right: none; width: 35%;">Sobre Serviços</td>
+              <td style="border-left: none; text-align: right; font-weight: 600; width: 15%;">${formatarNum(totalComissaoServicos)}</td>
+              <td style="border-right: none; width: 35%;">Abatimentos adicionais</td>
+              <td style="border-left: none; text-align: right; width: 15%;">0,00</td>
+            </tr>
+            <tr>
+              <td style="border-right: none;">Sobre Produtos Vendidos</td>
+              <td style="border-left: none; text-align: right;">0,00</td>
+              <td style="border-right: none;">Compra/Uso de Produtos</td>
+              <td style="border-left: none; text-align: right;">0,00</td>
+            </tr>
+            <tr>
+              <td style="border-right: none;">Sobre Pacotes Vendidos</td>
+              <td style="border-left: none; text-align: right;">0,00</td>
+              <td style="border-right: none;"></td>
+              <td style="border-left: none;"></td>
+            </tr>
+            <tr>
+              <td style="border-right: none;">Recebíveis adicionais</td>
+              <td style="border-left: none; text-align: right;">0,00</td>
+              <td style="border-right: none;"></td>
+              <td style="border-left: none;"></td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Por favor, permita popups para gerar e imprimir o PDF.");
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(htmlRelatorio);
+    printWindow.document.close();
+
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 400);
+  };
+
   const anosDisponiveis = Array.from({ length: 4 }, (_, i) =>
     (dataAtual.getFullYear() - 1 + i).toString(),
   );
@@ -534,6 +718,7 @@ export function Financeiro() {
     paginaProf * itensPorPagina,
   );
 
+
   return (
     <div className="financeiro-container">
       <div className="financeiro-header">
@@ -550,6 +735,7 @@ export function Financeiro() {
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               className="input-busca"
+              disabled={loading} // Trava a busca enquanto carrega
             />
           </div>
 
@@ -586,16 +772,28 @@ export function Financeiro() {
               </option>
             ))}
           </select>
-<<<<<<< HEAD
-          <Button variant="primary" onClick={() => setIsModalAvulsoOpen(true)}>
-=======
-          <Button
-            variant="primary"
-            onClick={() => setIsModalAvulsoOpen(true)}
+          <button
+            onClick={() => {
+              setVendaEditando(null);
+              setIsModalAvulsoOpen(true);
+            }}
+            style={{
+              padding: "0.6rem 1rem",
+              borderRadius: "8px",
+              fontWeight: "600",
+              fontSize: "0.85rem",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              border: "none",
+              backgroundColor: "#22C55E",
+              color: "#FFFFFF",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px"
+            }}
           >
->>>>>>> feature/ajustes-v1
             <Plus size={16} /> Nova Venda
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -616,8 +814,7 @@ export function Financeiro() {
         <div className="metric-card destaque">
           <div className="metric-info">
             <span>
-              {profile?.is_admin ? "TOTAL FATURADO" : "MEU TOTAL PRODUZIDO"} (
-              {mesSelecionado === "Ano" ? "ANO" : "MÊS"})
+              {profile?.is_admin ? "TOTAL FATURADO" : "MEU TOTAL PRODUZIDO"} ({mesSelecionado === "Ano" ? "ANO" : "MÊS"})
             </span>
             <h2>
               {loading ? (
@@ -633,14 +830,9 @@ export function Financeiro() {
         </div>
 
         {!profile?.is_admin ? (
-          <div
-            className="metric-card"
-            style={{ borderColor: "#10B981", backgroundColor: "#F0FDF4" }}
-          >
+          <div className="metric-card" style={{ borderColor: "#10B981", backgroundColor: "#F0FDF4" }}>
             <div className="metric-info">
-              <span style={{ color: "#166534", fontWeight: "700" }}>
-                MINHA COMISSÃO ({metricas.comissaoTaxa || 50}%)
-              </span>
+              <span style={{ color: "#166534", fontWeight: "700" }}>MINHA COMISSÃO ({metricas.comissaoTaxa || 50}%)</span>
               <h2 style={{ color: "#15803D" }}>
                 {loading ? (
                   <Skeleton width="100px" height="36px" />
@@ -673,16 +865,12 @@ export function Financeiro() {
 
         <div className="metric-card">
           <div className="metric-info">
-            <span>
-              {!profile?.is_admin ? "RECEBIDO EM PIX" : "ENTRADAS EM DINHEIRO"}
-            </span>
+            <span>{!profile?.is_admin ? "RECEBIDO EM PIX" : "ENTRADAS EM DINHEIRO"}</span>
             <h2>
               {loading ? (
                 <Skeleton width="100px" height="36px" />
               ) : (
-                formatarMoeda(
-                  !profile?.is_admin ? metricas.pix : metricas.dinheiro,
-                )
+                formatarMoeda(!profile?.is_admin ? metricas.pix : metricas.dinheiro)
               )}
             </h2>
           </div>
@@ -693,18 +881,12 @@ export function Financeiro() {
 
         <div className="metric-card">
           <div className="metric-info">
-            <span>
-              {!profile?.is_admin ? "CARTÃO / DINHEIRO" : "ENTRADAS EM CARTÃO"}
-            </span>
+            <span>{!profile?.is_admin ? "CARTÃO / DINHEIRO" : "ENTRADAS EM CARTÃO"}</span>
             <h2>
               {loading ? (
                 <Skeleton width="100px" height="36px" />
               ) : (
-                formatarMoeda(
-                  !profile?.is_admin
-                    ? metricas.cartao + metricas.dinheiro
-                    : metricas.cartao,
-                )
+                formatarMoeda(!profile?.is_admin ? (metricas.cartao + metricas.dinheiro) : metricas.cartao)
               )}
             </h2>
           </div>
@@ -723,9 +905,7 @@ export function Financeiro() {
           <div className="section-title">
             <User size={20} />
             <h3>
-              {profile?.is_admin
-                ? "Comissão e Desempenho da Equipe"
-                : "Minha Comissão e Desempenho"}
+              {profile?.is_admin ? "Comissão e Desempenho da Equipe" : "Minha Comissão e Desempenho"}
               <span
                 style={{
                   fontSize: "0.85rem",
@@ -932,15 +1112,8 @@ export function Financeiro() {
 
             {profSelecionada && (
               <div className="prof-detalhes-container">
-                <div
-                  className="prof-detalhes-header"
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <div>
+                <div className="prof-detalhes-header">
+                  <div className="prof-detalhes-header-info">
                     <h4>
                       {profile?.is_admin
                         ? `Histórico Detalhado: ${funcionarias.find((f) => f.id === profSelecionada)?.nome}`
@@ -1031,34 +1204,34 @@ export function Financeiro() {
                         }}
                       >
                         <Percent size={16} color="#16A34A" />
-                        <span
-                          style={{
-                            fontSize: "0.85rem",
-                            fontWeight: "600",
-                            color: "#166534",
-                          }}
-                        >
-                          Sua Taxa de Comissão:{" "}
-                          <strong>
-                            {
-                              funcionarias.find((f) => f.id === profSelecionada)
-                                ?.comissaoPct
-                            }
-                            %
-                          </strong>
+                        <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "#166534" }}>
+                          Sua Taxa de Comissão: <strong>{funcionarias.find((f) => f.id === profSelecionada)?.comissaoPct}%</strong>
                         </span>
                       </div>
                     )}
                   </div>
 
-                  {profile?.is_admin && (
+                  <div className="prof-detalhes-header-acoes">
                     <button
-                      className="btn-fechar"
-                      onClick={() => setProfSelecionada(null)}
+                      type="button"
+                      onClick={() => gerarRelatorioPDF(profSelecionada)}
+                      className="btn-gerar-relatorio-pdf"
+                      title="Gerar e Imprimir Relatório em PDF"
                     >
-                      <X size={18} />
+                      <FileText size={16} />
+                      <span>Gerar Relatório PDF</span>
                     </button>
-                  )}
+
+                    {profile?.is_admin && (
+                      <button
+                        className="btn-fechar"
+                        onClick={() => setProfSelecionada(null)}
+                        title="Fechar histórico"
+                      >
+                        <X size={18} />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="prof-resumo-tags">
@@ -1076,14 +1249,14 @@ export function Financeiro() {
                   <div className="tabela-financeira mt-10">
                     <div
                       className="tabela-cabecalho prof-table"
-                      style={{
-                        gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr",
-                      }}
+                      style={{ gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr" }}
                     >
                       <span>Data</span>
                       <span>Cliente</span>
                       <span>Serviço</span>
-                      <span style={{ textAlign: "right" }}>Valor Serviço</span>
+                      <span style={{ textAlign: "right" }}>
+                        Valor Serviço
+                      </span>
                       <span style={{ textAlign: "right" }}>
                         {profile?.is_admin ? "Comissão" : "Minha Comissão"}
                       </span>
@@ -1092,25 +1265,21 @@ export function Financeiro() {
                       <div
                         key={item.id}
                         className="tabela-linha prof-table"
-                        style={{
-                          gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr",
-                        }}
+                        style={{ gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr" }}
                       >
                         <span className="texto-secundario">{item.data}</span>
                         <strong>{item.cliente}</strong>
                         <span>
                           <span className="tag-forma">{item.servico}</span>
                         </span>
-                        <span style={{ textAlign: "right", color: "#64748B" }}>
+                        <span
+                          style={{ textAlign: "right", color: "#64748B" }}
+                        >
                           {item.valor}
                         </span>
                         <span
                           className="valor-recebido"
-                          style={{
-                            textAlign: "right",
-                            color: "#059669",
-                            fontWeight: "700",
-                          }}
+                          style={{ textAlign: "right", color: "#059669", fontWeight: "700" }}
                         >
                           {item.comissaoItem}
                         </span>
@@ -1160,10 +1329,8 @@ export function Financeiro() {
               style={{ fontSize: "0.85rem", padding: "0.4rem 0.6rem" }}
             >
               <option value="">Todas as funcionárias</option>
-              {funcionarias.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.nome}
-                </option>
+              {funcionarias.map(f => (
+                <option key={f.id} value={f.id}>{f.nome}</option>
               ))}
             </select>
             {expandirHistorico ? (
@@ -1181,10 +1348,11 @@ export function Financeiro() {
               <div className="tabela-financeira">
                 <div className="tabela-cabecalho geral-table">
                   <span>Cliente</span>
-                  <span>Serviço</span>
+                  <span>Serviço / Item</span>
                   <span>Forma de Pagto.</span>
                   <span>Data</span>
                   <span>Valor</span>
+                  <span style={{ textAlign: "center" }}>Ações</span>
                 </div>
                 {[1, 2, 3, 4, 5].map((item) => (
                   <div
@@ -1192,7 +1360,7 @@ export function Financeiro() {
                     className="tabela-linha geral-table"
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1.5fr 1.5fr 1fr 1fr 1fr",
+                      gridTemplateColumns: "1.5fr 1.8fr 1fr 1fr 1fr 80px",
                       alignItems: "center",
                     }}
                   >
@@ -1201,6 +1369,7 @@ export function Financeiro() {
                     <Skeleton width="80px" height="24px" borderRadius="12px" />
                     <Skeleton width="90px" height="20px" />
                     <Skeleton width="80%" height="20px" />
+                    <Skeleton width="50px" height="20px" />
                   </div>
                 ))}
               </div>
@@ -1208,52 +1377,59 @@ export function Financeiro() {
               <div className="tabela-financeira">
                 <div className="tabela-cabecalho geral-table">
                   <span>Cliente</span>
-                  <span>Serviço</span>
+                  <span>Serviço / Item</span>
                   <span>Forma de Pagto.</span>
                   <span>Data</span>
                   <span>Valor</span>
+                  <span style={{ textAlign: "center" }}>Ações</span>
                 </div>
                 {historicoPaginado.map((item) => (
                   <div key={item.id} className="tabela-linha geral-table">
                     <strong>{item.cliente}</strong>
-                    <span className="texto-secundario">
+                    <div className="celula-servico-venda">
                       {item.isVenda && (
-                        <span className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[0.65rem] font-bold align-middle">
-                          <ShoppingBag size={10} /> VENDA
+                        <span className="badge-venda-item">
+                          <ShoppingBag size={12} /> Venda
                         </span>
                       )}
-                      {item.servico}
-                    </span>
+                      <span className="texto-secundario">{item.servico}</span>
+                    </div>
                     <span>
                       <span className="tag-forma">{item.forma}</span>
                     </span>
                     <span className="texto-secundario">{item.data}</span>
-                    <span className="valor-recebido flex items-center justify-between gap-2">
-                      {item.valor}
-                      {item.isVenda && (
-                        <span className="flex items-center gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
+                    <span className="valor-recebido">{item.valor}</span>
+                    <div className="acoes-tabela-venda">
+                      {item.isVenda ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn-acao-tabela btn-editar-venda"
                             title="Editar Venda"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setVendaEditando(item);
                               setIsModalAvulsoOpen(true);
                             }}
                           >
-                            <Edit2 size={15} className="text-blue-500" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
+                            <Edit2 size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-acao-tabela btn-excluir-venda"
                             title="Excluir Venda"
-                            onClick={() => setVendaParaExcluir(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setVendaParaExcluir(item);
+                            }}
                           >
-                            <Trash2 size={15} className="text-red-500" />
-                          </Button>
-                        </span>
+                            <Trash2 size={15} />
+                          </button>
+                        </>
+                      ) : (
+                        <span className="texto-secundario" style={{ opacity: 0.4 }}>-</span>
                       )}
-                    </span>
+                    </div>
                   </div>
                 ))}
 
@@ -1276,8 +1452,9 @@ export function Financeiro() {
         )}
       </div>
 
-      <ModalRecebimentoAvulso
-        isOpen={isModalAvulsoOpen}
+      {/* MODAL DE CRIAÇÃO E EDIÇÃO DE VENDA */}
+      <ModalRecebimentoAvulso 
+        isOpen={isModalAvulsoOpen} 
         vendaEditando={vendaEditando}
         onClose={() => {
           setIsModalAvulsoOpen(false);
@@ -1291,46 +1468,68 @@ export function Financeiro() {
         }}
       />
 
-      <Modal
-        isOpen={!!vendaParaExcluir}
-        onClose={() => !isExcluindoVenda && setVendaParaExcluir(null)}
-        title="Excluir Venda"
-      >
-        <div className="space-y-4">
-          <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">
-            <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
-            <p>
-              Excluir <strong>{vendaParaExcluir?.servico}</strong> no valor de{" "}
-<<<<<<< HEAD
-              <strong>{vendaParaExcluir?.valor}</strong>? O estoque do produto
-              será devolvido. Esta ação não pode ser desfeita.
-            </p>
-          </div>
-          <div className={FORM_STYLES.actions}>
-=======
-              <strong>{vendaParaExcluir?.valor}</strong>? O estoque do produto será
-              devolvido. Esta ação não pode ser desfeita.
-            </p>
-          </div>
-          <div className="flex items-center justify-end gap-3 !pt-6 !mt-6 !pb-4 border-t border-slate-100">
->>>>>>> feature/ajustes-v1
-            <Button
-              variant="secondary"
-              onClick={() => setVendaParaExcluir(null)}
-              disabled={isExcluindoVenda}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="danger"
-              onClick={handleConfirmarExclusaoVenda}
-              disabled={isExcluindoVenda}
-            >
-              {isExcluindoVenda ? "Excluindo..." : "Confirmar Exclusão"}
-            </Button>
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE VENDA */}
+      {vendaParaExcluir && (
+        <div
+          className="modal-overlay"
+          onClick={() => !isExcluindoVenda && setVendaParaExcluir(null)}
+        >
+          <div
+            className="modal-box modal-exclusao-venda-box"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div className="modal-header-titulo-wrapper">
+                <div className="modal-header-icone icone-excluir-venda">
+                  <Trash2 size={20} />
+                </div>
+                <h2>Excluir Venda</h2>
+              </div>
+              <button
+                className="btn-fechar"
+                onClick={() => setVendaParaExcluir(null)}
+                disabled={isExcluindoVenda}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="modal-exclusao-venda-conteudo">
+              <p className="texto-aviso-exclusao">
+                Tem certeza que deseja excluir esta venda de{" "}
+                <strong>"{vendaParaExcluir.servico}"</strong> no valor de{" "}
+                <strong>{vendaParaExcluir.valor}</strong>?
+              </p>
+              <div className="box-alerta-estoque-devolucao">
+                <AlertCircle size={18} className="icone-alerta-devolucao" />
+                <span>
+                  O valor será debitado do faturamento e as unidades vendidas serão{" "}
+                  <strong>devolvidas ao estoque do produto</strong>.
+                </span>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn-cancelar"
+                onClick={() => setVendaParaExcluir(null)}
+                disabled={isExcluindoVenda}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-confirmar-exclusao-final"
+                onClick={handleConfirmarExclusaoVenda}
+                disabled={isExcluindoVenda}
+              >
+                {isExcluindoVenda ? "Excluindo..." : "Confirmar Exclusão"}
+              </button>
+            </div>
           </div>
         </div>
-      </Modal>
+      )}
     </div>
   );
 }

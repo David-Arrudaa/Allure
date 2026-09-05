@@ -1,31 +1,41 @@
 import React from "react";
-import { UserCheck, Mail, ShieldAlert } from "lucide-react";
-import { Modal } from "../../ui/Modal";
-import Button from "../../ui/Button";
-import { FORM_STYLES } from "../../../config/theme";
+import { UserCheck, AlertCircle, Mail, X, ShieldAlert } from "lucide-react";
+import "./ModalReativarProfissional.css";
 
 export function ModalReativarProfissional({
   isOpen,
   email,
   nome,
-  tipo = "reativar",
+  tipo = "reativar", // "reativar" ou "ja_na_equipe"
   profNome = "",
   isSalvando = false,
   onConfirmar,
   onCancelar,
 }) {
+  if (!isOpen) return null;
+
   const isJaCadastrado = tipo === "ja_na_equipe";
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onCancelar}
-      title={isJaCadastrado ? "E-mail Já em Uso" : "Login Já Registrado"}
-    >
-      <div className="flex flex-col items-center text-center space-y-4">
-        <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
-          isJaCadastrado ? "bg-amber-50 text-amber-500" : "bg-emerald-50 text-emerald-500"
-        }`}>
+    <div className="modal-reativar-overlay" onClick={onCancelar}>
+      <div
+        className="modal-reativar-card"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="modal-reativar-fechar"
+          onClick={onCancelar}
+          title="Fechar"
+        >
+          <X size={18} />
+        </button>
+
+        <div
+          className={`modal-reativar-icon ${
+            isJaCadastrado ? "icon-aviso" : "icon-reativar"
+          }`}
+        >
           {isJaCadastrado ? (
             <ShieldAlert size={32} strokeWidth={2.2} />
           ) : (
@@ -33,12 +43,16 @@ export function ModalReativarProfissional({
           )}
         </div>
 
-        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full text-slate-700 font-medium text-xs">
-          <Mail size={14} className="text-slate-500" />
+        <h3 className="modal-reativar-titulo">
+          {isJaCadastrado ? "E-mail Já em Uso" : "Login Já Registrado"}
+        </h3>
+
+        <div className="modal-reativar-email-badge">
+          <Mail size={15} />
           <span>{email}</span>
         </div>
 
-        <p className="text-sm text-slate-600">
+        <p className="modal-reativar-texto">
           {isJaCadastrado ? (
             <>
               O e-mail informado já pertence a <strong>{profNome}</strong>, que está ativa(o) na equipe do seu salão.
@@ -51,28 +65,28 @@ export function ModalReativarProfissional({
         </p>
 
         {!isJaCadastrado && (
-          <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 text-left space-y-1 w-full">
-            <p className="text-xs font-semibold text-amber-900">
+          <div className="modal-reativar-dica">
+            <p>
               Deseja reativar o cadastro de <strong>{nome || "este profissional"}</strong> com este e-mail?
             </p>
-            <span className="text-[0.75rem] text-amber-700 block">
-              💡 O profissional poderá entrar usando a senha que já havia sido definida anteriormente.
+            <span>
+              💡 O profissional poderá entrar usando a senha que já havia sido definida anteriormente para este e-mail.
             </span>
           </div>
         )}
 
-        <div className={`w-full ${FORM_STYLES.actions}`}>
-          <Button
+        <div className="modal-reativar-botoes">
+          <button
             type="button"
-            variant="secondary"
+            className="btn-reativar-cancelar"
             onClick={onCancelar}
             disabled={isSalvando}
           >
             {isJaCadastrado ? "Fechar" : "Trocar E-mail"}
-          </Button>
-          <Button
+          </button>
+          <button
             type="button"
-            variant="primary"
+            className="btn-reativar-confirmar"
             onClick={onConfirmar}
             disabled={isSalvando}
           >
@@ -81,9 +95,10 @@ export function ModalReativarProfissional({
               : isJaCadastrado
                 ? "Editar Profissional"
                 : "Sim, Reativar Perfil"}
-          </Button>
+          </button>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }
+

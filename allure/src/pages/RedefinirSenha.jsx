@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../services/supabase";
 import logoLogin from "../assets/logo-login.png";
 import { Lock, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
-
+import "./Login.css";
 
 export function RedefinirSenha() {
   const [novaSenha, setNovaSenha] = useState("");

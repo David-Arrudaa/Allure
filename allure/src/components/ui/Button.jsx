@@ -1,23 +1,33 @@
 import { forwardRef } from "react";
-import { BUTTON_VARIANTS, BUTTON_SIZES } from "../../config/theme";
 
-const Button = forwardRef(({
-  children,
-  variant = "primary",
-  size = "md",
-  className = "",
-  disabled,
-  type = "button",
-  ...props
+export const Button = forwardRef(({ 
+  children, 
+  variant = "primary", 
+  size = "md", 
+  className = "", 
+  disabled, 
+  ...props 
 }, ref) => {
-  const baseStyles = "inline-flex items-center justify-center font-semibold cursor-pointer transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed whitespace-nowrap box-border shrink-0";
+  const baseStyles = "inline-flex items-center justify-center font-medium transition-all rounded-xl shadow-sm disabled:opacity-70 disabled:cursor-not-allowed";
+  
+  const variants = {
+    primary: "bg-primary text-white hover:bg-primary/90 hover:shadow-md",
+    secondary: "bg-gray-100 text-gray-700 hover:bg-gray-200",
+    danger: "bg-red-500 text-white hover:bg-red-600",
+    ghost: "bg-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-100 shadow-none"
+  };
+
+  const sizes = {
+    sm: "px-3 py-1.5 text-sm gap-1.5",
+    md: "px-5 py-2.5 gap-2",
+    icon: "p-1.5 rounded-lg"
+  };
 
   return (
     <button
       ref={ref}
-      type={type}
       disabled={disabled}
-      className={`${baseStyles} ${BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.primary} ${BUTTON_SIZES[size] || BUTTON_SIZES.md} ${className}`}
+      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
     >
       {children}
@@ -26,5 +36,3 @@ const Button = forwardRef(({
 });
 
 Button.displayName = "Button";
-
-export default Button;

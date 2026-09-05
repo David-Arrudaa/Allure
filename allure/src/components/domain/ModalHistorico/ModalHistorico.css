@@ -1,0 +1,173 @@
+.historico-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 0.5rem;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  padding-left: 0.5rem;
+}
+
+/* Scrollbar customizada para a lista */
+.historico-lista::-webkit-scrollbar {
+  width: 6px;
+}
+.historico-lista::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
+
+/* Card de Informações e Observações da Cliente */
+.historico-cliente-card {
+  background: linear-gradient(135deg, #ffffff 0%, var(--cor-secundaria) 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.historico-cliente-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.historico-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tag-contato {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+.tag-aniversario {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #fdf2f8;
+  border: 1px solid #fbcfe8;
+  color: #db2777;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.historico-observacoes-bloco {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.historico-observacoes-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--cor-primaria);
+}
+
+.historico-observacoes-texto {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #334155;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.historico-observacoes-vazio {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.historico-item {
+  position: relative;
+  border-left: 3px solid var(--cor-primaria);
+  padding-left: 1.2rem;
+}
+
+/* Bolinha da linha do tempo */
+.historico-item::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: 0;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background-color: var(--cor-primaria);
+  box-shadow: 0 0 0 3px var(--cor-secundaria);
+}
+
+.historico-data {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.historico-detalhes {
+  background-color: #f8fafc;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--cor-borda);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.historico-detalhes h4 {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 1.05rem;
+}
+
+.historico-detalhes p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+/* =========================================
+   RESPONSIVIDADE (CELULARES <= 600px)
+   ========================================= */
+@media (max-width: 600px) {
+  .historico-lista {
+    max-height: 48vh;
+    padding-left: 0.2rem;
+    padding-right: 0.2rem;
+  }
+
+  .historico-cliente-card {
+    padding: 0.85rem;
+  }
+}

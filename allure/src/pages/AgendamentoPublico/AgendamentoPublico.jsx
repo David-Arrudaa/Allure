@@ -1,8 +1,8 @@
-import { z } from "zod";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 
 const agendamentoSchema = z.object({
   serviceId: z.string().min(1, "Selecione um serviço"),

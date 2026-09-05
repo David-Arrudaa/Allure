@@ -1,21 +1,19 @@
 import { useState, useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { toast } from "sonner";
 import { supabase } from "../../services/supabase";
 import { useAuth } from "../../contexts/AuthContext";
-import { Edit2, Trash2, Plus, Search } from "lucide-react";
+import { Edit2, Trash2, Plus, Search, X } from "lucide-react";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { Modal } from "../../components/ui/Modal";
-import Button from "../../components/ui/Button";
-import { maskCurrencyInput, parseCurrencyToNumber, formatCurrency } from "../../utils/masks";
-import { FORM_STYLES } from "../../config/theme";
 import "./Produtos.css";
 
 const produtoSchema = z.object({
   nome: z.string().trim().min(2, "Nome é obrigatório"),
-  preco: z.string().refine((val) => parseCurrencyToNumber(val) > 0, "Preço inválido"),
+  preco: z.string().refine((val) => {
+    const num = Number(val.replace(",", "."));
+    return !isNaN(num) && num >= 0;
+  }, "Preço inválido"),
   estoque: z.string().refine((val) => {
     const num = Number(val);
     return !isNaN(num) && num >= 0;
@@ -36,7 +34,6 @@ export function Produtos() {
     register,
     handleSubmit,
     reset,
-    control,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(produtoSchema),
@@ -68,17 +65,18 @@ export function Produtos() {
 
   useEffect(() => {
     fetchProdutos();
-  }, [profile?.tenant_id]);
+  }, [profile]);
 
   const abrirModal = (produto = null) => {
-    setProdutoEditando(produto);
     if (produto) {
+      setProdutoEditando(produto);
       reset({
         nome: produto.nome || "",
-        preco: formatCurrency(produto.preco || 0),
-        estoque: String(produto.estoque || "0"),
+        preco: produto.preco !== undefined ? String(produto.preco).replace(".", ",") : "",
+        estoque: produto.estoque !== undefined ? String(produto.estoque) : "0",
       });
     } else {
+      setProdutoEditando(null);
       reset({
         nome: "",
         preco: "",
@@ -94,15 +92,22 @@ export function Produtos() {
     reset();
   };
 
-  const onSubmit = async (dados) => {
+  const formatarNome = (texto) => {
+    return texto.toLowerCase().replace(/(?:^|\s)\S/g, function (letra) {
+      return letra.toUpperCase();
+    });
+  };
+
+  const onSubmit = async (data) => {
     if (!profile?.tenant_id) return;
     setIsSalvando(true);
+
     try {
-      const precoNumerico = parseCurrencyToNumber(dados.preco);
-      const estoqueNumerico = Number(dados.estoque);
+      const precoNumerico = Number(data.preco.replace(",", "."));
+      const estoqueNumerico = parseInt(data.estoque, 10) || 0;
 
       const payload = {
-        nome: dados.nome.trim(),
+        nome: formatarNome(data.nome.trim()),
         preco: precoNumerico,
         estoque: estoqueNumerico,
         tenant_id: profile.tenant_id,
@@ -116,19 +121,16 @@ export function Produtos() {
           .eq("tenant_id", profile.tenant_id);
 
         if (error) throw error;
-        toast.success("Produto atualizado com sucesso!");
       } else {
         const { error } = await supabase.from("produtos").insert([payload]);
-
         if (error) throw error;
-        toast.success("Produto cadastrado com sucesso!");
       }
 
-      fecharModal();
       fetchProdutos();
+      fecharModal();
     } catch (err) {
       console.error("Erro ao salvar produto:", err.message);
-      toast.error("Erro ao salvar o produto.");
+      alert("Erro ao salvar produto: " + err.message);
     } finally {
       setIsSalvando(false);
     }
@@ -136,6 +138,7 @@ export function Produtos() {
 
   const confirmarExclusao = async () => {
     if (!produtoParaExcluir || !profile?.tenant_id) return;
+
     try {
       const { error } = await supabase
         .from("produtos")
@@ -145,44 +148,57 @@ export function Produtos() {
 
       if (error) throw error;
 
-      toast.success("Produto excluído com sucesso!");
       setProdutoParaExcluir(null);
       fetchProdutos();
     } catch (err) {
       console.error("Erro ao excluir produto:", err.message);
-      toast.error("Não foi possível excluir o produto.");
+      alert("Não foi possível excluir este produto.");
     }
   };
 
-  const produtosFiltrados = produtos.filter((p) =>
-    p.nome.toLowerCase().includes(busca.toLowerCase()),
+  const formatarMoeda = (valor) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(valor || 0);
+  };
+
+  const produtosFiltrados = produtos.filter((prod) =>
+    prod.nome.toLowerCase().includes(busca.toLowerCase()),
   );
 
   return (
     <div className="produtos-container">
-      <div className="produtos-header">
-        <div>
+      <div className="produtos-topbar">
+        <div className="produtos-info">
           <h2>Gestão de Produtos</h2>
-          <p>Controle de estoque e vendas de produtos</p>
+          <p>Cadastre e controle o estoque de produtos físicos do salão</p>
         </div>
 
         {profile?.is_admin && (
-          <Button variant="primary" onClick={() => abrirModal(null)}>
-            <Plus size={18} /> Novo Produto
-          </Button>
+          <button
+            className="btn-novo"
+            onClick={() => abrirModal()}
+            disabled={loading}
+          >
+            <Plus size={18} strokeWidth={2.5} />
+            Novo Produto
+          </button>
         )}
       </div>
 
       <div className="produtos-conteudo">
-        <div className="filtro-busca-container">
-          <Search size={18} className="icone-busca" />
-          <input
-            type="text"
-            placeholder="Buscar produto por nome..."
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            className="input-busca"
-          />
+        <div className="produtos-filtros">
+          <div className="busca-container">
+            <Search size={18} />
+            <input
+              type="text"
+              placeholder="Buscar produto por nome..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              disabled={loading}
+            />
+          </div>
         </div>
 
         <div className="tabela-container">
@@ -190,17 +206,17 @@ export function Produtos() {
             <thead>
               <tr>
                 <th>Nome do Produto</th>
-                <th>Preço</th>
-                <th>Estoque</th>
+                <th>Preço de Venda</th>
+                <th>Qtd. Estoque</th>
                 <th>Ações</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                [1, 2, 3, 4, 5].map((i) => (
-                  <tr key={i}>
+                [1, 2, 3, 4, 5].map((item) => (
+                  <tr key={`skel-${item}`}>
                     <td>
-                      <Skeleton width="150px" height="20px" />
+                      <Skeleton width="60%" height="20px" />
                     </td>
                     <td>
                       <Skeleton width="80px" height="20px" />
@@ -209,9 +225,20 @@ export function Produtos() {
                       <Skeleton width="60px" height="20px" />
                     </td>
                     <td>
-                      <div className="flex gap-1.5">
-                        <Skeleton width="32px" height="32px" borderRadius="6px" />
-                        <Skeleton width="32px" height="32px" borderRadius="6px" />
+                      <div
+                        className="acoes-tabela"
+                        style={{ display: "flex", gap: "6px" }}
+                      >
+                        <Skeleton
+                          width="32px"
+                          height="32px"
+                          borderRadius="6px"
+                        />
+                        <Skeleton
+                          width="32px"
+                          height="32px"
+                          borderRadius="6px"
+                        />
                       </div>
                     </td>
                   </tr>
@@ -222,7 +249,7 @@ export function Produtos() {
                     <td>
                       <strong>{produto.nome}</strong>
                     </td>
-                    <td>{formatCurrency(produto.preco)}</td>
+                    <td>{formatarMoeda(produto.preco)}</td>
                     <td>
                       <span
                         className={`estoque-badge ${
@@ -240,22 +267,20 @@ export function Produtos() {
                       <div className="acoes-tabela">
                         {profile?.is_admin && (
                           <>
-                            <Button
-                              size="icon"
-                              variant="ghost"
+                            <button
+                              className="btn-acao editar"
                               onClick={() => abrirModal(produto)}
                               title="Editar Produto"
                             >
-                              <Edit2 size={18} className="text-blue-500" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
+                              <Edit2 size={18} />
+                            </button>
+                            <button
+                              className="btn-acao excluir"
                               onClick={() => setProdutoParaExcluir(produto)}
                               title="Excluir Produto"
                             >
-                              <Trash2 size={18} className="text-red-500" />
-                            </Button>
+                              <Trash2 size={18} />
+                            </button>
                           </>
                         )}
                       </div>
@@ -283,114 +308,173 @@ export function Produtos() {
         </div>
       </div>
 
-      {/* MODAL DE CADASTRO E EDIÇÃO */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={fecharModal}
-        title={produtoEditando ? "Editar Produto" : "Novo Produto"}
-        maxWidth="max-w-2xl"
-      >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          <div className={FORM_STYLES.group}>
-            <label className={FORM_STYLES.label}>Nome do Produto *</label>
-            <input
-              type="text"
-              placeholder="Ex: Shampo Pós-Química 500ml"
-              {...register("nome")}
-              className={FORM_STYLES.input}
-            />
-            {errors.nome && (
-              <span className={FORM_STYLES.error}>{errors.nome.message}</span>
-            )}
-          </div>
+      {/* MODAL DE CADASTRO / EDIÇÃO */}
+      {isModalOpen && (
+        <div className="modal-overlay" onClick={fecharModal}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "450px" }}
+          >
+            <div
+              className="modal-header"
+              style={{
+                marginBottom: "1.2rem",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: "1.25rem" }}>
+                {produtoEditando ? "Editar Produto" : "Novo Produto"}
+              </h2>
+              <button
+                className="btn-fechar"
+                onClick={fecharModal}
+                title="Fechar"
+              >
+                <X size={20} strokeWidth={2.5} />
+              </button>
+            </div>
 
-          <div className={FORM_STYLES.row}>
-            <div className={FORM_STYLES.group}>
-              <label className={FORM_STYLES.label}>Preço de Venda (R$) *</label>
-              <Controller
-                name="preco"
-                control={control}
-                render={({ field: { onChange, value } }) => (
+            <form onSubmit={handleSubmit(onSubmit)} className="form-agendamento">
+              <div className="form-grupo">
+                <label>Nome do Produto *</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Shampoo Nutritivo 300ml"
+                  {...register("nome")}
+                  onChange={(e) => {
+                    e.target.value = formatarNome(e.target.value);
+                    register("nome").onChange(e);
+                  }}
+                />
+                {errors.nome && (
+                  <span
+                    className="erro"
+                    style={{
+                      color: "red",
+                      fontSize: "0.85rem",
+                      marginTop: "4px",
+                      display: "block",
+                    }}
+                  >
+                    {errors.nome.message}
+                  </span>
+                )}
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "1rem",
+                  marginTop: "1rem",
+                }}
+              >
+                <div className="form-grupo">
+                  <label>Preço (R$) *</label>
                   <input
                     type="text"
-                    placeholder="R$ 0,00"
-                    value={value}
-                    onChange={(e) => onChange(maskCurrencyInput(e.target.value))}
-                    className={FORM_STYLES.input}
+                    placeholder="Ex: 45,00"
+                    {...register("preco")}
                   />
-                )}
-              />
-              {errors.preco && (
-                <span className={FORM_STYLES.error}>{errors.preco.message}</span>
-              )}
-            </div>
+                  {errors.preco && (
+                    <span
+                      className="erro"
+                      style={{
+                        color: "red",
+                        fontSize: "0.85rem",
+                        marginTop: "4px",
+                        display: "block",
+                      }}
+                    >
+                      {errors.preco.message}
+                    </span>
+                  )}
+                </div>
 
-            <div className={FORM_STYLES.group}>
-              <label className={FORM_STYLES.label}>Quantidade em Estoque *</label>
-              <input
-                type="number"
-                placeholder="Ex: 10"
-                {...register("estoque")}
-                className={FORM_STYLES.input}
-              />
-              {errors.estoque && (
-                <span className={FORM_STYLES.error}>{errors.estoque.message}</span>
-              )}
-            </div>
-          </div>
+                <div className="form-grupo">
+                  <label>Qtd. em Estoque *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Ex: 10"
+                    {...register("estoque")}
+                  />
+                  {errors.estoque && (
+                    <span
+                      className="erro"
+                      style={{
+                        color: "red",
+                        fontSize: "0.85rem",
+                        marginTop: "4px",
+                        display: "block",
+                      }}
+                    >
+                      {errors.estoque.message}
+                    </span>
+                  )}
+                </div>
+              </div>
 
-          <div className={FORM_STYLES.actions}>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={fecharModal}
-              disabled={isSalvando}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={isSalvando}
-            >
-              {isSalvando
-                ? "Salvando..."
-                : produtoEditando
-                  ? "Salvar Alterações"
-                  : "Salvar Produto"}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
-      <Modal
-        isOpen={!!produtoParaExcluir}
-        onClose={() => setProdutoParaExcluir(null)}
-        title="Confirmar Exclusão"
-      >
-        <div className="space-y-4">
-          <p className="text-slate-600 text-sm">
-            Tem certeza que deseja apagar o produto{" "}
-            <strong>{produtoParaExcluir?.nome}</strong> do estoque?
-          </p>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button
-              variant="secondary"
-              onClick={() => setProdutoParaExcluir(null)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="danger"
-              onClick={confirmarExclusao}
-            >
-              Sim, apagar
-            </Button>
+              <button
+                type="submit"
+                className="btn-salvar"
+                style={{ marginTop: "1.5rem" }}
+                disabled={isSalvando}
+              >
+                {isSalvando
+                  ? "Salvando..."
+                  : produtoEditando
+                    ? "Salvar Alterações"
+                    : "Salvar Produto"}
+              </button>
+            </form>
           </div>
         </div>
-      </Modal>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      {produtoParaExcluir && (
+        <div
+          className="modal-overlay"
+          onClick={() => setProdutoParaExcluir(null)}
+        >
+          <div
+            className="modal-box modal-exclusao"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              style={{
+                fontSize: "1.25rem",
+                color: "#1E293B",
+                marginBottom: "0.5rem",
+              }}
+            >
+              Confirmar Exclusão
+            </h3>
+            <p style={{ color: "#475569", marginBottom: "1.5rem" }}>
+              Tem certeza que deseja apagar o produto{" "}
+              <strong>{produtoParaExcluir.nome}</strong> do estoque?
+            </p>
+            <div className="modal-exclusao-acoes">
+              <button
+                className="btn-cancelar"
+                onClick={() => setProdutoParaExcluir(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-confirmar-exclusao"
+                onClick={confirmarExclusao}
+              >
+                Sim, apagar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-

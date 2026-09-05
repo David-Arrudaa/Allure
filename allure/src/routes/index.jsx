@@ -1,10 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Login } from "../pages/Login/index.jsx";
+import { Login } from "../pages/Login";
+import { Dashboard as Home } from "../pages/Dashboard/Dashboard";
 import { Financeiro } from "../pages/Financeiro/Financeiro";
 import { Equipe } from "../pages/Equipe/Equipe";
-import { Agenda } from "../pages/Agenda/index.jsx";
-import { Clientes } from "../pages/Clientes/index.jsx";
-import { Servicos } from "../pages/Servicos/index.jsx";
+import { Agenda } from "../pages/Agenda";
+import { Clientes } from "../pages/Clientes";
+import { Servicos } from "../pages/Servicos";
 import { Produtos } from "../pages/Produtos/Produtos";
 import { PrivateRoute } from "./PrivateRoute";
 import { Layout } from "../components/Layout/index.jsx";
@@ -25,7 +26,6 @@ export function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         
@@ -39,7 +39,8 @@ export function AppRoutes() {
             </PrivateRoute>
           }
         >
-          {/* A navegação da Home não é mais necessária pois a raiz redireciona pro login */}
+          {/* Agora a Home está limpa, pois a navegação já é feita dentro dela */}
+          <Route index element={<Home />} />
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/servicos" element={<Servicos />} />

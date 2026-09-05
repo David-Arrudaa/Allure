@@ -1,0 +1,242 @@
+.clientes-container {
+  background-color: #ffffff;
+  border-radius: var(--raio-borda);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  padding: 1.5rem;
+  min-height: 100vh; /* Permite que a página cresça e crie a barra de rolagem geral */
+  display: flex;
+  flex-direction: column;
+}
+
+.clientes-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.clientes-info h2 {
+  font-size: 1.5rem;
+  color: var(--cor-texto);
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.clientes-info p {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.clientes-conteudo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- BARRA DE PESQUISA --- */
+.clientes-filtros {
+  display: flex;
+  margin-bottom: 1.5rem;
+}
+
+.busca-container {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+}
+
+.busca-container svg {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+}
+
+.busca-container input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.8rem; /* Espaço extra na esquerda para o ícone */
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: var(--cor-texto);
+  background-color: #f8fafc;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.busca-container input:focus {
+  border-color: var(--cor-primaria);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(199, 75, 103, 0.1);
+}
+
+/* --- TABELA DE CLIENTES --- */
+.tabela-container {
+  background-color: #ffffff;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  overflow-y: auto; /* Permite rolar verticalmente pelos 50 clientes */
+  overflow-x: auto; /* Permite rolar horizontalmente se necessário */
+}
+
+.tabela-clientes {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.tabela-clientes th {
+  background-color: #f8fafc;
+  padding: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.tabela-clientes td {
+  padding: 1rem;
+  font-size: 0.95rem;
+  color: var(--cor-texto);
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.tabela-clientes tr:last-child td {
+  border-bottom: none;
+}
+
+.tabela-clientes tr:hover {
+  background-color: #f8fafc;
+}
+
+/* --- BOTÕES DE AÇÃO (Editar / Excluir) --- */
+.acoes-tabela {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-acao {
+  background: none;
+  border: none;
+  padding: 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-acao.historico:hover {
+  background-color: #f3e8ff;
+  color: #9333ea;
+}
+
+.btn-acao.editar:hover {
+  background-color: #eff6ff;
+  color: #3b82f6;
+}
+
+.btn-acao.excluir:hover {
+  background-color: #fef2f2;
+  color: #ef4444;
+}
+
+/* =========================================
+   RESPONSIVIDADE (CELULARES E TABLETS)
+   ========================================= */
+@media (max-width: 768px) {
+  /* Ajusta o topo (Título e Botão de Nova Cliente) */
+  .clientes-topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .btn-novo {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* --- MÁGICA DA TABELA EM FORMATO CARD --- */
+
+  /* Tira a borda do container principal para os cards respirarem */
+  .tabela-container {
+    border: none;
+    background-color: transparent;
+  }
+
+  /* Esconde o cabeçalho original da tabela */
+  .tabela-clientes thead {
+    display: none;
+  }
+
+  /* Transforma cada linha (<tr>) em um bloco/cartão */
+  .tabela-clientes tbody tr {
+    display: flex;
+    flex-direction: column;
+    background-color: #ffffff;
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    padding: 0.5rem 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  }
+
+  /* Ajusta cada célula (<td>) para ficar com o título de um lado e valor do outro */
+  .tabela-clientes td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: right;
+  }
+
+  /* Tira a linha de baixo do último item de cada card (os botões de ação) */
+  .tabela-clientes td:last-child {
+    border-bottom: none;
+    padding-bottom: 0.5rem;
+  }
+
+  /* --- ADICIONA OS TÍTULOS DENTRO DOS CARDS --- */
+  .tabela-clientes td:nth-child(1)::before {
+    content: "Nome:";
+    font-weight: 600;
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+
+  .tabela-clientes td:nth-child(2)::before {
+    content: "Telefone:";
+    font-weight: 600;
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+
+  .tabela-clientes td:nth-child(3)::before {
+    content: "Última Visita:";
+    font-weight: 600;
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+
+  .tabela-clientes td:nth-child(4)::before {
+    content: "Ações:";
+    font-weight: 600;
+    color: #64748b;
+    font-size: 0.85rem;
+    margin-right: auto; /* Empurra os botões todos para a direita */
+  }
+
+  /* Deixa o nome da cliente alinhado na direita */
+  .tabela-clientes td strong {
+    font-size: 1.05rem;
+  }
+}

@@ -1,0 +1,429 @@
+/* src/pages/Login.css */
+.login-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--cor-fundo);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
+
+/* --- LADO ESQUERDO: Visual Dark Luxury Imersivo --- */
+.login-left-panel {
+  flex: 1.15;
+  position: relative;
+  background-color: #07090e;
+  /* Imagem cinematográfica de salão de luxo moderno e amplo */
+  background-image: url("https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=1920&auto=format&fit=crop");
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  padding: 3rem;
+}
+
+/* Camada Dark Gradient para contraste astronômico com as letras roxas e o dourado */
+.login-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    145deg,
+    rgba(7, 9, 14, 0.92) 0%,
+    rgba(15, 23, 42, 0.88) 50%,
+    rgba(7, 9, 14, 0.95) 100%
+  );
+  z-index: 1;
+}
+
+/* Luz ambiente violeta suave atrás da logo */
+.login-ambient-light {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 380px;
+  height: 380px;
+  background: radial-gradient(
+    circle,
+    rgba(124, 58, 237, 0.22) 0%,
+    rgba(79, 70, 229, 0.08) 50%,
+    transparent 70%
+  );
+  filter: blur(40px);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Informações da Marca */
+.login-brand-info {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 460px;
+}
+
+.login-brand-logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.login-brand-logo {
+  max-width: 320px;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.6));
+}
+
+.login-tagline {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 7px;
+  text-transform: uppercase;
+  color: #f1f5f9;
+  margin: 0.5rem 0 0 0;
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+.login-subdescription {
+  font-size: 0.95rem;
+  color: #94a3b8;
+  margin: 1rem 0 2rem 0;
+  line-height: 1.55;
+  max-width: 380px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Pílulas de Recursos */
+.login-pills-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: center;
+}
+
+.login-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  padding: 0.45rem 0.9rem;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.pill-icon {
+  color: #a78bfa;
+}
+
+/* --- LADO DIREITO: Formulário Limpo & Sofisticado --- */
+.login-right-panel {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #ffffff;
+  box-shadow: -15px 0 40px rgba(0, 0, 0, 0.04);
+  z-index: 3;
+  padding: 2.5rem;
+}
+
+.login-box {
+  width: 100%;
+  max-width: 420px;
+  padding: 1rem 0;
+}
+
+.login-header-group {
+  margin-bottom: 2rem;
+}
+
+.login-title {
+  color: #0f172a;
+  font-size: 2.1rem;
+  font-weight: 800;
+  margin: 0 0 0.4rem 0;
+  letter-spacing: -0.5px;
+}
+
+.login-subtitle {
+  color: #64748b;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.input-group label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #334155;
+  letter-spacing: 0.2px;
+}
+
+.input-field-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 1rem;
+  color: #94a3b8;
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.input-field-wrapper input {
+  width: 100%;
+  padding: 0.9rem 1rem 0.9rem 2.8rem;
+  border: 1.5px solid #e2e8f0;
+  background-color: #f8fafc;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: all 0.2s ease;
+  color: #0f172a;
+}
+
+.input-field-wrapper input:focus {
+  border-color: #7c3aed;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.12);
+}
+
+.input-field-wrapper input:focus + .input-icon,
+.input-field-wrapper:focus-within .input-icon {
+  color: #7c3aed;
+}
+
+.input-field-wrapper input::placeholder {
+  color: #94a3b8;
+}
+
+/* Linha Auxiliar (Lembrar e Esqueci a Senha) */
+.login-aux-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -0.25rem 0 0.5rem 0;
+  font-size: 0.88rem;
+}
+
+.checkbox-lembrar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+}
+
+.checkbox-lembrar input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #7c3aed;
+  cursor: pointer;
+}
+
+.btn-esqueci-senha {
+  background: transparent;
+  border: none;
+  color: #7c3aed;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.btn-esqueci-senha:hover {
+  color: #6d28d9;
+  text-decoration: underline;
+}
+
+.login-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  color: white;
+  border: none;
+  padding: 1.05rem 1.5rem;
+  border-radius: 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  margin-top: 0.5rem;
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.3);
+}
+
+.login-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+}
+
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.login-error {
+  background-color: #fef2f2;
+  color: #dc2626;
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+  border-left: 4px solid #dc2626;
+  font-weight: 600;
+}
+
+/* Cabeçalho de marca mobile (escondido no desktop) */
+.login-mobile-brand {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.login-mobile-logo-img {
+  max-width: 190px;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  margin-bottom: 0.35rem;
+}
+
+.login-mobile-tagline {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #7c3aed;
+  margin: 0;
+}
+
+/* =========================================
+   RESPONSIVIDADE (TABLETS E CELULARES)
+   ========================================= */
+
+/* Tablets em modo retrato e telas intermediárias (<= 960px) */
+@media (max-width: 960px) {
+  .login-container {
+    flex-direction: column;
+    overflow-y: auto;
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .login-left-panel {
+    display: none;
+  }
+
+  .login-right-panel {
+    flex: 1;
+    background-color: var(--cor-fundo);
+    padding: 2.5rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: none;
+  }
+
+  .login-box {
+    background-color: #ffffff;
+    border-radius: 24px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+    border: 1px solid #e2e8f0;
+    padding: 2.5rem 2.25rem;
+    max-width: 440px;
+  }
+
+  .login-mobile-brand {
+    display: flex;
+  }
+
+  .login-header-group {
+    text-align: center;
+    margin-bottom: 1.75rem;
+  }
+
+  .login-title {
+    font-size: 1.85rem;
+  }
+}
+
+/* Smartphones pequenos e médios (<= 480px) */
+@media (max-width: 480px) {
+  .login-right-panel {
+    padding: 1.25rem 1rem;
+  }
+
+  .login-box {
+    padding: 2rem 1.25rem;
+    border-radius: 20px;
+    width: 100%;
+  }
+
+  .login-title {
+    font-size: 1.6rem;
+  }
+
+  .login-subtitle {
+    font-size: 0.88rem;
+  }
+
+  .input-field-wrapper input {
+    font-size: 1rem; /* Evita auto-zoom indesejado no Safari/iOS */
+    padding-top: 0.95rem;
+    padding-bottom: 0.95rem;
+  }
+
+  .login-aux-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin: 0 0 0.75rem 0;
+  }
+
+  .btn-esqueci-senha {
+    font-size: 0.85rem;
+  }
+
+  .login-button {
+    padding: 1.1rem;
+    font-size: 1rem;
+  }
+}

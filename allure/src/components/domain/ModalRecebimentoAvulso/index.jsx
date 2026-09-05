@@ -1,51 +1,32 @@
 import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { AlertTriangle, Minus, Plus } from "lucide-react";
+import { X, Package, User, Users, Calendar, CreditCard, DollarSign, AlertTriangle } from "lucide-react";
 import { supabase } from "../../../services/supabase";
-import { useTenant } from "../../../contexts/TenantContext";
 import { useAuth } from "../../../contexts/AuthContext";
-import { Modal } from "../../ui/Modal";
-import Button from "../../ui/Button";
-import { maskCurrencyInput, parseCurrencyToNumber } from "../../../utils/masks";
-import { toDateInputValue, dateInputToTimestamp } from "../../../utils/dates";
-import { FORM_STYLES } from "../../../config/theme";
+import "./ModalRecebimentoAvulso.css";
 
-export function ModalRecebimentoAvulso({
-  isOpen,
-  onClose,
-  onSave,
-  vendaEditando = null,
-}) {
-  const { tenant } = useTenant();
-  const { user, profile } = useAuth();
-  const queryClient = useQueryClient();
-
-  // tenant_id do profissional logado é a fonte confiável; o contexto é fallback
-  const tenantId = profile?.tenant_id || user?.tenant_id || tenant?.id;
-  const isEdicao = Boolean(vendaEditando && vendaEditando.id);
+export function ModalRecebimentoAvulso({ isOpen, onClose, onSave, vendaEditando = null }) {
+  const { profile, user } = useAuth();
+  const tenantId = profile?.tenant_id || user?.tenant_id;
 
   const [produtos, setProdutos] = useState([]);
   const [profissionais, setProfissionais] = useState([]);
+  const [clientes, setClientes] = useState([]);
   const [loadingDados, setLoadingDados] = useState(false);
 
-  const [produtoSelecionado, setProdutoSelecionado] = useState("");
-  const [produtoOriginalId, setProdutoOriginalId] = useState("");
+  const [produtoSelecionadoId, setProdutoSelecionadoId] = useState("");
   const [quantidade, setQuantidade] = useState(1);
   const [qtdOriginal, setQtdOriginal] = useState(1);
-  const [valor, setValor] = useState("");
+  const [valorTotal, setValorTotal] = useState("");
   const [profissionalId, setProfissionalId] = useState("");
+  const [clienteId, setClienteId] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("Pix");
-  const [dataRecebimento, setDataRecebimento] = useState(toDateInputValue());
+  const [dataRecebimento, setDataRecebimento] = useState(
+    new Date().toISOString().split("T")[0]
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [erroMsg, setErroMsg] = useState("");
 
-  // Busca e seleção de Cliente (autocomplete)
-  const [buscaCliente, setBuscaCliente] = useState("");
-  const [clientesBanco, setClientesBanco] = useState([]);
-  const [clienteSelecionado, setClienteSelecionado] = useState(null);
-  const [isBuscandoCliente, setIsBuscandoCliente] = useState(false);
-  const [digitandoCliente, setDigitandoCliente] = useState(false);
+  const isEdicao = Boolean(vendaEditando && vendaEditando.id);
 
   useEffect(() => {
     if (isOpen && tenantId) {
@@ -53,40 +34,12 @@ export function ModalRecebimentoAvulso({
     }
   }, [isOpen, tenantId, vendaEditando]);
 
-  // Autocomplete de Clientes com debounce
-  useEffect(() => {
-    if (!isOpen || !digitandoCliente || buscaCliente.trim().length < 2) {
-      setClientesBanco([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setIsBuscandoCliente(true);
-      try {
-        const { data, error } = await supabase
-          .from("customers")
-          .select("id, nome, telefone")
-          .ilike("nome", `%${buscaCliente.trim()}%`)
-          .limit(5);
-
-        if (!error && data) setClientesBanco(data);
-      } catch (err) {
-        console.error("Erro ao buscar clientes:", err);
-      } finally {
-        setIsBuscandoCliente(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [buscaCliente, digitandoCliente, isOpen]);
-
   const carregarDados = async () => {
     if (!tenantId) return;
     setLoadingDados(true);
     setErroMsg("");
-
     try {
-      const [resProdutos, resProfissionais] = await Promise.all([
+      const [resProdutos, resProfissionais, resClientes] = await Promise.all([
         supabase
           .from("produtos")
           .select("id, nome, preco, estoque")
@@ -97,87 +50,70 @@ export function ModalRecebimentoAvulso({
           .select("id, nome")
           .eq("tenant_id", tenantId)
           .order("nome", { ascending: true }),
+        supabase
+          .from("customers")
+          .select("id, nome")
+          .eq("tenant_id", tenantId)
+          .order("nome", { ascending: true }),
       ]);
 
       if (resProdutos.error) throw resProdutos.error;
       if (resProfissionais.error) throw resProfissionais.error;
+      if (resClientes.error) throw resClientes.error;
 
       const prodsList = resProdutos.data || [];
       const profsList = resProfissionais.data || [];
+      const clientesList = resClientes.data || [];
 
       setProdutos(prodsList);
       setProfissionais(profsList);
+      setClientes(clientesList);
 
       if (vendaEditando) {
-        // Extrai nome do produto e quantidade a partir de "Venda: Nome (2x)"
+        // Preencher dados da venda para edição
         let nomeProdBusca = "";
         let qtdDetectada = 1;
 
         if (vendaEditando.servico) {
-          const match = vendaEditando.servico.match(
-            /Venda:\s*(.*?)(?:\s*\((\d+)x\))?$/i,
-          );
+          const match = vendaEditando.servico.match(/Venda:\s*(.*?)(?:\s*\((\d+)x\))?$/i);
           if (match) {
             nomeProdBusca = match[1]?.trim() || "";
             qtdDetectada = match[2] ? Number(match[2]) : 1;
           } else {
-            nomeProdBusca = vendaEditando.servico
-              .replace(/^Venda:\s*/i, "")
-              .trim();
+            nomeProdBusca = vendaEditando.servico.replace(/^Venda:\s*/i, "").trim();
           }
         }
 
         const prodEncontrado = prodsList.find(
           (p) =>
             String(p.id) === String(vendaEditando.produto_id) ||
-            p.nome.toLowerCase() === nomeProdBusca.toLowerCase(),
+            p.nome.toLowerCase() === nomeProdBusca.toLowerCase()
         );
 
-        const idProd = prodEncontrado ? prodEncontrado.id : "";
-        setProdutoSelecionado(idProd);
-        setProdutoOriginalId(idProd);
+        setProdutoSelecionadoId(prodEncontrado ? prodEncontrado.id : "");
         setQuantidade(qtdDetectada);
         setQtdOriginal(qtdDetectada);
-
-        const valorBruto =
+        setValorTotal(
           vendaEditando.valorNum !== undefined
-            ? Number(vendaEditando.valorNum)
-            : parseCurrencyToNumber(vendaEditando.valor);
-        setValor(maskCurrencyInput(Math.round(valorBruto * 100)));
-
-        setProfissionalId(
-          vendaEditando.profissionalId || profsList[0]?.id || "",
+            ? String(vendaEditando.valorNum).replace(".", ",")
+            : String(vendaEditando.valor || "").replace("R$", "").trim()
         );
+        setProfissionalId(vendaEditando.profissionalId || profsList[0]?.id || "");
+        setClienteId(vendaEditando.clienteId || "");
         setFormaPagamento(vendaEditando.forma || "Pix");
         setDataRecebimento(
           vendaEditando.dataIso ||
-            (vendaEditando.data_horario
-              ? toDateInputValue(new Date(vendaEditando.data_horario))
-              : toDateInputValue()),
+            (vendaEditando.data_horario ? vendaEditando.data_horario.split("T")[0] : new Date().toISOString().split("T")[0])
         );
-
-        if (vendaEditando.clienteId) {
-          setClienteSelecionado({
-            id: vendaEditando.clienteId,
-            nome: vendaEditando.cliente || "",
-          });
-          setBuscaCliente(vendaEditando.cliente || "");
-        } else {
-          setClienteSelecionado(null);
-          setBuscaCliente("");
-        }
       } else {
-        setProdutoSelecionado("");
-        setProdutoOriginalId("");
+        // Modo criação: resetar campos
+        setProdutoSelecionadoId("");
         setQuantidade(1);
         setQtdOriginal(1);
-        setValor("");
+        setValorTotal("");
+        setClienteId("");
         setFormaPagamento("Pix");
-        setDataRecebimento(toDateInputValue());
-        setBuscaCliente("");
-        setClienteSelecionado(null);
-        setClientesBanco([]);
-        setDigitandoCliente(false);
+        setDataRecebimento(new Date().toISOString().split("T")[0]);
 
         if (profsList.length > 0) {
           const profLogada = profsList.find((p) => p.id === profile?.id);
@@ -185,86 +121,93 @@ export function ModalRecebimentoAvulso({
         }
       }
     } catch (error) {
-      console.error("Erro ao carregar dados da venda:", error.message);
-      toast.error("Erro ao carregar produtos e profissionais.");
+      console.error("Erro ao carregar dados para venda avulsa:", error.message);
     } finally {
       setLoadingDados(false);
     }
   };
 
   const produtoSelecionadoObj = produtos.find(
-    (p) => String(p.id) === String(produtoSelecionado),
+    (p) => String(p.id) === String(produtoSelecionadoId)
   );
-
-  // Ao editar, a quantidade já baixada volta a ficar disponível — mas só se
-  // continuarmos no mesmo produto.
-  const mesmoProdutoDaEdicao =
-    isEdicao && String(produtoSelecionado) === String(produtoOriginalId);
-
-  const calcularEstoqueDisponivel = (prod) => {
-    if (!prod) return 0;
-    const base = Number(prod.estoque || 0);
-    return mesmoProdutoDaEdicao ? base + Number(qtdOriginal) : base;
-  };
-
-  const estoqueDisponivel = calcularEstoqueDisponivel(produtoSelecionadoObj);
-
-  const validarEstoque = (prod, qtd) => {
-    if (!prod || prod.estoque === undefined) return "";
-    const disponivel = calcularEstoqueDisponivel(prod);
-    if (disponivel <= 0) {
-      return `Estoque esgotado: "${prod.nome}" possui 0 unidades.`;
-    }
-    if (qtd > disponivel) {
-      return `Estoque insuficiente: ${qtd} un. selecionadas, mas restam ${disponivel} un.`;
-    }
-    return "";
-  };
-
-  const recalcularValor = (prod, qtd) => {
-    if (!prod) return;
-    const total = Number(prod.preco || 0) * Number(qtd || 1);
-    setValor(maskCurrencyInput(Math.round(total * 100)));
-  };
 
   const handleProdutoChange = (e) => {
     const prodId = e.target.value;
-    setProdutoSelecionado(prodId);
+    setProdutoSelecionadoId(prodId);
+    setErroMsg("");
 
     const prod = produtos.find((p) => String(p.id) === String(prodId));
-    recalcularValor(prod, quantidade);
-    setErroMsg(validarEstoque(prod, quantidade));
+    if (prod) {
+      const precoUnitario = Number(prod.preco || 0);
+      const total = precoUnitario * Number(quantidade || 1);
+      setValorTotal(total.toFixed(2).replace(".", ","));
+
+      if (!isEdicao && prod.estoque !== undefined && Number(prod.estoque) <= 0) {
+        setErroMsg(`Atenção: O produto "${prod.nome}" está com estoque esgotado (0 unidades).`);
+      }
+    }
   };
 
   const handleQuantidadeChange = (novaQtd) => {
     const qtdNum = Math.max(1, Number(novaQtd) || 1);
     setQuantidade(qtdNum);
-    recalcularValor(produtoSelecionadoObj, qtdNum);
-    setErroMsg(validarEstoque(produtoSelecionadoObj, qtdNum));
+
+    if (produtoSelecionadoObj) {
+      const precoUnitario = Number(produtoSelecionadoObj.preco || 0);
+      const total = precoUnitario * qtdNum;
+      setValorTotal(total.toFixed(2).replace(".", ","));
+
+      const estoqueBase = Number(produtoSelecionadoObj.estoque || 0);
+      const estoqueDisponivel = isEdicao ? estoqueBase + qtdOriginal : estoqueBase;
+
+      if (estoqueDisponivel <= 0) {
+        setErroMsg(`Estoque esgotado! O produto "${produtoSelecionadoObj.nome}" possui 0 unidades.`);
+      } else if (qtdNum > estoqueDisponivel) {
+        setErroMsg(
+          `Estoque insuficiente! Você selecionou ${qtdNum} un., mas restam apenas ${estoqueDisponivel} un. disponíveis.`
+        );
+      } else {
+        setErroMsg("");
+      }
+    }
   };
 
   const handleSalvar = async (e) => {
     e.preventDefault();
     if (isSaving || !tenantId) return;
 
-    if (!produtoSelecionado) {
-      setErroMsg("Selecione um produto para a venda.");
+    if (!produtoSelecionadoId) {
+      setErroMsg("Por favor, selecione um produto para a venda.");
       return;
     }
+
     if (!profissionalId) {
-      setErroMsg("Selecione a profissional responsável pela venda.");
+      setErroMsg("Por favor, selecione a profissional responsável pela venda.");
       return;
     }
 
-    const erroEstoque = validarEstoque(produtoSelecionadoObj, quantidade);
-    if (erroEstoque) {
-      setErroMsg(erroEstoque);
-      return;
+    // Validação de estoque disponível
+    if (produtoSelecionadoObj && produtoSelecionadoObj.estoque !== undefined) {
+      const estoqueBase = Number(produtoSelecionadoObj.estoque || 0);
+      const estoqueDisponivel = isEdicao ? estoqueBase + qtdOriginal : estoqueBase;
+
+      if (estoqueDisponivel <= 0) {
+        setErroMsg(
+          `Não é possível concluir a venda: o produto "${produtoSelecionadoObj.nome}" está com estoque esgotado (0 unidades).`
+        );
+        return;
+      }
+      if (quantidade > estoqueDisponivel) {
+        setErroMsg(
+          `Estoque insuficiente! Você tentou vender ${quantidade} unidade(s), mas o produto "${produtoSelecionadoObj.nome}" possui apenas ${estoqueDisponivel} unidade(s) disponíveis.`
+        );
+        return;
+      }
     }
 
-    const valorNumerico = parseCurrencyToNumber(valor);
-    if (!valorNumerico || valorNumerico <= 0) {
-      setErroMsg("Informe um valor válido para a venda.");
+    const valorNumerico = Number(String(valorTotal).replace(",", "."));
+    if (isNaN(valorNumerico) || valorNumerico <= 0) {
+      setErroMsg("Por favor, informe um valor válido para a venda.");
       return;
     }
 
@@ -272,352 +215,314 @@ export function ModalRecebimentoAvulso({
     setErroMsg("");
 
     try {
-      // Data local + hora atual, convertidas ao instante real. O offset fixo
-      // "-03:00" anterior quebrava no horário de verão e em outros fusos.
-      const dataHorarioCompleto = dateInputToTimestamp(dataRecebimento);
+      const agora = new Date();
+      const horaStr = String(agora.getHours()).padStart(2, "0");
+      const minStr = String(agora.getMinutes()).padStart(2, "0");
+      const dataHorarioCompleto = `${dataRecebimento}T${horaStr}:${minStr}:00-03:00`;
 
-      const nomeProduto = produtoSelecionadoObj
-        ? produtoSelecionadoObj.nome
-        : "Produto";
+      const nomeProduto = produtoSelecionadoObj ? produtoSelecionadoObj.nome : "Produto";
       const nomeServico = `Venda: ${nomeProduto}${quantidade > 1 ? ` (${quantidade}x)` : ""}`;
 
-      const payload = {
-        servico: nomeServico,
-        valor: valorNumerico,
-        data_horario: dataHorarioCompleto,
-        forma_pagamento: formaPagamento,
-        profissional_id: profissionalId,
-        customer_id: clienteSelecionado?.id || null,
-        produto_id: produtoSelecionado || null,
-        quantidade: Number(quantidade) || 1,
-      };
-
-      // Estoque sempre via RPC atômica: o UPDATE acontece dentro do banco
-      // (estoque = estoque + delta), sem ler o saldo antes. Duas vendas
-      // simultâneas do mesmo produto não se sobrescrevem, e saldo negativo
-      // é recusado pela própria função.
       if (isEdicao) {
-        // Baixa/devolução ANTES do update: se o estoque recusar, a venda não muda.
-        if (mesmoProdutoDaEdicao) {
-          const delta = Number(qtdOriginal) - Number(quantidade);
-          if (delta !== 0) {
-            const { error } = await supabase.rpc("ajustar_estoque", {
-              p_produto_id: produtoSelecionadoObj.id,
-              p_delta: delta,
-            });
-            if (error) throw error;
-          }
-        } else {
-          const { error: erroDebito } = await supabase.rpc("ajustar_estoque", {
-            p_produto_id: produtoSelecionadoObj.id,
-            p_delta: -Number(quantidade),
-          });
-          if (erroDebito) throw erroDebito;
-
-          if (produtoOriginalId) {
-            const { error: erroDevolucao } = await supabase.rpc(
-              "ajustar_estoque",
-              {
-                p_produto_id: produtoOriginalId,
-                p_delta: Number(qtdOriginal),
-              },
-            );
-            // Devolução ao produto antigo não bloqueia a edição; só registra.
-            if (erroDevolucao) console.error(erroDevolucao);
-          }
-        }
-
+        // 1. Atualizar agendamento da venda existente
         const { error: updateError } = await supabase
           .from("appointments")
-          .update(payload)
+          .update({
+            servico: nomeServico,
+            valor: valorNumerico,
+            data_horario: dataHorarioCompleto,
+            forma_pagamento: formaPagamento,
+            profissional_id: profissionalId,
+            customer_id: clienteId || null,
+          })
           .eq("id", vendaEditando.id)
           .eq("tenant_id", tenantId);
 
         if (updateError) throw updateError;
 
-        toast.success("Venda atualizada com sucesso!");
-      } else {
-        const { error: erroEstoque } = await supabase.rpc("ajustar_estoque", {
-          p_produto_id: produtoSelecionadoObj.id,
-          p_delta: -Number(quantidade),
-        });
-        if (erroEstoque) throw erroEstoque;
+        // 2. Ajustar a diferença de estoque no produto
+        if (produtoSelecionadoObj && produtoSelecionadoObj.estoque !== undefined) {
+          const diferenca = Number(qtdOriginal) - Number(quantidade);
+          const novoEstoque = Math.max(0, Number(produtoSelecionadoObj.estoque || 0) + diferenca);
 
-        const { error: insertError } = await supabase
-          .from("appointments")
-          .insert([
-            {
-              ...payload,
-              status: "confirmado",
-              pagamento: "pago",
-              duracao: 0,
-              tenant_id: tenantId,
-            },
-          ]);
-
-        if (insertError) {
-          // Compensa a baixa: sem isso o estoque some sem venda correspondente.
-          await supabase.rpc("ajustar_estoque", {
-            p_produto_id: produtoSelecionadoObj.id,
-            p_delta: Number(quantidade),
-          });
-          throw insertError;
+          await supabase
+            .from("produtos")
+            .update({ estoque: novoEstoque })
+            .eq("id", produtoSelecionadoObj.id)
+            .eq("tenant_id", tenantId);
         }
+      } else {
+        // 1. Inserir nova venda em appointments
+        const { error: insertError } = await supabase.from("appointments").insert([
+          {
+            servico: nomeServico,
+            valor: valorNumerico,
+            data_horario: dataHorarioCompleto,
+            status: "confirmado",
+            pagamento: "pago",
+            forma_pagamento: formaPagamento,
+            duracao: 0,
+            tenant_id: tenantId,
+            profissional_id: profissionalId,
+            customer_id: clienteId || null,
+          },
+        ]);
 
-        toast.success("Venda registrada com sucesso!");
+        if (insertError) throw insertError;
+
+        // 2. Baixar o estoque do produto vendido
+        if (produtoSelecionadoObj && produtoSelecionadoObj.estoque !== undefined) {
+          const estoqueAtual = Number(produtoSelecionadoObj.estoque || 0);
+          const novoEstoque = Math.max(0, estoqueAtual - Number(quantidade));
+
+          await supabase
+            .from("produtos")
+            .update({ estoque: novoEstoque })
+            .eq("id", produtoSelecionadoObj.id)
+            .eq("tenant_id", tenantId);
+        }
       }
-
-      // A venda grava em `appointments`, que também alimenta o cache da agenda.
-      // Como a escrita não passa pelo TanStack, invalidar aqui é o que impede
-      // a agenda de exibir dados defasados até o próximo refetch.
-      queryClient.invalidateQueries({ queryKey: ["agendamentos"] });
 
       if (onSave) onSave();
       onClose();
     } catch (error) {
-      console.error("Erro ao salvar venda:", error.message);
-      toast.error(
-        "Erro ao salvar venda: " + (error.message || "tente novamente."),
-      );
+      console.error("Erro ao salvar venda avulsa:", error.message);
+      setErroMsg("Erro ao salvar: " + (error.message || "Tente novamente."));
     } finally {
       setIsSaving(false);
     }
   };
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={isEdicao ? "Editar Venda" : "Recebimento Avulso (Venda)"}
-    >
-      <form onSubmit={handleSalvar} className="space-y-5 pb-6">
-        {erroMsg && (
-          <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-medium">
-            <AlertTriangle
-              size={16}
-              className="text-amber-600 flex-shrink-0 mt-0.5"
-            />
-            <span>{erroMsg}</span>
-          </div>
-        )}
+  if (!isOpen) return null;
 
-        {/* CLIENTE (autocomplete, opcional) */}
-        <div className={`${FORM_STYLES.group} relative`}>
-          <label className={FORM_STYLES.label}>Cliente (Opcional)</label>
-          <input
-            type="text"
-            placeholder="Buscar cliente por nome..."
-            value={clienteSelecionado ? clienteSelecionado.nome : buscaCliente}
-            onChange={(e) => {
-              setDigitandoCliente(true);
-              setBuscaCliente(e.target.value);
-              setClienteSelecionado(null);
-            }}
-            onFocus={() => {
-              if (buscaCliente.trim().length >= 2) setDigitandoCliente(true);
-            }}
-            onBlur={() => setTimeout(() => setDigitandoCliente(false), 200)}
-            disabled={isSaving}
-            className={FORM_STYLES.input}
-          />
-          {digitandoCliente &&
-            buscaCliente.trim().length >= 2 &&
-            !clienteSelecionado && (
-              <div
-                className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-20 max-h-44 overflow-y-auto"
-                onMouseDown={(e) => e.preventDefault()}
+  const estoqueAtual = Number(produtoSelecionadoObj?.estoque ?? 0);
+  const estoqueDisponivel = isEdicao ? estoqueAtual + qtdOriginal : estoqueAtual;
+  const estoqueInsuficiente = produtoSelecionadoObj && estoqueDisponivel < quantidade;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="modal-box recebimento-box"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-header">
+          <div className="modal-header-titulo-wrapper">
+            <div className="modal-header-icone">
+              <Package size={20} />
+            </div>
+            <h2>{isEdicao ? "Editar Venda / Recebimento" : "Recebimento Avulso (Venda)"}</h2>
+          </div>
+          <button className="btn-fechar" onClick={onClose} disabled={isSaving}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSalvar} className="form-recebimento">
+          <div className="form-recebimento-corpo">
+            {erroMsg && (
+              <div className="aviso-erro-recebimento">
+                <AlertTriangle size={18} className="icone-alerta-erro" />
+                <span>{erroMsg}</span>
+              </div>
+            )}
+
+            {/* SELEÇÃO DO PRODUTO */}
+            <div className="form-grupo">
+              <label>
+                <Package size={15} />
+                <span>Produto *</span>
+              </label>
+              <select
+                value={produtoSelecionadoId}
+                onChange={handleProdutoChange}
+                required
+                disabled={loadingDados || isSaving}
+                className="select-produto-venda"
               >
-                {isBuscandoCliente ? (
-                  <div className="p-3 text-xs text-slate-500 text-center italic">
-                    Buscando clientes...
-                  </div>
-                ) : clientesBanco.length > 0 ? (
-                  clientesBanco.map((c) => (
-                    <div
-                      key={c.id}
-                      onClick={() => {
-                        setClienteSelecionado(c);
-                        setBuscaCliente(c.nome);
-                        setClientesBanco([]);
-                        setDigitandoCliente(false);
-                      }}
-                      className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 text-xs text-slate-700 font-medium"
-                    >
-                      <strong>{c.nome}</strong>{" "}
-                      {c.telefone ? `- ${c.telefone}` : ""}
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-3 text-xs text-slate-500 text-center italic">
-                    Nenhum cliente encontrado.
-                  </div>
+                <option value="" disabled>
+                  {loadingDados ? "Carregando produtos..." : "Selecione um produto..."}
+                </option>
+                {produtos.map((p) => {
+                  const precoFormatado = Number(p.preco || 0).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  });
+                  const estoqueText =
+                    p.estoque !== undefined ? ` (Estoque: ${p.estoque})` : "";
+                  return (
+                    <option key={p.id} value={p.id}>
+                      {p.nome} {estoqueText} — {precoFormatado}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* ESTOQUE E STATUS */}
+            {produtoSelecionadoObj && (
+              <div className="info-estoque-bar">
+                <span className={`badge-estoque-atual ${estoqueDisponivel <= 0 ? "estoque-zerado" : ""}`}>
+                  Estoque disponível: <strong>{estoqueDisponivel} un.</strong>
+                </span>
+                {estoqueInsuficiente && (
+                  <span className="badge-estoque-alerta">
+                    ⚠️ {estoqueDisponivel <= 0 ? "Produto esgotado" : "Qtd. maior que o estoque"}
+                  </span>
                 )}
               </div>
             )}
-        </div>
 
-        {/* PRODUTO */}
-        <div className={FORM_STYLES.group}>
-          <label className={FORM_STYLES.label}>Produto *</label>
-          <select
-            value={produtoSelecionado}
-            onChange={handleProdutoChange}
-            required
-            disabled={loadingDados || isSaving}
-            className={FORM_STYLES.select}
-          >
-            <option value="" disabled>
-              {loadingDados
-                ? "Carregando produtos..."
-                : "Selecione um produto..."}
-            </option>
-            {produtos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-                {p.estoque !== undefined
-                  ? ` (Estoque: ${p.estoque})`
-                  : ""} —{" "}
-                {Number(p.preco || 0).toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}
-              </option>
-            ))}
-          </select>
-          {produtoSelecionadoObj && (
-            <span
-              className={`text-xs font-semibold mt-1 ${
-                estoqueDisponivel <= 0 ? "text-red-500" : "text-slate-500"
-              }`}
-            >
-              Estoque disponível: {estoqueDisponivel} un.
-            </span>
-          )}
-        </div>
+            <div className="form-linha-dupla">
+              {/* QUANTIDADE */}
+              <div className="form-grupo form-grupo-qtd">
+                <label>Qtd. *</label>
+                <div className="input-qtd-wrapper">
+                  <button
+                    type="button"
+                    className="btn-qtd-step"
+                    onClick={() => handleQuantidadeChange(quantidade - 1)}
+                    disabled={quantidade <= 1 || isSaving}
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    value={quantidade}
+                    onChange={(e) => handleQuantidadeChange(e.target.value)}
+                    required
+                    disabled={isSaving}
+                    className="input-qtd-numero"
+                  />
+                  <button
+                    type="button"
+                    className="btn-qtd-step"
+                    onClick={() => handleQuantidadeChange(quantidade + 1)}
+                    disabled={isSaving}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
 
-        {/* QUANTIDADE + VALOR */}
-        <div className={FORM_STYLES.row}>
-          <div className={FORM_STYLES.group}>
-            <label className={FORM_STYLES.label}>Quantidade *</label>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="icon"
-                onClick={() => handleQuantidadeChange(quantidade - 1)}
-                disabled={quantidade <= 1 || isSaving}
-                title="Diminuir"
-              >
-                <Minus size={16} />
-              </Button>
-              <input
-                type="number"
-                min="1"
-                value={quantidade}
-                onChange={(e) => handleQuantidadeChange(e.target.value)}
-                required
-                disabled={isSaving}
-                className={`${FORM_STYLES.input} text-center`}
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                size="icon"
-                onClick={() => handleQuantidadeChange(quantidade + 1)}
-                disabled={isSaving}
-                title="Aumentar"
-              >
-                <Plus size={16} />
-              </Button>
+              {/* VALOR TOTAL */}
+              <div className="form-grupo form-grupo-valor">
+                <label>
+                  <DollarSign size={15} />
+                  <span>Valor Total (R$) *</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: 50,00"
+                  value={valorTotal}
+                  onChange={(e) => setValorTotal(e.target.value)}
+                  required
+                  disabled={isSaving}
+                  className="input-valor-venda"
+                />
+              </div>
+            </div>
+
+            <div className="form-linha-dupla">
+              {/* DATA */}
+              <div className="form-grupo">
+                <label>
+                  <Calendar size={15} />
+                  <span>Data *</span>
+                </label>
+                <input
+                  type="date"
+                  value={dataRecebimento}
+                  onChange={(e) => setDataRecebimento(e.target.value)}
+                  required
+                  disabled={isSaving}
+                />
+              </div>
+
+              {/* FORMA DE PAGAMENTO */}
+              <div className="form-grupo">
+                <label>
+                  <CreditCard size={15} />
+                  <span>Forma de Pagamento *</span>
+                </label>
+                <select
+                  value={formaPagamento}
+                  onChange={(e) => setFormaPagamento(e.target.value)}
+                  required
+                  disabled={isSaving}
+                >
+                  <option value="Pix">Pix</option>
+                  <option value="Dinheiro">Dinheiro</option>
+                  <option value="Cartão de Crédito">Cartão de Crédito</option>
+                  <option value="Cartão de Débito">Cartão de Débito</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-linha-dupla">
+              {/* VENDEDORA / PROFISSIONAL */}
+              <div className="form-grupo">
+                <label>
+                  <Users size={15} />
+                  <span>Profissional (Vendedora) *</span>
+                </label>
+                <select
+                  value={profissionalId}
+                  onChange={(e) => setProfissionalId(e.target.value)}
+                  required
+                  disabled={loadingDados || isSaving}
+                >
+                  <option value="" disabled>Selecione a profissional...</option>
+                  {profissionais.map((prof) => (
+                    <option key={prof.id} value={prof.id}>
+                      {prof.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* CLIENTE (OPCIONAL) */}
+              <div className="form-grupo">
+                <label>
+                  <User size={15} />
+                  <span>Cliente (Opcional)</span>
+                </label>
+                <select
+                  value={clienteId}
+                  onChange={(e) => setClienteId(e.target.value)}
+                  disabled={loadingDados || isSaving}
+                >
+                  <option value="">Não informado</option>
+                  {clientes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className={FORM_STYLES.group}>
-            <label className={FORM_STYLES.label}>Valor Total (R$) *</label>
-            <input
-              type="text"
-              placeholder="R$ 0,00"
-              value={valor}
-              onChange={(e) => setValor(maskCurrencyInput(e.target.value))}
-              required
+          <div className="modal-footer">
+            <button
+              type="button"
+              className="btn-cancelar"
+              onClick={onClose}
               disabled={isSaving}
-              className={FORM_STYLES.input}
-            />
-          </div>
-        </div>
-
-        {/* DATA + FORMA DE PAGAMENTO */}
-        <div className={FORM_STYLES.row}>
-          <div className={FORM_STYLES.group}>
-            <label className={FORM_STYLES.label}>Data *</label>
-            <input
-              type="date"
-              value={dataRecebimento}
-              onChange={(e) => setDataRecebimento(e.target.value)}
-              required
-              disabled={isSaving}
-              className={FORM_STYLES.input}
-            />
-          </div>
-
-          <div className={FORM_STYLES.group}>
-            <label className={FORM_STYLES.label}>Forma de Pagamento *</label>
-            <select
-              value={formaPagamento}
-              onChange={(e) => setFormaPagamento(e.target.value)}
-              required
-              disabled={isSaving}
-              className={FORM_STYLES.select}
             >
-              <option value="Pix">Pix</option>
-              <option value="Dinheiro">Dinheiro</option>
-              <option value="Cartão de Crédito">Cartão de Crédito</option>
-              <option value="Cartão de Débito">Cartão de Débito</option>
-            </select>
-          </div>
-        </div>
-
-        {/* PROFISSIONAL */}
-        <div className={FORM_STYLES.group}>
-          <label className={FORM_STYLES.label}>
-            Profissional (Vendedora) *
-          </label>
-          <select
-            value={profissionalId}
-            onChange={(e) => setProfissionalId(e.target.value)}
-            required
-            disabled={loadingDados || isSaving}
-            className={FORM_STYLES.select}
-          >
-            <option value="" disabled>
-              Selecione a profissional...
-            </option>
-            {profissionais.map((prof) => (
-              <option key={prof.id} value={prof.id}>
-                {prof.nome}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className={FORM_STYLES.actions}>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onClose}
-            disabled={isSaving}
-          >
-            Cancelar
-          </Button>
-          <Button type="submit" variant="primary" disabled={isSaving}>
-            {isSaving
-              ? "Salvando..."
-              : isEdicao
+              Cancelar
+            </button>
+            <button type="submit" className="btn-salvar" disabled={isSaving}>
+              {isSaving
+                ? "Salvando..."
+                : isEdicao
                 ? "Salvar Alterações"
                 : "Salvar Recebimento"}
-          </Button>
-        </div>
-      </form>
-    </Modal>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
+

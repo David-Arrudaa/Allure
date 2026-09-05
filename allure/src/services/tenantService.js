@@ -15,7 +15,7 @@ export async function getTenantConfig(hostname) {
   }
 
   return {
-    id: '11111111-1111-1111-1111-111111111111',
+    id: 'tenant-1',
     name: 'LUZZ - Gestão de Beleza',
     logoUrl: 'https://placehold.co/150x50?text=LUZZ',
     theme: {

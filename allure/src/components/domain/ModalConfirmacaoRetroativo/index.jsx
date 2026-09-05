@@ -1,6 +1,5 @@
 import { AlertTriangle, Clock, Calendar } from "lucide-react";
-import { Modal } from "../../ui/Modal";
-import Button from "../../ui/Button";
+import "./ModalConfirmacaoRetroativo.css";
 
 export function ModalConfirmacaoRetroativo({
   isOpen,
@@ -9,40 +8,53 @@ export function ModalConfirmacaoRetroativo({
   onConfirmar,
   onCancelar,
 }) {
+  if (!isOpen) return null;
+
   const dataFormatada = dataStr
     ? dataStr.split("-").reverse().join("/")
     : "";
 
   return (
-    <Modal isOpen={isOpen} onClose={onCancelar}>
-      <div className="flex flex-col items-center text-center space-y-4">
-        <div className="w-14 h-14 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center">
+    <div className="modal-retroativo-overlay" onClick={onCancelar}>
+      <div
+        className="modal-retroativo-card"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-retroativo-icon">
           <AlertTriangle size={32} strokeWidth={2.2} />
         </div>
 
-        <h3 className="text-xl font-bold text-slate-800">Horário no Passado</h3>
+        <h3 className="modal-retroativo-titulo">Horário no Passado</h3>
 
-        <p className="text-sm text-slate-600">
+        <p className="modal-retroativo-texto">
           O horário selecionado já se passou. Deseja registrar este atendimento no histórico como um agendamento retroativo?
         </p>
 
-        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-slate-700 font-semibold text-sm">
-          <Calendar size={16} className="text-[var(--cor-primaria)]" />
+        <div className="modal-retroativo-badge">
+          <Calendar size={16} color="var(--cor-primaria, #9b87f5)" />
           <span>{dataFormatada}</span>
-          <span className="text-slate-300">•</span>
-          <Clock size={16} className="text-[var(--cor-primaria)]" />
+          <span style={{ color: "#CBD5E1" }}>•</span>
+          <Clock size={16} color="var(--cor-primaria, #9b87f5)" />
           <span>{horaStr}</span>
         </div>
 
-        <div className="flex justify-end gap-3 pt-2 w-full">
-          <Button type="button" variant="secondary" onClick={onCancelar} className="w-full sm:w-auto">
+        <div className="modal-retroativo-botoes">
+          <button
+            type="button"
+            className="btn-retroativo-cancelar"
+            onClick={onCancelar}
+          >
             Ajustar Horário
-          </Button>
-          <Button type="button" variant="primary" onClick={onConfirmar} className="w-full sm:w-auto">
+          </button>
+          <button
+            type="button"
+            className="btn-retroativo-confirmar"
+            onClick={onConfirmar}
+          >
             Confirmar e Salvar
-          </Button>
+          </button>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }
