@@ -326,6 +326,12 @@ export function Equipe() {
 
   const confirmarExclusao = async () => {
     if (!profParaExcluir) return;
+    if (profParaExcluir === profile?.id) {
+      alert("Você não pode excluir o seu próprio usuário administrador.");
+      setModalExcluirAberto(false);
+      setProfParaExcluir(null);
+      return;
+    }
     try {
       const { error } = await supabase
         .from("profissionais")
@@ -466,13 +472,15 @@ export function Equipe() {
                 >
                   <Edit size={18} />
                 </button>
-                <button
-                  className="btn-excluir"
-                  onClick={() => abrirModalExcluir(prof.id)}
-                  title="Excluir"
-                >
-                  <Trash2 size={18} />
-                </button>
+                {prof.id !== profile?.id && (
+                  <button
+                    className="btn-excluir"
+                    onClick={() => abrirModalExcluir(prof.id)}
+                    title="Excluir"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
               </div>
             </div>
           ))
