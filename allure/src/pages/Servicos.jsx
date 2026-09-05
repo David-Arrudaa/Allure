@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Search, Edit2, Trash2 } from "lucide-react";
 import { ModalServico } from "../components/domain/ModalServico";
-import { supabase } from "../services/supabase";
+import { fetchServicos, deleteServico } from "../services/servicosService";
 import { Skeleton } from "../components/ui/Skeleton";
 import { useAuth } from "../contexts/AuthContext";
 import "./Servicos.css";
@@ -19,17 +19,12 @@ export function Servicos() {
   const [servicoEditando, setServicoEditando] = useState(null);
   const [servicoParaExcluir, setServicoParaExcluir] = useState(null);
 
-  // Busca os serviços direto do Supabase
+  // Busca os serviços via camada de service
   const buscarServicos = async () => {
     setIsLoading(true); // Começa a carregar
     try {
-      const { data, error } = await supabase
-        .from("servicos")
-        .select("*")
-        .order("nome", { ascending: true });
-
-      if (error) throw error;
-      if (data) setServicos(data);
+      const data = await fetchServicos();
+      setServicos(data);
     } catch (error) {
       console.error("Erro ao buscar serviços:", error.message);
     } finally {
@@ -47,13 +42,7 @@ export function Servicos() {
     if (!servicoParaExcluir) return;
 
     try {
-      const { error } = await supabase
-        .from("servicos")
-        .delete()
-        .eq("id", servicoParaExcluir.id);
-
-      if (error) throw error;
-
+      await deleteServico(servicoParaExcluir.id);
       setServicoParaExcluir(null);
       buscarServicos(); // Atualiza a tabela
     } catch (error) {

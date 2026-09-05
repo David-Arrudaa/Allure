@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
-import { supabase } from "../../../services/supabase";
+import { createServico, updateServico } from "../../../services/servicosService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -68,16 +68,9 @@ export function ModalServico({ isOpen, onClose, servico }) {
       };
 
       if (servico && servico.id) {
-        const { error } = await supabase
-          .from("servicos")
-          .update(payload)
-          .eq("id", servico.id);
-        if (error) throw error;
+        await updateServico(servico.id, payload);
       } else {
-        const { error } = await supabase
-          .from("servicos")
-          .insert([payload]);
-        if (error) throw error;
+        await createServico(payload);
       }
 
       onClose();
