@@ -9,8 +9,14 @@ import {
   Edit,
   Camera,
 } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
-import { supabase } from "../../services/supabase"; // Importação do banco de dados
+import {
+  fetchProfissionais,
+  atualizarOrdemProfissional,
+  criarProfissional,
+  atualizarProfissional,
+  excluirProfissional,
+  criarUsuarioAuth,
+} from "../../services/equipeService";
 import { useAuth } from "../../contexts/AuthContext";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { ModalReativarProfissional } from "../../components/domain/ModalReativarProfissional";
@@ -54,14 +60,8 @@ export function Equipe() {
   const buscarProfissionais = async () => {
     try {
       setCarregandoDados(true);
-      const { data, error } = await supabase
-        .from("profissionais")
-        .select("*")
-        .order("ordem", { ascending: true })
-        .order("nome", { ascending: true });
-
-      if (error) throw error;
-      if (data) setEquipe(data);
+      const data = await fetchProfissionais();
+      setEquipe(data);
     } catch (error) {
       console.error("Erro ao buscar equipe:", error.message);
     } finally {
@@ -163,10 +163,7 @@ export function Equipe() {
                 prof.ordem >= novaOrdem &&
                 prof.ordem < ordemAntiga
               ) {
-                await supabase
-                  .from("profissionais")
-                  .update({ ordem: prof.ordem + 1 })
-                  .eq("id", prof.id);
+                await atualizarOrdemProfissional(prof.id, prof.ordem + 1);
               }
             }
           } else if (novaOrdem > ordemAntiga) {
@@ -176,10 +173,7 @@ export function Equipe() {
                 prof.ordem <= novaOrdem &&
                 prof.ordem > ordemAntiga
               ) {
-                await supabase
-                  .from("profissionais")
-                  .update({ ordem: prof.ordem - 1 })
-                  .eq("id", prof.id);
+                await atualizarOrdemProfissional(prof.id, prof.ordem - 1);
               }
             }
           }
@@ -200,25 +194,14 @@ export function Equipe() {
       };
 
       if (editandoId) {
-        const { error } = await supabase
-          .from("profissionais")
-          .update(dadosParaSalvar)
-          .eq("id", editandoId);
-        if (error) throw error;
+        await atualizarProfissional(editandoId, dadosParaSalvar);
       } else {
         // Criar usuário no Auth (sem deslogar o admin)
-        // Isso requer que a confirmação de e-mail esteja desativada no Supabase (Autoconfirm)
         if (formFunc.email && formFunc.senha) {
-          const adminAuthClient = createClient(
-            import.meta.env.VITE_SUPABASE_URL || "https://placeholder.supabase.co",
-            import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key",
-            { auth: { persistSession: false, autoRefreshToken: false } }
+          const { data: authData, error: authError } = await criarUsuarioAuth(
+            formFunc.email.trim(),
+            formFunc.senha
           );
-
-          const { data: authData, error: authError } = await adminAuthClient.auth.signUp({
-            email: formFunc.email.trim(),
-            password: formFunc.senha,
-          });
 
           if (authError) {
             const isUserAlreadyRegistered =
@@ -262,16 +245,13 @@ export function Equipe() {
 
             throw new Error("Erro ao criar login: " + authError.message);
           }
-          
+
           if (authData?.user) {
             dadosParaSalvar.id = authData.user.id; // Vincula ao mesmo UUID
           }
         }
 
-        const { error } = await supabase
-          .from("profissionais")
-          .insert([dadosParaSalvar]);
-        if (error) throw error;
+        await criarProfissional(dadosParaSalvar);
       }
 
       setModalAberto(false);
@@ -298,11 +278,7 @@ export function Equipe() {
 
     setCarregandoReativacao(true);
     try {
-      const { error } = await supabase
-        .from("profissionais")
-        .insert([modalReativarInfo.dadosParaSalvar]);
-
-      if (error) throw error;
+      await criarProfissional(modalReativarInfo.dadosParaSalvar);
 
       setModalReativarInfo({ aberto: false });
       setModalAberto(false);
@@ -333,11 +309,7 @@ export function Equipe() {
       return;
     }
     try {
-      const { error } = await supabase
-        .from("profissionais")
-        .delete()
-        .eq("id", profParaExcluir);
-      if (error) throw error;
+      await excluirProfissional(profParaExcluir);
       setModalExcluirAberto(false);
       setProfParaExcluir(null);
       buscarProfissionais();
