@@ -51,15 +51,16 @@
 
 .busca-container svg {
   position: absolute;
-  left: 1rem;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   color: #94a3b8;
+  pointer-events: none;
 }
 
 .busca-container input {
   width: 100%;
-  padding: 0.75rem 1rem 0.75rem 2.8rem;
+  padding: 0.75rem 1rem 0.75rem 3rem;
   border: 1px solid var(--cor-borda);
   border-radius: 8px;
   font-size: 0.95rem;
