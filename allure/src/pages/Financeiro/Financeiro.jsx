@@ -18,7 +18,15 @@ import {
   ShoppingBag,
   FileText,
 } from "lucide-react";
-import { supabase } from "../../services/supabase";
+import {
+  fetchPagamentosPeriodo,
+  fetchComissaoProfissional,
+  fetchDesempenhoPeriodo,
+  atualizarComissaoProfissional,
+  buscarProdutoPorNome,
+  ajustarEstoqueProduto,
+  excluirVendaAvulsa,
+} from "../../services/financeiroService";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Pagination } from "../../components/ui/Pagination";
 import { ModalRecebimentoAvulso } from "../../components/domain/ModalRecebimentoAvulso";
@@ -116,24 +124,11 @@ export function Financeiro() {
         fimFiltro = `${anoNum}-${mesFormatado}-${String(ultimoDiaMes).padStart(2, "0")}T23:59:59`;
       }
 
-      let queryGeral = supabase
-        .from("appointments")
-        .select(
-          `id, valor, servico, data_horario, forma_pagamento, duracao, customer_id, profissional_id, customers ( id, nome ), profissionais ( id, nome )`,
-        )
-        .gte("data_horario", inicioFiltro)
-        .lte("data_horario", fimFiltro)
-        .eq("pagamento", "pago")
-        .neq("status", "bloqueio")
-        .neq("status", "cancelado");
-
-      if (!profile?.is_admin) {
-        queryGeral = queryGeral.eq("profissional_id", profile.id);
-      }
-
-      const { data, error } = await queryGeral;
-
-      if (error) throw error;
+      const data = await fetchPagamentosPeriodo({
+        inicioFiltro,
+        fimFiltro,
+        apenasProfissionalId: !profile?.is_admin ? profile.id : null,
+      });
 
       let sumTotal = 0;
       let sumPix = 0;
@@ -199,11 +194,7 @@ export function Financeiro() {
 
       let taxaComissaoProf = 50;
       if (!profile?.is_admin && profile?.id) {
-        const { data: profData } = await supabase
-          .from("profissionais")
-          .select("comissao")
-          .eq("id", profile.id)
-          .single();
+        const profData = await fetchComissaoProfissional(profile.id);
         if (profData?.comissao !== undefined && profData?.comissao !== null) {
           taxaComissaoProf = Number(profData.comissao);
         }
@@ -243,30 +234,19 @@ export function Financeiro() {
         const qtd = match && match[2] ? Number(match[2]) : 1;
 
         if (nomeProd) {
-          const { data: prods } = await supabase
-            .from("produtos")
-            .select("id, estoque")
-            .eq("tenant_id", tenantId)
-            .ilike("nome", nomeProd)
-            .limit(1);
-
-          if (prods && prods[0]) {
-            const estoqueAtual = Number(prods[0].estoque || 0);
-            await supabase
-              .from("produtos")
-              .update({ estoque: estoqueAtual + qtd })
-              .eq("id", prods[0].id)
-              .eq("tenant_id", tenantId);
+          const prods = await buscarProdutoPorNome(tenantId, nomeProd);
+          if (prods) {
+            const estoqueAtual = Number(prods.estoque || 0);
+            try {
+              await ajustarEstoqueProduto(prods.id, tenantId, estoqueAtual + qtd);
+            } catch (errEstoque) {
+              console.warn("Falha ao ajustar estoque (comportamento não-bloqueante):", errEstoque.message);
+            }
           }
         }
       }
 
-      const { error } = await supabase
-        .from("appointments")
-        .delete()
-        .eq("id", vendaParaExcluir.id);
-
-      if (error) throw error;
+      await excluirVendaAvulsa(vendaParaExcluir.id);
 
       setVendaParaExcluir(null);
       await carregarMetricasGerais();
@@ -316,28 +296,11 @@ export function Financeiro() {
         }
       }
 
-      let query = supabase
-        .from("appointments")
-        .select(
-          `
-          id, valor, servico, data_horario, duracao, customer_id,
-          profissionais ( id, nome, comissao ),
-          customers ( nome )
-        `,
-        )
-        .gte("data_horario", inicioFiltro)
-        .lte("data_horario", fimFiltro)
-        .eq("pagamento", "pago")
-        .neq("status", "bloqueio")
-        .neq("status", "cancelado");
-
-      if (!profile?.is_admin && profile?.id) {
-        query = query.eq("profissional_id", profile.id);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
+      const data = await fetchDesempenhoPeriodo({
+        inicioFiltro,
+        fimFiltro,
+        apenasProfissionalId: !profile?.is_admin && profile?.id ? profile.id : null,
+      });
 
       const mapaDesempenho = {};
       const mapaAtendimentos = {};
@@ -434,11 +397,7 @@ export function Financeiro() {
     if (valorLimpo > 100) valorLimpo = 100;
 
     try {
-      const { error } = await supabase
-        .from("profissionais")
-        .update({ comissao: valorLimpo })
-        .eq("id", profId);
-      if (error) throw error;
+      await atualizarComissaoProfissional(profId, valorLimpo);
       carregarDesempenhoEquipe();
     } catch (error) {
       console.error("Erro ao atualizar comissão:", error.message);

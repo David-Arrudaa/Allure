@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { X, Package, User, Users, Calendar, CreditCard, DollarSign, AlertTriangle } from "lucide-react";
-import { supabase } from "../../../services/supabase";
+import {
+  fetchProdutosVenda,
+  fetchProfissionaisVenda,
+  fetchClientesVenda,
+  criarVendaAvulsa,
+  atualizarVendaAvulsa,
+  ajustarEstoqueProduto,
+} from "../../../services/financeiroService";
 import { useAuth } from "../../../contexts/AuthContext";
 import "./ModalRecebimentoAvulso.css";
 
@@ -39,31 +46,11 @@ export function ModalRecebimentoAvulso({ isOpen, onClose, onSave, vendaEditando 
     setLoadingDados(true);
     setErroMsg("");
     try {
-      const [resProdutos, resProfissionais, resClientes] = await Promise.all([
-        supabase
-          .from("produtos")
-          .select("id, nome, preco, estoque")
-          .eq("tenant_id", tenantId)
-          .order("nome", { ascending: true }),
-        supabase
-          .from("profissionais")
-          .select("id, nome")
-          .eq("tenant_id", tenantId)
-          .order("nome", { ascending: true }),
-        supabase
-          .from("customers")
-          .select("id, nome")
-          .eq("tenant_id", tenantId)
-          .order("nome", { ascending: true }),
+      const [prodsList, profsList, clientesList] = await Promise.all([
+        fetchProdutosVenda(tenantId),
+        fetchProfissionaisVenda(tenantId),
+        fetchClientesVenda(tenantId),
       ]);
-
-      if (resProdutos.error) throw resProdutos.error;
-      if (resProfissionais.error) throw resProfissionais.error;
-      if (resClientes.error) throw resClientes.error;
-
-      const prodsList = resProdutos.data || [];
-      const profsList = resProfissionais.data || [];
-      const clientesList = resClientes.data || [];
 
       setProdutos(prodsList);
       setProfissionais(profsList);
@@ -225,61 +212,51 @@ export function ModalRecebimentoAvulso({ isOpen, onClose, onSave, vendaEditando 
 
       if (isEdicao) {
         // 1. Atualizar agendamento da venda existente
-        const { error: updateError } = await supabase
-          .from("appointments")
-          .update({
-            servico: nomeServico,
-            valor: valorNumerico,
-            data_horario: dataHorarioCompleto,
-            forma_pagamento: formaPagamento,
-            profissional_id: profissionalId,
-            customer_id: clienteId || null,
-          })
-          .eq("id", vendaEditando.id)
-          .eq("tenant_id", tenantId);
-
-        if (updateError) throw updateError;
+        await atualizarVendaAvulsa(vendaEditando.id, tenantId, {
+          servico: nomeServico,
+          valor: valorNumerico,
+          data_horario: dataHorarioCompleto,
+          forma_pagamento: formaPagamento,
+          profissional_id: profissionalId,
+          customer_id: clienteId || null,
+        });
 
         // 2. Ajustar a diferença de estoque no produto
         if (produtoSelecionadoObj && produtoSelecionadoObj.estoque !== undefined) {
           const diferenca = Number(qtdOriginal) - Number(quantidade);
           const novoEstoque = Math.max(0, Number(produtoSelecionadoObj.estoque || 0) + diferenca);
 
-          await supabase
-            .from("produtos")
-            .update({ estoque: novoEstoque })
-            .eq("id", produtoSelecionadoObj.id)
-            .eq("tenant_id", tenantId);
+          try {
+            await ajustarEstoqueProduto(produtoSelecionadoObj.id, tenantId, novoEstoque);
+          } catch (errEstoque) {
+            console.warn("Falha ao ajustar estoque (comportamento não-bloqueante):", errEstoque.message);
+          }
         }
       } else {
         // 1. Inserir nova venda em appointments
-        const { error: insertError } = await supabase.from("appointments").insert([
-          {
-            servico: nomeServico,
-            valor: valorNumerico,
-            data_horario: dataHorarioCompleto,
-            status: "confirmado",
-            pagamento: "pago",
-            forma_pagamento: formaPagamento,
-            duracao: 0,
-            tenant_id: tenantId,
-            profissional_id: profissionalId,
-            customer_id: clienteId || null,
-          },
-        ]);
-
-        if (insertError) throw insertError;
+        await criarVendaAvulsa({
+          servico: nomeServico,
+          valor: valorNumerico,
+          data_horario: dataHorarioCompleto,
+          status: "confirmado",
+          pagamento: "pago",
+          forma_pagamento: formaPagamento,
+          duracao: 0,
+          tenant_id: tenantId,
+          profissional_id: profissionalId,
+          customer_id: clienteId || null,
+        });
 
         // 2. Baixar o estoque do produto vendido
         if (produtoSelecionadoObj && produtoSelecionadoObj.estoque !== undefined) {
           const estoqueAtual = Number(produtoSelecionadoObj.estoque || 0);
           const novoEstoque = Math.max(0, estoqueAtual - Number(quantidade));
 
-          await supabase
-            .from("produtos")
-            .update({ estoque: novoEstoque })
-            .eq("id", produtoSelecionadoObj.id)
-            .eq("tenant_id", tenantId);
+          try {
+            await ajustarEstoqueProduto(produtoSelecionadoObj.id, tenantId, novoEstoque);
+          } catch (errEstoque) {
+            console.warn("Falha ao ajustar estoque (comportamento não-bloqueante):", errEstoque.message);
+          }
         }
       }
 
