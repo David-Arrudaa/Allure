@@ -1,22 +1,20 @@
 import { supabase } from "./supabase";
 
-export async function fetchAgendamentos() {
+export async function fetchAgendamentosPorPeriodo(inicioFiltro, fimFiltro) {
   const { data, error } = await supabase
-    .from("agendamentos")
-    .select(`
-      *,
-      clientes (id, nome, telefone),
-      servicos (id, nome, preco)
-    `);
-  if (error) throw new Error(error.message);
-  return data;
+    .from("appointments")
+    .select(`*, customers ( id, nome, telefone ), profissionais ( id, nome )`)
+    .gte("data_horario", inicioFiltro)
+    .lte("data_horario", fimFiltro);
+  if (error) throw error;
+  return data || [];
 }
 
-export async function createAgendamento(agendamento) {
+export async function fetchProfissionaisParaAgenda() {
   const { data, error } = await supabase
-    .from("agendamentos")
-    .insert([agendamento])
-    .select();
-  if (error) throw new Error(error.message);
-  return data;
+    .from("profissionais")
+    .select("id, nome, especialidade, foto")
+    .order("ordem", { ascending: true });
+  if (error) throw error;
+  return data || [];
 }

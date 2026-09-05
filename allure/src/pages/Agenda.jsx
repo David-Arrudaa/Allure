@@ -21,7 +21,7 @@ import { ModalAgendamento } from "../components/domain/ModalAgendamento";
 import { ModalPagamento } from "../components/domain/ModalPagamento/ModalPagamento";
 import { ModalMensagensWhatsapp } from "../components/domain/ModalMensagensWhatsapp";
 import { DatePickerPopover } from "../components/ui/DatePickerPopover";
-import { supabase } from "../services/supabase";
+import { fetchAgendamentosPorPeriodo, fetchProfissionaisParaAgenda } from "../services/agendaService";
 import { Skeleton } from "../components/ui/Skeleton"; // <-- IMPORTAÇÃO DO SKELETON
 import "./Agenda.css";
 
@@ -167,22 +167,17 @@ export function Agenda() {
   const carregarDadosAgenda = async () => {
     setIsLoading(true);
     try {
-      const { data: profsData, error: profsError } = await supabase
-        .from("profissionais")
-        .select("id, nome, especialidade, foto")
-        .order("ordem", { ascending: true });
+      const profsData = await fetchProfissionaisParaAgenda();
+      setProfissionais(profsData);
 
-      if (profsError) throw profsError;
-      if (profsData) setProfissionais(profsData);
+      // Filtra pelo mês visível (evita trazer o histórico inteiro de agendamentos)
+      const ano = dataSelecionada.getFullYear();
+      const mes = dataSelecionada.getMonth();
+      const ultimoDia = new Date(ano, mes + 1, 0).getDate();
+      const inicioFiltro = `${ano}-${String(mes + 1).padStart(2, "0")}-01T00:00:00`;
+      const fimFiltro = `${ano}-${String(mes + 1).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}T23:59:59`;
 
-      // BUSCA O TELEFONE JUNTO COM O NOME DO CLIENTE NA TABELA CUSTOMERS
-      const { data, error } = await supabase.from("appointments").select(`
-          *,
-          customers ( id, nome, telefone ),
-          profissionais ( id, nome )
-        `);
-
-      if (error) throw error;
+      const data = await fetchAgendamentosPorPeriodo(inicioFiltro, fimFiltro);
 
       if (data) {
         const listaFormatada = data
@@ -229,9 +224,12 @@ export function Agenda() {
     }
   };
 
+  // Recarrega os agendamentos sempre que o mês visível mudar (evita
+  // requisição a cada troca de dia dentro do mesmo mês)
+  const chaveMesVisivel = `${dataSelecionada.getFullYear()}-${dataSelecionada.getMonth()}`;
   useEffect(() => {
     carregarDadosAgenda();
-  }, []);
+  }, [chaveMesVisivel]);
 
   const gerarLinkWhatsapp = (ag, template = 1) => {
     const telefoneLimpo = ag.telefone ? ag.telefone.replace(/\D/g, "") : "";
