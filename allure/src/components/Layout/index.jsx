@@ -14,6 +14,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  BarChart3,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { ErrorBoundary } from "../ErrorBoundary";
@@ -120,7 +121,12 @@ export function Layout() {
             <span className="nav-label">Financeiro</span>
           </NavLink>
 
-          {/* 
+          <NavLink to="/relatorios" className="nav-item" onClick={fecharMenuMobile} title="Relatórios">
+            <BarChart3 size={20} />
+            <span className="nav-label">Relatórios</span>
+          </NavLink>
+
+          {/*
           <NavLink
             to="/configuracoes"
             className="nav-item"

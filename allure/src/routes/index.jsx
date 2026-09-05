@@ -7,6 +7,7 @@ import { Agenda } from "../pages/Agenda";
 import { Clientes } from "../pages/Clientes";
 import { Servicos } from "../pages/Servicos";
 import { Produtos } from "../pages/Produtos/Produtos";
+import { Relatorios } from "../pages/Relatorios/Relatorios";
 import { PrivateRoute } from "./PrivateRoute";
 import { Layout } from "../components/Layout/index.jsx";
 import { useAuth } from "../contexts/AuthContext";
@@ -47,6 +48,7 @@ export function AppRoutes() {
           <Route path="/produtos" element={<AdminRoute><Produtos /></AdminRoute>} />
           {/* Rotas de Finanças e Equipe */}
           <Route path="/financeiro" element={<Financeiro />} />
+          <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/equipe" element={<AdminRoute><Equipe /></AdminRoute>} />
           <Route path="/configuracoes" element={<Configuracoes />} />
         </Route>
