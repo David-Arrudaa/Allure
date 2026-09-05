@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { supabase } from "../../services/supabase";
+import { fetchProdutos, createProduto, updateProduto, deleteProduto } from "../../services/produtosService";
 import { useAuth } from "../../contexts/AuthContext";
 import { Edit2, Trash2, Plus, Search, X } from "lucide-react";
 import { Skeleton } from "../../components/ui/Skeleton";
@@ -44,18 +44,12 @@ export function Produtos() {
     },
   });
 
-  const fetchProdutos = async () => {
+  const carregarProdutos = async () => {
     if (!profile?.tenant_id) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("produtos")
-        .select("*")
-        .eq("tenant_id", profile.tenant_id)
-        .order("nome", { ascending: true });
-
-      if (error) throw error;
-      setProdutos(data || []);
+      const data = await fetchProdutos(profile.tenant_id);
+      setProdutos(data);
     } catch (err) {
       console.error("Erro ao buscar produtos:", err.message);
     } finally {
@@ -64,7 +58,7 @@ export function Produtos() {
   };
 
   useEffect(() => {
-    fetchProdutos();
+    carregarProdutos();
   }, [profile]);
 
   const abrirModal = (produto = null) => {
@@ -114,19 +108,12 @@ export function Produtos() {
       };
 
       if (produtoEditando) {
-        const { error } = await supabase
-          .from("produtos")
-          .update(payload)
-          .eq("id", produtoEditando.id)
-          .eq("tenant_id", profile.tenant_id);
-
-        if (error) throw error;
+        await updateProduto(produtoEditando.id, profile.tenant_id, payload);
       } else {
-        const { error } = await supabase.from("produtos").insert([payload]);
-        if (error) throw error;
+        await createProduto(payload);
       }
 
-      fetchProdutos();
+      carregarProdutos();
       fecharModal();
     } catch (err) {
       console.error("Erro ao salvar produto:", err.message);
@@ -140,16 +127,9 @@ export function Produtos() {
     if (!produtoParaExcluir || !profile?.tenant_id) return;
 
     try {
-      const { error } = await supabase
-        .from("produtos")
-        .delete()
-        .eq("id", produtoParaExcluir.id)
-        .eq("tenant_id", profile.tenant_id);
-
-      if (error) throw error;
-
+      await deleteProduto(produtoParaExcluir.id, profile.tenant_id);
       setProdutoParaExcluir(null);
-      fetchProdutos();
+      carregarProdutos();
     } catch (err) {
       console.error("Erro ao excluir produto:", err.message);
       alert("Não foi possível excluir este produto.");
