@@ -312,9 +312,8 @@ export function Produtos() {
       {isModalOpen && (
         <div className="modal-overlay" onClick={fecharModal}>
           <div
-            className="modal-box"
+            className="modal-box modal-produto-box"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "450px" }}
           >
             <div
               className="modal-header"
@@ -325,7 +324,7 @@ export function Produtos() {
                 alignItems: "center",
               }}
             >
-              <h2 style={{ margin: 0, fontSize: "1.25rem" }}>
+              <h2 style={{ margin: 0 }}>
                 {produtoEditando ? "Editar Produto" : "Novo Produto"}
               </h2>
               <button

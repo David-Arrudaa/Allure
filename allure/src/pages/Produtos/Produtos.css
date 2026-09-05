@@ -257,3 +257,78 @@
     margin-right: auto;
   }
 }
+
+/* =========================================
+   MODAL DE CADASTRO E EDIÇÃO DE PRODUTO
+   ========================================= */
+.modal-produto-box {
+  background-color: #ffffff;
+  border-radius: 16px;
+  width: 92%;
+  max-width: 540px !important;
+  padding: 2rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  animation: modalAparecer 0.25s ease-out;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-produto-box .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem !important;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.modal-produto-box .modal-header h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--cor-texto, #1e293b);
+}
+
+.modal-produto-box .form-agendamento {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.modal-produto-box .form-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.modal-produto-box .form-grupo label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.modal-produto-box .form-grupo input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: var(--cor-texto);
+  background-color: #f8fafc;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.modal-produto-box .form-grupo input:focus {
+  border-color: var(--cor-primaria);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+.modal-produto-box .btn-salvar {
+  margin-top: 1rem !important;
+  padding: 0.85rem 1.5rem;
+  font-size: 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
