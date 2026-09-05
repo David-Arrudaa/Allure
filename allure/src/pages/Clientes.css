@@ -3,7 +3,7 @@
   border-radius: var(--raio-borda);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
   padding: 1.5rem;
-  min-height: 100vh; /* Permite que a página cresça e crie a barra de rolagem geral */
+  min-height: calc(100vh - 3rem);
   display: flex;
   flex-direction: column;
 }
@@ -49,15 +49,16 @@
 
 .busca-container svg {
   position: absolute;
-  left: 1rem;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   color: #94a3b8;
+  pointer-events: none;
 }
 
 .busca-container input {
   width: 100%;
-  padding: 0.75rem 1rem 0.75rem 2.8rem; /* Espaço extra na esquerda para o ícone */
+  padding: 0.75rem 1rem 0.75rem 3rem; /* Espaço extra na esquerda para o ícone */
   border: 1px solid var(--cor-borda);
   border-radius: 8px;
   font-size: 0.95rem;
