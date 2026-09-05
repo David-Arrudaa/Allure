@@ -143,10 +143,19 @@ export function Financeiro() {
 
       if (data) {
         data.forEach((item) => {
-          const clienteNome = item.customers?.nome || "Cliente Removido";
+          const isVenda =
+            item.duracao === 0 ||
+            String(item.servico || "").toLowerCase().startsWith("venda:");
+          const clienteNome = item.customers?.nome
+            ? item.customers.nome
+            : isVenda
+              ? "Venda Balcão (Avulsa)"
+              : item.customer_id
+                ? "Cliente Removido"
+                : "Não informado";
           if (busca && !clienteNome.toLowerCase().includes(busca.toLowerCase()))
             return;
-          
+
           if (filtroFuncionariaGeral && item.profissionais?.id !== filtroFuncionariaGeral)
             return;
 
@@ -170,9 +179,6 @@ export function Financeiro() {
           }
 
           const dataObj = new Date(item.data_horario);
-          const isVenda =
-            item.duracao === 0 ||
-            String(item.servico || "").toLowerCase().startsWith("venda:");
 
           historicoGeral.push({
             id: item.id,
@@ -314,8 +320,8 @@ export function Financeiro() {
         .from("appointments")
         .select(
           `
-          id, valor, servico, data_horario, 
-          profissionais ( id, nome, comissao ), 
+          id, valor, servico, data_horario, duracao, customer_id,
+          profissionais ( id, nome, comissao ),
           customers ( nome )
         `,
         )
@@ -340,7 +346,16 @@ export function Financeiro() {
         data.forEach((item) => {
           const profId = item.profissionais?.id || "sem-prof";
           const profNome = item.profissionais?.nome || "Equipe";
-          const clienteNome = item.customers?.nome || "Cliente Removido";
+          const isVendaAvulsa =
+            item.duracao === 0 ||
+            String(item.servico || "").toLowerCase().startsWith("venda:");
+          const clienteNome = item.customers?.nome
+            ? item.customers.nome
+            : isVendaAvulsa
+              ? "Venda Balcão (Avulsa)"
+              : item.customer_id
+                ? "Cliente Removido"
+                : "Não informado";
           const valorNum = Number(item.valor) || 0;
 
           const taxaComissao =
