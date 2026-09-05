@@ -416,18 +416,28 @@ export function Agenda() {
     isHoje && posicaoLinhaTempo >= 74 && posicaoLinhaTempo <= (24 * 60 * 2) + 74;
 
   useEffect(() => {
-    if (mostrarLinhaTempo && linhaTempoRef.current) {
-      const container = linhaTempoRef.current.closest(".agenda-wrapper");
+    const timer = setTimeout(() => {
+      const container = document.querySelector(".agenda-wrapper");
+      if (!container) return;
 
-      if (container) {
-        // Isso força a rolagem ser apenas vertical e mantem o scroll horizontal travado na esquerda (left: 0)
+      if (mostrarLinhaTempo && linhaTempoRef.current) {
         container.scrollTo({
-          top: linhaTempoRef.current.offsetTop - container.clientHeight / 2,
+          top: Math.max(linhaTempoRef.current.offsetTop - container.clientHeight / 2, (8 * 60 * 2) + 74 - 20),
+          left: 0,
+          behavior: "smooth",
+        });
+      } else {
+        // Foca sempre no horário útil: 8h da manhã (8h * 60min * 2px/min = 960px + 74px cabeçalho)
+        const pos8Horas = (8 * 60 * 2) + 74;
+        container.scrollTo({
+          top: pos8Horas - 10,
           left: 0,
           behavior: "smooth",
         });
       }
-    }
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [dataSelecionada, mostrarLinhaTempo]);
 
   const horasDoDia = Array.from(
