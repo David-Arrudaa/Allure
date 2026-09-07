@@ -22,6 +22,7 @@ import { ModalPagamento } from "../components/domain/ModalPagamento/ModalPagamen
 import { ModalMensagensWhatsapp } from "../components/domain/ModalMensagensWhatsapp";
 import { DatePickerPopover } from "../components/ui/DatePickerPopover";
 import { fetchAgendamentosPorPeriodo, fetchProfissionaisParaAgenda } from "../services/agendaService";
+import { supabase } from "../services/supabase";
 import { Skeleton } from "../components/ui/Skeleton"; // <-- IMPORTAÇÃO DO SKELETON
 import "./Agenda.css";
 
