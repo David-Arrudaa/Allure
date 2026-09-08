@@ -1,5 +1,17 @@
-import { useState, useEffect } from "react";
-import { X, Calendar, User, DollarSign, Loader2, FileText, Phone, Cake } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  X,
+  Calendar,
+  User,
+  DollarSign,
+  Loader2,
+  FileText,
+  Phone,
+  Cake,
+  Clock,
+  CheckCircle2,
+  CalendarClock,
+} from "lucide-react";
 import { supabase } from "../../../services/supabase";
 import "./ModalHistorico.css";
 import "../ModalAgendamento/ModalAgendamento.css";
@@ -33,10 +45,12 @@ const limparObservacoes = (observacoes) => {
 export function ModalHistorico({ isOpen, onClose, cliente }) {
   const [historico, setHistorico] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [abaAtiva, setAbaAtiva] = useState("agendados"); // 'agendados' ou 'finalizados'
 
   useEffect(() => {
     // Só carrega os dados se o modal estiver aberto e existir uma cliente selecionada
     if (isOpen && cliente) {
+      setAbaAtiva("agendados");
       carregarHistoricoCliente();
     } else {
       setHistorico([]); // Limpa ao fechar
@@ -47,12 +61,7 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
     try {
       setLoading(true);
 
-      // 1. Descobre a data exata de 12 meses atrás no formato do banco
-      const dataLimite = new Date();
-      dataLimite.setMonth(dataLimite.getMonth() - 12);
-      const dataLimiteIso = dataLimite.toISOString();
-
-      // 2. Busca no Supabase os agendamentos da cliente específica, pagos e recentes
+      // Busca no Supabase TODOS os agendamentos da cliente (sem limite de 12 meses)
       const { data, error } = await supabase
         .from("appointments")
         .select(
@@ -61,28 +70,44 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
           data_horario,
           servico,
           valor,
+          status,
+          pagamento,
           profissionais ( nome )
         `,
         )
         .eq("customer_id", cliente.id)
-        .eq("pagamento", "pago") // Filtra estritamente os concluídos/pagos
-        .gte("data_horario", dataLimiteIso) // Apenas últimos 12 meses
-        .order("data_horario", { ascending: false }); // Ordena do mais recente para o mais antigo
+        .neq("status", "bloqueio") // Exclui bloqueios
+        .order("data_horario", { ascending: false });
 
       if (error) throw error;
 
       if (data) {
-        // Formata os dados retornados para exibir bonitinho na tela
         const historicoFormatado = data.map((item) => {
           const dataObj = new Date(item.data_horario);
           const dataBr = `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}/${dataObj.getFullYear()}`;
+          const horario = `${String(dataObj.getHours()).padStart(2, "0")}:${String(dataObj.getMinutes()).padStart(2, "0")}`;
+
+          // Um agendamento é considerado "finalizado" se estiver pago OU com status concluido/finalizado
+          const isFinalizado =
+            item.pagamento === "pago" ||
+            item.status === "concluido" ||
+            item.status === "finalizado";
+
+          // Um agendamento é "futuro/agendado" quando não foi pago e está agendado/pendente/confirmado
+          const isFuturo = !isFinalizado && item.status !== "cancelado";
 
           return {
             id: item.id,
             data: dataBr,
+            horario,
+            dataObj,
             servico: item.servico || "Serviço não especificado",
             profissional: item.profissionais?.nome || "Equipe",
             valor: item.valor ? String(item.valor).replace(".", ",") : "0,00",
+            status: item.status || "pendente",
+            pagamento: item.pagamento || "pendente",
+            isFinalizado,
+            isFuturo,
           };
         });
 
@@ -95,6 +120,19 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
     }
   };
 
+  // Divide a lista em agendados e finalizados
+  const agendados = useMemo(
+    () => historico.filter((item) => item.isFuturo || (!item.isFinalizado && item.status !== "cancelado")),
+    [historico]
+  );
+
+  const finalizados = useMemo(
+    () => historico.filter((item) => item.isFinalizado),
+    [historico]
+  );
+
+  const itensExibidos = abaAtiva === "agendados" ? agendados : finalizados;
+
   if (!isOpen || !cliente) return null;
 
   const aniversarioStr = extrairAniversario(cliente.observacoes);
@@ -103,68 +141,66 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-box"
+        className="modal-box modal-historico-box"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: "550px" }}
       >
         <div className="modal-header">
-          <div>
-            <h2 style={{ marginBottom: "0.2rem", fontSize: "1.3rem" }}>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ marginBottom: "0.25rem", fontSize: "1.25rem" }}>
               Histórico da Cliente
             </h2>
-            <p style={{ fontSize: "0.9rem", color: "#64748B", margin: 0 }}>
-              <strong>{cliente.nome}</strong>
-            </p>
+            <div className="historico-cliente-subtitulo">
+              <span className="historico-cliente-nome">{cliente.nome}</span>
+              {cliente.telefone && (
+                <span className="historico-header-tag tag-tel">
+                  <Phone size={12} /> {cliente.telefone}
+                </span>
+              )}
+              {aniversarioStr && (
+                <span className="historico-header-tag tag-niver">
+                  <Cake size={12} /> {aniversarioStr}
+                </span>
+              )}
+            </div>
           </div>
           <button className="btn-fechar" onClick={onClose} title="Fechar">
             <X size={20} strokeWidth={2.5} />
           </button>
         </div>
 
-        {/* CARD DE INFORMAÇÕES & OBSERVAÇÕES */}
-        <div className="historico-cliente-card">
-          <div className="historico-cliente-topo">
-            <div className="historico-tags">
-              <span className="tag-contato">
-                <Phone size={13} /> {cliente.telefone || "Sem telefone"}
-              </span>
-              {aniversarioStr && (
-                <span className="tag-aniversario">
-                  <Cake size={13} /> Aniversário: {aniversarioStr}
-                </span>
-              )}
+        {/* Bloco de Observações: só aparece se realmente houver alguma observação preenchida */}
+        {obsLimpa && (
+          <div className="historico-obs-compacta">
+            <div className="historico-obs-header">
+              <FileText size={13} className="icone-obs" />
+              <strong>Observações:</strong>
             </div>
+            <p className="historico-obs-conteudo">{obsLimpa}</p>
           </div>
+        )}
 
-          <div className="historico-observacoes-bloco">
-            <div className="historico-observacoes-header">
-              <FileText size={15} />
-              <span>Observações & Preferências:</span>
-            </div>
-            {obsLimpa ? (
-              <p className="historico-observacoes-texto">{obsLimpa}</p>
-            ) : (
-              <p className="historico-observacoes-vazio">
-                Nenhuma observação ou preferência registrada para esta cliente.
-              </p>
-            )}
-          </div>
+        {/* ABAS DE NAVEGAÇÃO: AGENDADOS vs FINALIZADOS */}
+        <div className="historico-abas-container">
+          <button
+            type="button"
+            className={`historico-aba-btn ${abaAtiva === "agendados" ? "ativa" : ""}`}
+            onClick={() => setAbaAtiva("agendados")}
+          >
+            <CalendarClock size={16} />
+            <span>Agendados</span>
+            <span className="historico-aba-badge">{agendados.length}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`historico-aba-btn ${abaAtiva === "finalizados" ? "ativa" : ""}`}
+            onClick={() => setAbaAtiva("finalizados")}
+          >
+            <CheckCircle2 size={16} />
+            <span>Finalizados</span>
+            <span className="historico-aba-badge">{finalizados.length}</span>
+          </button>
         </div>
-
-        <h3
-          style={{
-            fontSize: "0.95rem",
-            fontWeight: "700",
-            color: "var(--cor-texto)",
-            marginBottom: "0.75rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-          }}
-        >
-          <Calendar size={16} color="var(--cor-primaria)" /> Atendimentos
-          Realizados (Últimos 12 meses)
-        </h3>
 
         <div className="historico-lista">
           {loading ? (
@@ -179,54 +215,53 @@ export function ModalHistorico({ isOpen, onClose, cliente }) {
               }}
             >
               <Loader2 className="animate-spin" size={24} />
-              <span>Buscando histórico...</span>
+              <span>Buscando atendimentos...</span>
             </div>
-          ) : historico.length > 0 ? (
-            historico.map((item) => (
-              <div key={item.id} className="historico-item">
+          ) : itensExibidos.length > 0 ? (
+            itensExibidos.map((item) => (
+              <div key={item.id} className={`historico-item ${abaAtiva === "agendados" ? "item-agendado" : "item-finalizado"}`}>
                 <div className="historico-data">
                   <Calendar size={14} />
-                  {item.data}
+                  <span>{item.data}</span>
+                  <span className="historico-data-hora">
+                    <Clock size={12} /> {item.horario}
+                  </span>
                 </div>
 
                 <div className="historico-detalhes">
-                  <h4>{item.servico}</h4>
-                  <p
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.3rem",
-                    }}
-                  >
-                    <User size={14} /> <strong>Profissional:</strong>{" "}
-                    {item.profissional}
-                  </p>
-                  <p
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.3rem",
-                    }}
-                  >
-                    <DollarSign size={14} /> <strong>Valor:</strong> R${" "}
-                    {item.valor}
-                  </p>
+                  <div className="historico-detalhes-topo">
+                    <h4>{item.servico}</h4>
+                    <span
+                      className={`badge-status-atendimento ${
+                        item.isFinalizado ? "badge-pago" : item.status === "confirmado" ? "badge-confirmado" : "badge-pendente"
+                      }`}
+                    >
+                      {item.isFinalizado ? "Pago / Concluído" : item.status === "confirmado" ? "Confirmado" : "Agendado"}
+                    </span>
+                  </div>
+
+                  <div className="historico-detalhes-info">
+                    <p>
+                      <User size={14} /> <strong>Profissional:</strong>{" "}
+                      {item.profissional}
+                    </p>
+                    <p>
+                      <DollarSign size={14} /> <strong>Valor:</strong> R${" "}
+                      {item.valor}
+                    </p>
+                  </div>
                 </div>
               </div>
             ))
           ) : (
-            <p
-              style={{
-                color: "#94A3B8",
-                textAlign: "center",
-                marginTop: "0.5rem",
-                padding: "2rem",
-                backgroundColor: "#F8FAFC",
-                borderRadius: "8px",
-              }}
-            >
-              Nenhum atendimento pago registrado nos últimos 12 meses.
-            </p>
+            <div className="historico-vazio">
+              <Calendar size={28} opacity={0.4} />
+              <p>
+                {abaAtiva === "agendados"
+                  ? "Nenhum agendamento futuro em aberto para esta cliente."
+                  : "Nenhum atendimento finalizado registrado para esta cliente."}
+              </p>
+            </div>
           )}
         </div>
       </div>
