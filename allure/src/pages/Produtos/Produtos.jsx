@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { fetchProdutos, createProduto, updateProduto, deleteProduto } from "../../services/produtosService";
 import { useAuth } from "../../contexts/AuthContext";
+import { useProdutos } from "../../hooks/useProdutos";
+import { toast } from "../../lib/toast";
 import { Edit2, Trash2, Plus, Search, X } from "lucide-react";
 import { Skeleton } from "../../components/ui/Skeleton";
-import "./Produtos.css";
 
 const produtoSchema = z.object({
   nome: z.string().trim().min(2, "Nome é obrigatório"),
@@ -22,13 +22,19 @@ const produtoSchema = z.object({
 
 export function Produtos() {
   const { profile } = useAuth();
-  const [produtos, setProdutos] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [produtoEditando, setProdutoEditando] = useState(null);
   const [produtoParaExcluir, setProdutoParaExcluir] = useState(null);
-  const [isSalvando, setIsSalvando] = useState(false);
+
+  const {
+    produtos,
+    isLoading,
+    criarProduto,
+    atualizarProduto,
+    excluirProduto,
+    isSalvando,
+  } = useProdutos(profile?.tenant_id);
 
   const {
     register,
@@ -44,30 +50,17 @@ export function Produtos() {
     },
   });
 
-  const carregarProdutos = async () => {
-    if (!profile?.tenant_id) return;
-    setLoading(true);
-    try {
-      const data = await fetchProdutos(profile.tenant_id);
-      setProdutos(data);
-    } catch (err) {
-      console.error("Erro ao buscar produtos:", err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    carregarProdutos();
-  }, [profile]);
-
   const abrirModal = (produto = null) => {
     if (produto) {
       setProdutoEditando(produto);
       reset({
         nome: produto.nome || "",
-        preco: produto.preco !== undefined ? String(produto.preco).replace(".", ",") : "",
-        estoque: produto.estoque !== undefined ? String(produto.estoque) : "0",
+        preco:
+          produto.preco !== undefined
+            ? String(produto.preco).replace(".", ",")
+            : "",
+        estoque:
+          produto.estoque !== undefined ? String(produto.estoque) : "0",
       });
     } else {
       setProdutoEditando(null);
@@ -94,7 +87,6 @@ export function Produtos() {
 
   const onSubmit = async (data) => {
     if (!profile?.tenant_id) return;
-    setIsSalvando(true);
 
     try {
       const precoNumerico = Number(data.preco.replace(",", "."));
@@ -108,18 +100,21 @@ export function Produtos() {
       };
 
       if (produtoEditando) {
-        await updateProduto(produtoEditando.id, profile.tenant_id, payload);
+        await atualizarProduto({
+          id: produtoEditando.id,
+          tenantId: profile.tenant_id,
+          payload,
+        });
+        toast.success("Produto atualizado com sucesso!");
       } else {
-        await createProduto(payload);
+        await criarProduto(payload);
+        toast.success("Produto cadastrado com sucesso!");
       }
 
-      carregarProdutos();
       fecharModal();
     } catch (err) {
       console.error("Erro ao salvar produto:", err.message);
-      alert("Erro ao salvar produto: " + err.message);
-    } finally {
-      setIsSalvando(false);
+      toast.error("Erro ao salvar produto: " + (err.message || "Tente novamente"));
     }
   };
 
@@ -127,12 +122,15 @@ export function Produtos() {
     if (!produtoParaExcluir || !profile?.tenant_id) return;
 
     try {
-      await deleteProduto(produtoParaExcluir.id, profile.tenant_id);
+      await excluirProduto({
+        id: produtoParaExcluir.id,
+        tenantId: profile.tenant_id,
+      });
+      toast.success("Produto excluído com sucesso!");
       setProdutoParaExcluir(null);
-      carregarProdutos();
     } catch (err) {
       console.error("Erro ao excluir produto:", err.message);
-      alert("Não foi possível excluir este produto.");
+      toast.error("Não foi possível excluir este produto.");
     }
   };
 
@@ -148,18 +146,18 @@ export function Produtos() {
   );
 
   return (
-    <div className="produtos-container">
-      <div className="produtos-topbar">
-        <div className="produtos-info">
-          <h2>Gestão de Produtos</h2>
-          <p>Cadastre e controle o estoque de produtos físicos do salão</p>
+    <div className="bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-6 max-md:p-3 min-h-[calc(100vh-3rem)] flex flex-col">
+      <div className="flex justify-between items-center mb-6 pb-4 border-b border-[var(--cor-borda)] flex-wrap gap-4 max-md:flex-col max-md:items-start">
+        <div>
+          <h2 className="text-2xl font-bold text-[var(--cor-texto)] mb-1">Gestão de Produtos</h2>
+          <p className="text-slate-500 text-sm">Cadastre e controle o estoque de produtos físicos do salão</p>
         </div>
 
         {profile?.is_admin && (
           <button
-            className="btn-novo"
+            className="btn-novo max-md:w-full max-md:justify-center"
             onClick={() => abrirModal()}
-            disabled={loading}
+            disabled={isLoading}
           >
             <Plus size={18} strokeWidth={2.5} />
             Novo Produto
@@ -167,48 +165,46 @@ export function Produtos() {
         )}
       </div>
 
-      <div className="produtos-conteudo">
-        <div className="produtos-filtros">
-          <div className="busca-container">
-            <Search size={18} />
+      <div className="flex-1 flex flex-col">
+        <div className="flex mb-6">
+          <div className="relative w-full max-w-[400px] max-md:max-w-full">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
               placeholder="Buscar produto por nome..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              disabled={loading}
+              disabled={isLoading}
+              className="w-full py-3 pr-4 pl-11 border border-[var(--cor-borda)] rounded-lg text-[0.95rem] text-[var(--cor-texto)] bg-slate-50 outline-none transition-all focus:border-[var(--cor-primaria)] focus:bg-white focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)]"
             />
           </div>
         </div>
 
-        <div className="tabela-container">
-          <table className="tabela-produtos">
-            <thead>
+        <div className="bg-white border border-[var(--cor-borda)] rounded-[10px] overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead className="max-md:hidden">
               <tr>
-                <th>Nome do Produto</th>
-                <th>Preço de Venda</th>
-                <th>Qtd. Estoque</th>
-                <th>Ações</th>
+                <th className="bg-slate-50 p-4 text-[0.85rem] font-semibold text-slate-500 uppercase border-b border-[var(--cor-borda)]">Nome do Produto</th>
+                <th className="bg-slate-50 p-4 text-[0.85rem] font-semibold text-slate-500 uppercase border-b border-[var(--cor-borda)]">Preço de Venda</th>
+                <th className="bg-slate-50 p-4 text-[0.85rem] font-semibold text-slate-500 uppercase border-b border-[var(--cor-borda)]">Qtd. Estoque</th>
+                <th className="bg-slate-50 p-4 text-[0.85rem] font-semibold text-slate-500 uppercase border-b border-[var(--cor-borda)]">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {isLoading ? (
                 [1, 2, 3, 4, 5].map((item) => (
                   <tr key={`skel-${item}`}>
-                    <td>
+                    <td className="p-4 border-b border-slate-100">
                       <Skeleton width="60%" height="20px" />
                     </td>
-                    <td>
+                    <td className="p-4 border-b border-slate-100">
                       <Skeleton width="80px" height="20px" />
                     </td>
-                    <td>
+                    <td className="p-4 border-b border-slate-100">
                       <Skeleton width="60px" height="20px" />
                     </td>
-                    <td>
-                      <div
-                        className="acoes-tabela"
-                        style={{ display: "flex", gap: "6px" }}
-                      >
+                    <td className="p-4 border-b border-slate-100">
+                      <div className="flex gap-2">
                         <Skeleton
                           width="32px"
                           height="32px"
@@ -225,17 +221,25 @@ export function Produtos() {
                 ))
               ) : produtosFiltrados.length > 0 ? (
                 produtosFiltrados.map((produto) => (
-                  <tr key={produto.id}>
-                    <td>
+                  <tr
+                    key={produto.id}
+                    className="last:[&>td]:border-none hover:bg-slate-50 max-md:flex max-md:flex-col max-md:bg-white max-md:border max-md:border-[var(--cor-borda)] max-md:rounded-xl max-md:mb-3 max-md:p-3 max-md:shadow-[0_2px_8px_rgba(0,0,0,0.02)] max-md:hover:bg-white"
+                  >
+                    <td className="p-4 border-b border-slate-100 align-middle max-md:flex max-md:justify-between max-md:py-2 max-md:px-0 max-md:border-slate-100">
+                      <span className="max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase">Produto</span>
                       <strong>{produto.nome}</strong>
                     </td>
-                    <td>{formatarMoeda(produto.preco)}</td>
-                    <td>
+                    <td className="p-4 border-b border-slate-100 align-middle max-md:flex max-md:justify-between max-md:py-2 max-md:px-0 max-md:border-slate-100">
+                      <span className="max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase">Preço</span>
+                      {formatarMoeda(produto.preco)}
+                    </td>
+                    <td className="p-4 border-b border-slate-100 align-middle max-md:flex max-md:justify-between max-md:py-2 max-md:px-0 max-md:border-slate-100">
+                      <span className="max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase">Estoque</span>
                       <span
-                        className={`estoque-badge ${
+                        className={`px-3 py-1 rounded-full text-[0.85rem] font-semibold inline-block ${
                           produto.estoque > 0
-                            ? "estoque-positivo"
-                            : "estoque-zerado"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
                         }`}
                       >
                         {produto.estoque > 0
@@ -243,19 +247,20 @@ export function Produtos() {
                           : "Esgotado"}
                       </span>
                     </td>
-                    <td>
-                      <div className="acoes-tabela">
+                    <td className="p-4 align-middle max-md:flex max-md:justify-between max-md:py-2 max-md:px-0">
+                      <span className="max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase">Ações</span>
+                      <div className="flex gap-2">
                         {profile?.is_admin && (
                           <>
                             <button
-                              className="btn-acao editar"
+                              className="bg-transparent border-none p-[0.4rem] rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all hover:bg-blue-50 hover:text-blue-500"
                               onClick={() => abrirModal(produto)}
                               title="Editar Produto"
                             >
                               <Edit2 size={18} />
                             </button>
                             <button
-                              className="btn-acao excluir"
+                              className="bg-transparent border-none p-[0.4rem] rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"
                               onClick={() => setProdutoParaExcluir(produto)}
                               title="Excluir Produto"
                             >
@@ -292,22 +297,15 @@ export function Produtos() {
       {isModalOpen && (
         <div className="modal-overlay" onClick={fecharModal}>
           <div
-            className="modal-box modal-produto-box"
+            className="bg-white rounded-2xl w-[92%] max-w-[540px] p-8 shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)] flex flex-col animate-[modalAparecer_0.25s_ease-out]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className="modal-header"
-              style={{
-                marginBottom: "1.2rem",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <h2 style={{ margin: 0 }}>
+            <div className="flex justify-between items-center mb-6 pb-3 border-b border-slate-100">
+              <h2 className="text-xl font-bold text-[var(--cor-texto)] m-0">
                 {produtoEditando ? "Editar Produto" : "Novo Produto"}
               </h2>
               <button
+                type="button"
                 className="btn-fechar"
                 onClick={fecharModal}
                 title="Fechar"
@@ -316,9 +314,9 @@ export function Produtos() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="form-agendamento">
-              <div className="form-grupo">
-                <label>Nome do Produto *</label>
+            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-slate-600">Nome do Produto *</label>
                 <input
                   type="text"
                   placeholder="Ex: Shampoo Nutritivo 300ml"
@@ -327,70 +325,42 @@ export function Produtos() {
                     e.target.value = formatarNome(e.target.value);
                     register("nome").onChange(e);
                   }}
+                  className="w-full py-3 px-4 border border-slate-300 rounded-lg text-[0.95rem] text-[var(--cor-texto)] bg-slate-50 outline-none transition-all focus:border-[var(--cor-primaria)] focus:bg-white focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)]"
                 />
                 {errors.nome && (
-                  <span
-                    className="erro"
-                    style={{
-                      color: "red",
-                      fontSize: "0.85rem",
-                      marginTop: "4px",
-                      display: "block",
-                    }}
-                  >
+                  <span className="text-red-500 text-xs mt-1 block">
                     {errors.nome.message}
                   </span>
                 )}
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "1rem",
-                  marginTop: "1rem",
-                }}
-              >
-                <div className="form-grupo">
-                  <label>Preço (R$) *</label>
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-semibold text-slate-600">Preço (R$) *</label>
                   <input
                     type="text"
                     placeholder="Ex: 45,00"
                     {...register("preco")}
+                    className="w-full py-3 px-4 border border-slate-300 rounded-lg text-[0.95rem] text-[var(--cor-texto)] bg-slate-50 outline-none transition-all focus:border-[var(--cor-primaria)] focus:bg-white focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)]"
                   />
                   {errors.preco && (
-                    <span
-                      className="erro"
-                      style={{
-                        color: "red",
-                        fontSize: "0.85rem",
-                        marginTop: "4px",
-                        display: "block",
-                      }}
-                    >
+                    <span className="text-red-500 text-xs mt-1 block">
                       {errors.preco.message}
                     </span>
                   )}
                 </div>
 
-                <div className="form-grupo">
-                  <label>Qtd. em Estoque *</label>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-semibold text-slate-600">Qtd. em Estoque *</label>
                   <input
                     type="number"
                     min="0"
                     placeholder="Ex: 10"
                     {...register("estoque")}
+                    className="w-full py-3 px-4 border border-slate-300 rounded-lg text-[0.95rem] text-[var(--cor-texto)] bg-slate-50 outline-none transition-all focus:border-[var(--cor-primaria)] focus:bg-white focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)]"
                   />
                   {errors.estoque && (
-                    <span
-                      className="erro"
-                      style={{
-                        color: "red",
-                        fontSize: "0.85rem",
-                        marginTop: "4px",
-                        display: "block",
-                      }}
-                    >
+                    <span className="text-red-500 text-xs mt-1 block">
                       {errors.estoque.message}
                     </span>
                   )}
@@ -399,8 +369,7 @@ export function Produtos() {
 
               <button
                 type="submit"
-                className="btn-salvar"
-                style={{ marginTop: "1.5rem" }}
+                className="btn-salvar mt-4 py-3.5 px-6 text-base font-semibold rounded-lg"
                 disabled={isSalvando}
               >
                 {isSalvando
