@@ -21,6 +21,7 @@ import { ModalAgendamento } from "../components/domain/ModalAgendamento";
 import { ModalPagamento } from "../components/domain/ModalPagamento/ModalPagamento";
 import { ModalMensagensWhatsapp } from "../components/domain/ModalMensagensWhatsapp";
 import { DatePickerPopover } from "../components/ui/DatePickerPopover";
+import { useAuth } from "../contexts/AuthContext";
 import { fetchAgendamentosPorPeriodo, fetchProfissionaisParaAgenda } from "../services/agendaService";
 import { supabase } from "../services/supabase";
 import {
@@ -36,6 +37,7 @@ const formatarDataInput = (data) => {
 
 export function Agenda() {
   const location = useLocation();
+  const { profile } = useAuth();
 
   // ESTADO DE CARREGAMENTO PARA OS SKELETONS
   const [isLoading, setIsLoading] = useState(true);
