@@ -7,7 +7,7 @@ export async function fetchDadosRelatorio({ inicioFiltro, fimFiltro, apenasProfi
   let query = supabase
     .from("appointments")
     .select(
-      `id, valor, servico, data_horario, status, pagamento, forma_pagamento, duracao, customer_id, profissional_id, profissionais ( id, nome, comissao ), customers ( id, nome )`
+      `id, transacao_id, valor, servico, data_horario, status, pagamento, forma_pagamento, duracao, customer_id, profissional_id, profissionais ( id, nome, comissao ), customers ( id, nome )`
     )
     .gte("data_horario", inicioFiltro)
     .lte("data_horario", fimFiltro);
