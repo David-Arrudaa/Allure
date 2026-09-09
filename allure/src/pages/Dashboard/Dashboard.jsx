@@ -147,15 +147,7 @@ export function Dashboard() {
           </p>
         </div>
 
-        <div className="flex flex-col gap-2 items-end max-md:w-full max-md:items-stretch">
-          <button
-            className="btn-acao-primaria mb-1 max-md:w-full max-md:justify-center"
-            onClick={() => navigate("/agenda")}
-          >
-            <Plus size={18} />
-            <span>Ir para Agenda</span>
-          </button>
-
+        <div className="flex items-center gap-3 flex-wrap max-md:w-full max-md:flex-col max-md:items-stretch">
           {/* Filtros de período */}
           <div className="flex gap-1 bg-slate-100 p-1 rounded-lg max-md:flex-wrap max-md:w-full">
             {["hoje", "semana", "mes", "personalizado"].map((chave) => {
@@ -183,7 +175,7 @@ export function Dashboard() {
           </div>
 
           {filtroPeriodo === "personalizado" && (
-            <div className="flex items-center gap-2 bg-white py-1.5 px-2.5 rounded-lg border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 bg-white py-2 px-2.5 rounded-lg border border-slate-200">
               <input
                 type="date"
                 value={dataCustomInicio}
@@ -201,6 +193,14 @@ export function Dashboard() {
               />
             </div>
           )}
+
+          <button
+            className="btn-acao-primaria max-md:w-full max-md:justify-center"
+            onClick={() => navigate("/agenda")}
+          >
+            <Plus size={18} />
+            <span>Ir para Agenda</span>
+          </button>
         </div>
       </div>
 
@@ -230,12 +230,12 @@ export function Dashboard() {
 
       {/* Cards de Métricas */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-5 mb-6 max-md:grid-cols-1">
-        <div className="bg-gradient-to-br from-white to-purple-50/50 border border-purple-100 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_8px_rgba(124,58,237,0.05)] transition-all hover:border-[var(--cor-primaria)] hover:shadow-[0_4px_12px_rgba(124,58,237,0.12)] max-md:py-4 max-md:px-5">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-all hover:border-[var(--cor-primaria)] max-md:py-4 max-md:px-5">
           <div>
-            <span className="text-xs font-bold text-[var(--cor-primaria)] tracking-wider">
+            <span className="text-xs font-bold text-slate-500 tracking-wider">
               ATENDIMENTOS ({labelPeriodo})
             </span>
-            <h2 className="text-[1.75rem] font-bold text-[var(--cor-texto)] mt-1 max-md:text-2xl">
+            <h2 className="text-[1.5rem] font-bold text-[var(--cor-texto)] mt-1 max-md:text-xl">
               {loading ? (
                 <Skeleton width="80px" height="36px" />
               ) : (
@@ -243,17 +243,17 @@ export function Dashboard() {
               )}
             </h2>
           </div>
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-blue-100 text-blue-700 shrink-0">
+          <div className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center bg-blue-100 text-blue-700 shrink-0">
             <Calendar size={24} />
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-white to-purple-50/50 border border-purple-100 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_8px_rgba(124,58,237,0.05)] transition-all hover:border-[var(--cor-primaria)] hover:shadow-[0_4px_12px_rgba(124,58,237,0.12)] max-md:py-4 max-md:px-5">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-all hover:border-[var(--cor-primaria)] max-md:py-4 max-md:px-5">
           <div>
-            <span className="text-xs font-bold text-[var(--cor-primaria)] tracking-wider">
+            <span className="text-xs font-bold text-slate-500 tracking-wider">
               FATURAMENTO ({labelPeriodo})
             </span>
-            <h2 className="text-[1.75rem] font-bold text-[var(--cor-texto)] mt-1 max-md:text-2xl">
+            <h2 className="text-[1.5rem] font-bold text-[var(--cor-texto)] mt-1 max-md:text-xl">
               {loading ? (
                 <Skeleton width="140px" height="36px" />
               ) : (
@@ -261,17 +261,17 @@ export function Dashboard() {
               )}
             </h2>
           </div>
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-emerald-100 text-emerald-700 shrink-0">
+          <div className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center bg-emerald-100 text-emerald-700 shrink-0">
             <DollarSign size={24} />
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-white to-purple-50/50 border border-purple-100 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_8px_rgba(124,58,237,0.05)] transition-all hover:border-[var(--cor-primaria)] hover:shadow-[0_4px_12px_rgba(124,58,237,0.12)] max-md:py-4 max-md:px-5">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-all hover:border-[var(--cor-primaria)] max-md:py-4 max-md:px-5">
           <div>
-            <span className="text-xs font-bold text-[var(--cor-primaria)] tracking-wider">
+            <span className="text-xs font-bold text-slate-500 tracking-wider">
               TICKET MÉDIO
             </span>
-            <h2 className="text-[1.75rem] font-bold text-[var(--cor-texto)] mt-1 max-md:text-2xl">
+            <h2 className="text-[1.5rem] font-bold text-[var(--cor-texto)] mt-1 max-md:text-xl">
               {loading ? (
                 <Skeleton width="100px" height="36px" />
               ) : (
@@ -279,7 +279,7 @@ export function Dashboard() {
               )}
             </h2>
           </div>
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-100 text-purple-700 shrink-0">
+          <div className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center bg-purple-100 text-purple-700 shrink-0">
             <TrendingUp size={24} />
           </div>
         </div>
