@@ -147,7 +147,7 @@ export function Financeiro() {
             : isVenda
               ? "Venda Balcão (Avulsa)"
               : item.customer_id
-                ? "Cliente Removido"
+                ? "—"
                 : "Não informado";
           if (busca && !clienteNome.toLowerCase().includes(busca.toLowerCase()))
             return;
@@ -327,7 +327,7 @@ export function Financeiro() {
             : isVendaAvulsa
               ? "Venda Balcão (Avulsa)"
               : item.customer_id
-                ? "Cliente Removido"
+                ? "—"
                 : "Não informado";
           const valorNum = Number(item.valor) || 0;
 

@@ -150,7 +150,7 @@ export function Dashboard() {
       let queryPendentes = supabase
         .from("appointments")
         .select(
-          `id, valor, servico, data_horario, customers ( nome )`,
+          `id, valor, servico, data_horario, customer_id, customers ( nome )`,
         )
         .lt("data_horario", inicioHojeStr) // Estritamente antes de hoje
         .eq("pagamento", "pendente")
@@ -737,7 +737,7 @@ export function Dashboard() {
                         }}
                       >
                         <span style={{ fontWeight: "700", color: "#0F172A" }}>
-                          {ag.customers?.nome || "Cliente Removido"}
+                          {ag.customers?.nome || (ag.customer_id ? "—" : "Venda Balcão")}
                         </span>
                         <span
                           style={{
