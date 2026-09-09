@@ -23,6 +23,10 @@ import { ModalMensagensWhatsapp } from "../components/domain/ModalMensagensWhats
 import { DatePickerPopover } from "../components/ui/DatePickerPopover";
 import { fetchAgendamentosPorPeriodo, fetchProfissionaisParaAgenda } from "../services/agendaService";
 import { supabase } from "../services/supabase";
+import {
+  registrarPagamentoAgendamento,
+  desfazerPagamentoAgendamento,
+} from "../services/transacoesService";
 import { Skeleton } from "../components/ui/Skeleton"; // <-- IMPORTAÇÃO DO SKELETON
 import "./Agenda.css";
 
@@ -1127,16 +1131,21 @@ export function Agenda() {
         dados={agendamentoParaPagamento}
         onSave={async (pacotePagamento) => {
           if (agendamentoParaPagamento) {
-            await supabase
-              .from("appointments")
-              .update({
-                pagamento: "pago",
-                status: "confirmado",
-                forma_pagamento: pacotePagamento.metodoPagamento,
-              })
-              .eq("id", agendamentoParaPagamento.id);
-            carregarDadosAgenda();
-            mostrarNotificacao("Pagamento recebido com sucesso!");
+            try {
+              const tenantIdFinal = agendamentoParaPagamento.tenant_id || profile?.tenant_id || "11111111-1111-1111-1111-111111111111";
+              await registrarPagamentoAgendamento({
+                appointmentId: agendamentoParaPagamento.id,
+                tenantId: tenantIdFinal,
+                formaPagamento: pacotePagamento.metodoPagamento,
+                valor: pacotePagamento.valorGasto,
+                observacao: pacotePagamento.observacao,
+              });
+              carregarDadosAgenda();
+              mostrarNotificacao("Pagamento recebido e transação registrada!");
+            } catch (err) {
+              console.error("Erro ao registrar pagamento:", err);
+              mostrarNotificacao("Erro ao registrar pagamento: " + (err.message || ""), "excluir");
+            }
           }
           setIsModalPagamentoAberto(false);
         }}
@@ -1447,13 +1456,19 @@ export function Agenda() {
               <button
                 className="btn-confirmar-exclusao"
                 onClick={async () => {
-                  await supabase
-                    .from("appointments")
-                    .update({ pagamento: "pendente", forma_pagamento: null })
-                    .eq("id", agendamentoParaDesfazerPagamento.id);
-                  setAgendamentoParaDesfazerPagamento(null);
-                  carregarDadosAgenda();
-                  mostrarNotificacao("Pagamento desfeito.");
+                  try {
+                    const tenantIdFinal = agendamentoParaDesfazerPagamento.tenant_id || profile?.tenant_id || "11111111-1111-1111-1111-111111111111";
+                    await desfazerPagamentoAgendamento({
+                      appointmentId: agendamentoParaDesfazerPagamento.id,
+                      tenantId: tenantIdFinal,
+                    });
+                    setAgendamentoParaDesfazerPagamento(null);
+                    carregarDadosAgenda();
+                    mostrarNotificacao("Pagamento desfeito com sucesso.");
+                  } catch (err) {
+                    console.error("Erro ao desfazer pagamento:", err);
+                    mostrarNotificacao("Erro ao desfazer pagamento: " + (err.message || ""), "excluir");
+                  }
                 }}
               >
                 Sim, desfazer

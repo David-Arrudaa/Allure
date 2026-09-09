@@ -427,23 +427,166 @@ export async function listarTransacoes({
 }
 
 /**
- * Obtém os dados de uma única transação completa com seus itens.
+ * Processa o pagamento de um agendamento da Agenda:
+ * - Garante a criação ou atualização do cabeçalho em `transacoes`
+ * - Garante o registro do item de serviço em `transacao_itens`
+ * - Atualiza `appointments` marcando como pago e associando a forma de pagamento
  */
-export async function obterTransacaoPorId(transacaoId, tenantId) {
-  const { data, error } = await supabase
-    .from("transacoes")
-    .select(
-      `
-      *,
-      customers ( id, nome, telefone ),
-      profissionais ( id, nome ),
-      transacao_itens ( * )
-    `
-    )
-    .eq("id", transacaoId)
+export async function registrarPagamentoAgendamento({
+  appointmentId,
+  tenantId,
+  formaPagamento = "Pix",
+  valor = null,
+  observacao = null,
+}) {
+  if (!appointmentId || !tenantId) {
+    throw new Error("appointmentId e tenantId são obrigatórios.");
+  }
+
+  // 1. Busca os dados atuais do agendamento
+  const { data: agendamento, error: errAg } = await supabase
+    .from("appointments")
+    .select("*, customers(id, nome)")
+    .eq("id", appointmentId)
     .eq("tenant_id", tenantId)
     .single();
 
-  if (error) throw error;
-  return data;
+  if (errAg || !agendamento) {
+    throw new Error("Agendamento não encontrado: " + (errAg?.message || ""));
+  }
+
+  const valorFinal = valor !== null && valor !== undefined
+    ? Math.max(0, Number(valor) || 0)
+    : Math.max(0, Number(agendamento.valor) || 0);
+
+  let transacaoId = agendamento.transacao_id;
+
+  if (transacaoId) {
+    // 2. Atualiza a transação existente
+    await supabase
+      .from("transacoes")
+      .update({
+        forma_pagamento: formaPagamento,
+        status_pagamento: "pago",
+        valor_total: valorFinal,
+        observacoes: observacao || undefined,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", transacaoId)
+      .eq("tenant_id", tenantId);
+
+    // Atualiza subtotal do item se existir
+    await supabase
+      .from("transacao_itens")
+      .update({
+        valor_unitario: valorFinal,
+        subtotal: valorFinal,
+      })
+      .eq("transacao_id", transacaoId)
+      .eq("tenant_id", tenantId);
+  } else {
+    // 3. Cria uma nova transação Header
+    const { data: novaTransacao, error: errTransacao } = await supabase
+      .from("transacoes")
+      .insert([
+        {
+          tenant_id: tenantId,
+          tipo: "atendimento",
+          customer_id: agendamento.customer_id,
+          profissional_id: agendamento.profissional_id,
+          data_transacao: agendamento.data_horario || new Date().toISOString(),
+          forma_pagamento: formaPagamento,
+          status_pagamento: "pago",
+          valor_total: valorFinal,
+          desconto: 0.0,
+          observacoes: observacao,
+        },
+      ])
+      .select()
+      .single();
+
+    if (errTransacao) throw errTransacao;
+    transacaoId = novaTransacao.id;
+
+    // 4. Cria o item do serviço em transacao_itens
+    await supabase.from("transacao_itens").insert([
+      {
+        tenant_id: tenantId,
+        transacao_id: transacaoId,
+        tipo: "servico",
+        servico_id: null,
+        produto_id: null,
+        descricao: agendamento.servico || "Atendimento",
+        quantidade: 1,
+        valor_unitario: valorFinal,
+        subtotal: valorFinal,
+      },
+    ]);
+  }
+
+  // 5. Atualiza o agendamento em appointments
+  const { error: errApp } = await supabase
+    .from("appointments")
+    .update({
+      transacao_id: transacaoId,
+      pagamento: "pago",
+      status: "confirmado",
+      forma_pagamento: formaPagamento,
+      valor: valorFinal,
+    })
+    .eq("id", appointmentId)
+    .eq("tenant_id", tenantId);
+
+  if (errApp) throw errApp;
+
+  return { success: true, transacaoId };
 }
+
+/**
+ * Estorna/desfaz o pagamento de um agendamento da Agenda:
+ * - Atualiza `appointments.pagamento = 'pendente'`
+ * - Atualiza `transacoes.status_pagamento = 'pendente'`
+ */
+export async function desfazerPagamentoAgendamento({ appointmentId, tenantId }) {
+  if (!appointmentId || !tenantId) {
+    throw new Error("appointmentId e tenantId são obrigatórios.");
+  }
+
+  // 1. Busca o agendamento para localizar o transacao_id
+  const { data: agendamento, error: errAg } = await supabase
+    .from("appointments")
+    .select("id, transacao_id")
+    .eq("id", appointmentId)
+    .eq("tenant_id", tenantId)
+    .single();
+
+  if (errAg || !agendamento) {
+    throw new Error("Agendamento não encontrado.");
+  }
+
+  // 2. Atualiza appointments
+  await supabase
+    .from("appointments")
+    .update({
+      pagamento: "pendente",
+      forma_pagamento: null,
+    })
+    .eq("id", appointmentId)
+    .eq("tenant_id", tenantId);
+
+  // 3. Atualiza a transação correspondente para pendente
+  if (agendamento.transacao_id) {
+    await supabase
+      .from("transacoes")
+      .update({
+        status_pagamento: "pendente",
+        forma_pagamento: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", agendamento.transacao_id)
+      .eq("tenant_id", tenantId);
+  }
+
+  return { success: true };
+}
+
