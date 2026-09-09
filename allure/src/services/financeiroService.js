@@ -5,7 +5,7 @@ export async function fetchPagamentosPeriodo({ inicioFiltro, fimFiltro, apenasPr
   let query = supabase
     .from("appointments")
     .select(
-      `id, valor, servico, data_horario, forma_pagamento, duracao, customer_id, profissional_id, customers ( id, nome ), profissionais ( id, nome )`
+      `id, transacao_id, valor, servico, data_horario, forma_pagamento, duracao, customer_id, profissional_id, produto_id, quantidade, customers ( id, nome ), profissionais ( id, nome )`
     )
     .gte("data_horario", inicioFiltro)
     .lte("data_horario", fimFiltro)

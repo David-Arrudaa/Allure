@@ -27,6 +27,7 @@ import {
   ajustarEstoqueProduto,
   excluirVendaAvulsa,
 } from "../../services/financeiroService";
+import { excluirVendaAvulsa as excluirVendaNormalizada } from "../../services/transacoesService";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Pagination } from "../../components/ui/Pagination";
 import { ModalRecebimentoAvulso } from "../../components/domain/ModalRecebimentoAvulso";
@@ -177,6 +178,7 @@ export function Financeiro() {
 
           historicoGeral.push({
             id: item.id,
+            transacao_id: item.transacao_id,
             cliente: clienteNome,
             clienteId: item.customer_id,
             profissionalId: item.profissional_id,
@@ -223,30 +225,38 @@ export function Financeiro() {
     setIsExcluindoVenda(true);
     try {
       const tenantId = profile?.tenant_id;
-      if (vendaParaExcluir.servico && tenantId) {
-        // Extrair nome do produto e quantidade
-        const match = vendaParaExcluir.servico.match(
-          /Venda:\s*(.*?)(?:\s*\((\d+)x\))?$/i,
-        );
-        const nomeProd = match
-          ? match[1]?.trim()
-          : vendaParaExcluir.servico.replace(/^Venda:\s*/i, "").trim();
-        const qtd = match && match[2] ? Number(match[2]) : 1;
 
-        if (nomeProd) {
-          const prods = await buscarProdutoPorNome(tenantId, nomeProd);
-          if (prods) {
-            const estoqueAtual = Number(prods.estoque || 0);
-            try {
-              await ajustarEstoqueProduto(prods.id, tenantId, estoqueAtual + qtd);
-            } catch (errEstoque) {
-              console.warn("Falha ao ajustar estoque (comportamento não-bloqueante):", errEstoque.message);
+      // Se a venda possuir transacao_id vinculado, utiliza a rotina normalizada com devolução de estoque
+      if (vendaParaExcluir.transacao_id && tenantId) {
+        await excluirVendaNormalizada({
+          transacaoId: vendaParaExcluir.transacao_id,
+          tenantId,
+        });
+      } else {
+        // Fallback para vendas legadas
+        if (vendaParaExcluir.servico && tenantId) {
+          const match = vendaParaExcluir.servico.match(
+            /Venda:\s*(.*?)(?:\s*\((\d+)x\))?$/i,
+          );
+          const nomeProd = match
+            ? match[1]?.trim()
+            : vendaParaExcluir.servico.replace(/^Venda:\s*/i, "").trim();
+          const qtd = match && match[2] ? Number(match[2]) : 1;
+
+          if (nomeProd) {
+            const prods = await buscarProdutoPorNome(tenantId, nomeProd);
+            if (prods) {
+              const estoqueAtual = Number(prods.estoque || 0);
+              try {
+                await ajustarEstoqueProduto(prods.id, tenantId, estoqueAtual + qtd);
+              } catch (errEstoque) {
+                console.warn("Falha ao ajustar estoque (comportamento não-bloqueante):", errEstoque.message);
+              }
             }
           }
         }
+        await excluirVendaAvulsa(vendaParaExcluir.id);
       }
-
-      await excluirVendaAvulsa(vendaParaExcluir.id);
 
       setVendaParaExcluir(null);
       await carregarMetricasGerais();
