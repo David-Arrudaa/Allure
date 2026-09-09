@@ -226,15 +226,15 @@ export function Produtos() {
                     className="last:[&>td]:border-none hover:bg-slate-50 max-md:flex max-md:flex-col max-md:bg-white max-md:border max-md:border-[var(--cor-borda)] max-md:rounded-xl max-md:mb-3 max-md:p-3 max-md:shadow-[0_2px_8px_rgba(0,0,0,0.02)] max-md:hover:bg-white"
                   >
                     <td className="p-4 border-b border-slate-100 align-middle max-md:flex max-md:justify-between max-md:py-2 max-md:px-0 max-md:border-slate-100">
-                      <span className="max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase">Produto</span>
+                      <span className="hidden max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase max-md:inline">Produto</span>
                       <strong>{produto.nome}</strong>
                     </td>
                     <td className="p-4 border-b border-slate-100 align-middle max-md:flex max-md:justify-between max-md:py-2 max-md:px-0 max-md:border-slate-100">
-                      <span className="max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase">Preço</span>
+                      <span className="hidden max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase max-md:inline">Preço</span>
                       {formatarMoeda(produto.preco)}
                     </td>
                     <td className="p-4 border-b border-slate-100 align-middle max-md:flex max-md:justify-between max-md:py-2 max-md:px-0 max-md:border-slate-100">
-                      <span className="max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase">Estoque</span>
+                      <span className="hidden max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase max-md:inline">Estoque</span>
                       <span
                         className={`px-3 py-1 rounded-full text-[0.85rem] font-semibold inline-block ${
                           produto.estoque > 0
@@ -248,7 +248,7 @@ export function Produtos() {
                       </span>
                     </td>
                     <td className="p-4 align-middle max-md:flex max-md:justify-between max-md:py-2 max-md:px-0">
-                      <span className="max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase">Ações</span>
+                      <span className="hidden max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase max-md:inline">Ações</span>
                       <div className="flex gap-2">
                         {profile?.is_admin && (
                           <>
