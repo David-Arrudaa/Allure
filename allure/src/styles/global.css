@@ -1,13 +1,19 @@
 @import "tailwindcss";
 
-/* 
+/*
   RESET CSS
   Garante que todos os navegadores comecem do zero, sem margens indesejadas.
+  Precisa ficar em @layer base — solto, um reset "*" sem layer vence QUALQUER
+  utilitário Tailwind (p-6, px-4...) por regra de cascade layers, mesmo com
+  especificidade menor. Já foi corrigido uma vez (751e19d) e voltou a
+  quebrar num merge (854a3d6); não remover o @layer de novo.
 */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 }
 
 /* 
