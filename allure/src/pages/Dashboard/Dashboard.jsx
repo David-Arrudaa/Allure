@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -11,240 +11,118 @@ import {
   X,
   CheckCircle2,
 } from "lucide-react";
-import { supabase } from "../../services/supabase";
 import { useAuth } from "../../contexts/AuthContext";
+import { useDashboard } from "../../hooks/useDashboard";
+import { toast } from "../../lib/toast";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { ModalPagamento } from "../../components/domain/ModalPagamento/ModalPagamento";
-import "./Dashboard.css";
-
 
 export function Dashboard() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  // Função para pegar a data de hoje no formato YYYY-MM-DD para os inputs de data
   const hojeFormatoInput = new Date().toISOString().split("T")[0];
 
-  const [loading, setLoading] = useState(true);
   const [filtroPeriodo, setFiltroPeriodo] = useState("mes");
-  // hoje, semana, mes, personalizado
   const [dataCustomInicio, setDataCustomInicio] = useState(hojeFormatoInput);
   const [dataCustomFim, setDataCustomFim] = useState(hojeFormatoInput);
 
-  const [metricas, setMetricas] = useState({
-    faturamento: 0,
-    totalAtendimentos: 0,
-    ticketMedio: 0,
-    pendentesValor: 0,
-    pendentesQtd: 0,
-  });
-
-  const [rankingProfissionais, setRankingProfissionais] = useState([]);
-  const [rankingServicos, setRankingServicos] = useState([]);
-
-  // Estados para gerenciar os atrasados
-  const [listaPendentes, setListaPendentes] = useState([]);
   const [isModalPendentesAberto, setIsModalPendentesAberto] = useState(false);
   const [isModalPagamentoAberto, setIsModalPagamentoAberto] = useState(false);
   const [agendamentoParaPagamento, setAgendamentoParaPagamento] = useState(null);
 
-  useEffect(() => {
-    carregarDadosPainel();
-  }, [filtroPeriodo, dataCustomInicio, dataCustomFim]);
+  // Computa o intervalo de datas do filtro de forma pura
+  const { dataInicio, dataFim, inicioHojeStr } = useMemo(() => {
+    const hoje = new Date();
+    const iniHoje = new Date(
+      hoje.getFullYear(),
+      hoje.getMonth(),
+      hoje.getDate(),
+    ).toISOString();
+    const fimHoje = new Date(
+      hoje.getFullYear(),
+      hoje.getMonth(),
+      hoje.getDate(),
+      23,
+      59,
+      59,
+    ).toISOString();
 
-  const carregarDadosPainel = async () => {
-    try {
-      setLoading(true);
+    let dInicio, dFim;
 
-      const hoje = new Date();
-      // Define a "virada de dia" - o início de hoje (00:00)
-      const inicioHojeStr = new Date(
+    if (filtroPeriodo === "hoje") {
+      dInicio = iniHoje;
+      dFim = fimHoje;
+    } else if (filtroPeriodo === "semana") {
+      const diaSemana = hoje.getDay();
+      const dataDomingo = new Date(
         hoje.getFullYear(),
         hoje.getMonth(),
-        hoje.getDate(),
+        hoje.getDate() - diaSemana,
+      );
+      const dataSabado = new Date(
+        dataDomingo.getFullYear(),
+        dataDomingo.getMonth(),
+        dataDomingo.getDate() + 6,
+      );
+      dInicio = new Date(
+        dataDomingo.getFullYear(),
+        dataDomingo.getMonth(),
+        dataDomingo.getDate(),
+        0,
+        0,
+        0,
       ).toISOString();
-
-      const fimHojeStr = new Date(
-        hoje.getFullYear(),
-        hoje.getMonth(),
-        hoje.getDate(),
+      dFim = new Date(
+        dataSabado.getFullYear(),
+        dataSabado.getMonth(),
+        dataSabado.getDate(),
         23,
         59,
         59,
       ).toISOString();
-
-      let dataInicio, dataFim;
-
-      if (filtroPeriodo === "hoje") {
-        dataInicio = inicioHojeStr;
-        dataFim = fimHojeStr;
-      } else if (filtroPeriodo === "semana") {
-        const diaSemana = hoje.getDay();
-        // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
-        const dataDomingo = new Date(
-          hoje.getFullYear(),
-          hoje.getMonth(),
-          hoje.getDate() - diaSemana,
-        );
-        const dataSabado = new Date(
-          dataDomingo.getFullYear(),
-          dataDomingo.getMonth(),
-          dataDomingo.getDate() + 6,
-        );
-        dataInicio = new Date(
-          dataDomingo.getFullYear(),
-          dataDomingo.getMonth(),
-          dataDomingo.getDate(),
-          0,
-          0,
-          0,
-        ).toISOString();
-        dataFim = new Date(
-          dataSabado.getFullYear(),
-          dataSabado.getMonth(),
-          dataSabado.getDate(),
-          23,
-          59,
-          59,
-        ).toISOString();
-      } else if (filtroPeriodo === "mes") {
-        dataInicio = new Date(
-          hoje.getFullYear(),
-          hoje.getMonth(),
-          1,
-        ).toISOString();
-        dataFim = new Date(
-          hoje.getFullYear(),
-          hoje.getMonth() + 1,
-          0,
-          23,
-          59,
-          59,
-        ).toISOString();
-      } else if (filtroPeriodo === "personalizado") {
-        // Usa as datas escolhidas nos inputs personalizados
-        if (!dataCustomInicio || !dataCustomFim) return;
+    } else if (filtroPeriodo === "mes") {
+      dInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString();
+      dFim = new Date(
+        hoje.getFullYear(),
+        hoje.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+      ).toISOString();
+    } else if (filtroPeriodo === "personalizado") {
+      if (dataCustomInicio && dataCustomFim) {
         const [anoI, mesI, diaI] = dataCustomInicio.split("-");
         const [anoF, mesF, diaF] = dataCustomFim.split("-");
-        dataInicio = new Date(anoI, mesI - 1, diaI, 0, 0, 0).toISOString();
-        dataFim = new Date(anoF, mesF - 1, diaF, 23, 59, 59).toISOString();
+        dInicio = new Date(anoI, mesI - 1, diaI, 0, 0, 0).toISOString();
+        dFim = new Date(anoF, mesF - 1, diaF, 23, 59, 59).toISOString();
       }
-
-      let queryAgendamentos = supabase
-        .from("appointments")
-        .select(
-          `id, valor, servico, status, pagamento, data_horario, profissionais ( nome )`,
-        )
-        .gte("data_horario", dataInicio)
-        .lte("data_horario", dataFim)
-        .neq("status", "bloqueio")
-        .neq("status", "cancelado");
-
-      if (!profile?.is_admin) {
-        queryAgendamentos = queryAgendamentos.eq("profissional_id", profile.id);
-      }
-
-      const { data: agendamentos, error } = await queryAgendamentos;
-
-      if (error) throw error;
-
-      let queryPendentes = supabase
-        .from("appointments")
-        .select(
-          `id, valor, servico, data_horario, customer_id, customers ( nome )`,
-        )
-        .lt("data_horario", inicioHojeStr) // Estritamente antes de hoje
-        .eq("pagamento", "pendente")
-        .neq("status", "bloqueio")
-        .neq("status", "cancelado")
-        .order("data_horario", { ascending: true });
-
-      if (!profile?.is_admin) {
-        queryPendentes = queryPendentes.eq("profissional_id", profile.id);
-      }
-
-      const { data: pendentesPassados, error: errPendentes } = await queryPendentes;
-
-      if (errPendentes) throw errPendentes;
-
-      // Processa Faturamento e Rankings (Só computa os PAGOS no período)
-      let faturamento = 0;
-      let atendimentosPagos = 0;
-      const contagemProfissionais = {};
-      const contagemServicos = {};
-
-      if (agendamentos) {
-        agendamentos.forEach((ag) => {
-          if (ag.pagamento === "pago") {
-            const valorFormatado = Number(ag.valor) || 0;
-            faturamento += valorFormatado;
-            atendimentosPagos += 1;
-
-            const nomeProf = ag.profissionais?.nome || "Equipe";
-            contagemProfissionais[nomeProf] =
-              (contagemProfissionais[nomeProf] || 0) + 1;
-
-            const nomeServ = ag.servico || "Outros";
-            if (!contagemServicos[nomeServ]) {
-              contagemServicos[nomeServ] = { count: 0, valorTotal: 0 };
-            }
-            contagemServicos[nomeServ].count += 1;
-            contagemServicos[nomeServ].valorTotal += valorFormatado;
-          }
-        });
-      }
-
-      // Processa a totalização dos Atrasados
-      let pendentesV = 0;
-      if (pendentesPassados) {
-        pendentesPassados.forEach((p) => {
-          pendentesV += Number(p.valor) || 0;
-        });
-      }
-
-      // Monta as listas finais para a tela
-      const arrayProfissionais = Object.entries(contagemProfissionais)
-        .map(([nome, qtd]) => ({ nome, qtd }))
-        .sort((a, b) => b.qtd - a.qtd);
-
-      const arrayServicos = Object.entries(contagemServicos)
-        .map(([nome, stats]) => ({
-          nome,
-          qtd: stats.count,
-          porcentagem:
-            atendimentosPagos > 0
-              ? Math.round((stats.count / atendimentosPagos) * 100)
-              : 0,
-          valorTotal: stats.valorTotal,
-        }))
-        .sort((a, b) => b.qtd - a.qtd)
-        .slice(0, 3);
-
-      setMetricas({
-        faturamento,
-        totalAtendimentos: atendimentosPagos,
-        ticketMedio:
-          atendimentosPagos > 0 ? faturamento / atendimentosPagos : 0,
-        pendentesValor: pendentesV,
-        pendentesQtd: pendentesPassados?.length || 0,
-      });
-
-      setRankingProfissionais(arrayProfissionais);
-      setRankingServicos(arrayServicos);
-      setListaPendentes(pendentesPassados || []);
-    } catch (error) {
-      console.error("Erro ao carregar dados do painel:", error.message);
-    } finally {
-      setLoading(false);
     }
-  };
 
+    return { dataInicio: dInicio, dataFim: dFim, inicioHojeStr: iniHoje };
+  }, [filtroPeriodo, dataCustomInicio, dataCustomFim]);
 
+  const profissionalIdFiltro = !profile?.is_admin ? profile?.id : null;
+
+  const {
+    metricas,
+    rankingProfissionais,
+    rankingServicos,
+    listaPendentes,
+    isLoading: loading,
+    baixarPagamento,
+  } = useDashboard({
+    dataInicio,
+    dataFim,
+    inicioHojeStr,
+    profissionalId: profissionalIdFiltro,
+  });
 
   const formatarMoeda = (valor) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
-    }).format(valor);
+    }).format(valor || 0);
   };
 
   const labelPeriodo =
@@ -257,224 +135,87 @@ export function Dashboard() {
           : "PERÍODO SELECIONADO";
 
   return (
-    <div className="home-container">
-      <div className="home-header">
+    <div className="bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-6 max-md:p-3.5 min-h-[calc(100vh-3rem)] max-md:min-h-auto text-[var(--cor-texto)] flex flex-col">
+      {/* Cabeçalho */}
+      <div className="flex justify-between items-center mb-6 pb-4 border-b-2 border-slate-100 flex-wrap gap-4 max-md:flex-col max-md:items-start">
         <div>
-          <h2>Painel</h2>
-          <p>Acompanhe a saúde do seu negócio em tempo real.</p>
+          <h2 className="text-[1.6rem] font-bold text-[var(--cor-texto)] tracking-tight mb-1 max-md:text-[1.35rem]">
+            Painel
+          </h2>
+          <p className="text-slate-500 text-[0.95rem]">
+            Acompanhe a saúde do seu negócio em tempo real.
+          </p>
         </div>
 
-        <div
-          className="home-header-acoes"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-            alignItems: "flex-end",
-          }}
-        >
+        <div className="flex flex-col gap-2 items-end max-md:w-full max-md:items-stretch">
           <button
-            className="btn-acao-primaria"
+            className="btn-acao-primaria mb-1 max-md:w-full max-md:justify-center"
             onClick={() => navigate("/agenda")}
-            style={{ marginBottom: "4px" }}
           >
             <Plus size={18} />
             <span>Ir para Agenda</span>
           </button>
 
-          {/* BARRA DE BOTÕES DE FILTRO */}
-          <div
-            style={{
-              display: "flex",
-              gap: "4px",
-              backgroundColor: "#F1F5F9",
-              padding: "4px",
-              borderRadius: "8px",
-            }}
-          >
-            <button
-              onClick={() => setFiltroPeriodo("hoje")}
-              style={{
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: "6px",
-                fontSize: "0.85rem",
-                fontWeight: "600",
-                cursor: "pointer",
-                transition: "all 0.2s",
-                backgroundColor:
-                  filtroPeriodo === "hoje" ? "#FFFFFF" : "transparent",
-                color:
-                  filtroPeriodo === "hoje" ? "var(--cor-primaria)" : "#64748B",
-                boxShadow:
-                  filtroPeriodo === "hoje"
-                    ? "0 1px 3px rgba(0,0,0,0.1)"
-                    : "none",
-              }}
-            >
-              Hoje
-            </button>
-            <button
-              onClick={() => setFiltroPeriodo("semana")}
-              style={{
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: "6px",
-                fontSize: "0.85rem",
-                fontWeight: "600",
-                cursor: "pointer",
-                transition: "all 0.2s",
-                backgroundColor:
-                  filtroPeriodo === "semana" ? "#FFFFFF" : "transparent",
-                color:
-                  filtroPeriodo === "semana"
-                    ? "var(--cor-primaria)"
-                    : "#64748B",
-                boxShadow:
-                  filtroPeriodo === "semana"
-                    ? "0 1px 3px rgba(0,0,0,0.1)"
-                    : "none",
-              }}
-            >
-              Semana
-            </button>
-            <button
-              onClick={() => setFiltroPeriodo("mes")}
-              style={{
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: "6px",
-                fontSize: "0.85rem",
-                fontWeight: "600",
-                cursor: "pointer",
-                transition: "all 0.2s",
-                backgroundColor:
-                  filtroPeriodo === "mes" ? "#FFFFFF" : "transparent",
-                color:
-                  filtroPeriodo === "mes" ? "var(--cor-primaria)" : "#64748B",
-                boxShadow:
-                  filtroPeriodo === "mes"
-                    ? "0 1px 3px rgba(0,0,0,0.1)"
-                    : "none",
-              }}
-            >
-              Mês
-            </button>
-            <button
-              onClick={() => setFiltroPeriodo("personalizado")}
-              style={{
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: "6px",
-                fontSize: "0.85rem",
-                fontWeight: "600",
-                cursor: "pointer",
-                transition: "all 0.2s",
-                backgroundColor:
-                  filtroPeriodo === "personalizado" ? "#FFFFFF" : "transparent",
-                color:
-                  filtroPeriodo === "personalizado"
-                    ? "var(--cor-primaria)"
-                    : "#64748B",
-                boxShadow:
-                  filtroPeriodo === "personalizado"
-                    ? "0 1px 3px rgba(0,0,0,0.1)"
-                    : "none",
-              }}
-            >
-              Personalizado
-            </button>
+          {/* Filtros de período */}
+          <div className="flex gap-1 bg-slate-100 p-1 rounded-lg max-md:flex-wrap max-md:w-full">
+            {["hoje", "semana", "mes", "personalizado"].map((chave) => {
+              const ativo = filtroPeriodo === chave;
+              const rotulos = {
+                hoje: "Hoje",
+                semana: "Semana",
+                mes: "Mês",
+                personalizado: "Personalizado",
+              };
+              return (
+                <button
+                  key={chave}
+                  onClick={() => setFiltroPeriodo(chave)}
+                  className={`border-none py-1.5 px-3 rounded-md text-[0.85rem] font-semibold cursor-pointer transition-all ${
+                    ativo
+                      ? "bg-white text-[var(--cor-primaria)] shadow-sm"
+                      : "bg-transparent text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {rotulos[chave]}
+                </button>
+              );
+            })}
           </div>
 
-          {/* INPUTS DE DATA PARA O FILTRO PERSONALIZADO */}
           {filtroPeriodo === "personalizado" && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                backgroundColor: "#FFFFFF",
-                padding: "6px 10px",
-                borderRadius: "8px",
-                border: "1px solid #E2E8F0",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-              }}
-            >
+            <div className="flex items-center gap-2 bg-white py-1.5 px-2.5 rounded-lg border border-slate-200 shadow-sm">
               <input
                 type="date"
                 value={dataCustomInicio}
                 onChange={(e) => setDataCustomInicio(e.target.value)}
-                style={{
-                  border: "1px solid #CBD5E1",
-                  borderRadius: "6px",
-                  padding: "4px 8px",
-                  fontSize: "0.85rem",
-                  color: "#475569",
-                  fontFamily: "inherit",
-                }}
+                className="border border-slate-300 rounded-md py-1 px-2 text-[0.85rem] text-slate-600 outline-none focus:border-[var(--cor-primaria)]"
               />
-              <span
-                style={{
-                  fontSize: "0.85rem",
-                  color: "#64748B",
-                  fontWeight: "600",
-                }}
-              >
+              <span className="text-[0.85rem] text-slate-500 font-semibold">
                 até
               </span>
               <input
                 type="date"
                 value={dataCustomFim}
                 onChange={(e) => setDataCustomFim(e.target.value)}
-                style={{
-                  border: "1px solid #CBD5E1",
-                  borderRadius: "6px",
-                  padding: "4px 8px",
-                  fontSize: "0.85rem",
-                  color: "#475569",
-                  fontFamily: "inherit",
-                }}
+                className="border border-slate-300 rounded-md py-1 px-2 text-[0.85rem] text-slate-600 outline-none focus:border-[var(--cor-primaria)]"
               />
             </div>
           )}
         </div>
       </div>
 
-      {/* ALERTA DE PAGAMENTOS ATRASADOS QUE ABRE O MODAL */}
+      {/* Alerta de pagamentos em atraso */}
       {!loading && metricas.pendentesQtd > 0 && (
         <div
           onClick={() => setIsModalPendentesAberto(true)}
-          style={{
-            backgroundColor: "#FEF2F2",
-            borderLeft: "4px solid #EF4444",
-            padding: "1rem",
-            borderRadius: "8px",
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            marginBottom: "1.5rem",
-            cursor: "pointer",
-            transition: "all 0.2s",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "#FEE2E2")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "#FEF2F2")
-          }
+          className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg flex items-center gap-3 mb-6 cursor-pointer transition-colors hover:bg-red-100"
         >
-          <AlertCircle color="#EF4444" size={24} />
-          <div style={{ flex: 1 }}>
-            <h4 style={{ margin: 0, color: "#991B1B", fontSize: "0.95rem" }}>
+          <AlertCircle className="text-red-500 shrink-0" size={24} />
+          <div className="flex-1">
+            <h4 className="m-0 text-red-900 text-[0.95rem] font-bold">
               Pagamentos em Atraso
             </h4>
-            <p
-              style={{
-                margin: "4px 0 0",
-                color: "#B91C1C",
-                fontSize: "0.85rem",
-              }}
-            >
+            <p className="m-0 mt-1 text-red-700 text-[0.85rem]">
               Existem{" "}
               <strong>
                 {metricas.pendentesQtd} atendimentos de dias anteriores
@@ -483,16 +224,18 @@ export function Dashboard() {
               <strong>{formatarMoeda(metricas.pendentesValor)}</strong>).
             </p>
           </div>
-          <ArrowUpRight color="#EF4444" size={20} />
+          <ArrowUpRight className="text-red-500 shrink-0" size={20} />
         </div>
       )}
 
-      {/* CARDS DE MÉTRICAS COM SKELETONS */}
-      <div className="metrics-grid">
-        <div className="metric-card">
-          <div className="metric-info">
-            <span>ATENDIMENTOS ({labelPeriodo})</span>
-            <h2>
+      {/* Cards de Métricas */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-5 mb-6 max-md:grid-cols-1">
+        <div className="bg-gradient-to-br from-white to-purple-50/50 border border-purple-100 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_8px_rgba(124,58,237,0.05)] transition-all hover:border-[var(--cor-primaria)] hover:shadow-[0_4px_12px_rgba(124,58,237,0.12)] max-md:py-4 max-md:px-5">
+          <div>
+            <span className="text-xs font-bold text-[var(--cor-primaria)] tracking-wider">
+              ATENDIMENTOS ({labelPeriodo})
+            </span>
+            <h2 className="text-[1.75rem] font-bold text-[var(--cor-texto)] mt-1 max-md:text-2xl">
               {loading ? (
                 <Skeleton width="80px" height="36px" />
               ) : (
@@ -500,15 +243,17 @@ export function Dashboard() {
               )}
             </h2>
           </div>
-          <div className="metric-icon blue">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-blue-100 text-blue-700 shrink-0">
             <Calendar size={24} />
           </div>
         </div>
 
-        <div className="metric-card">
-          <div className="metric-info">
-            <span>FATURAMENTO ({labelPeriodo})</span>
-            <h2>
+        <div className="bg-gradient-to-br from-white to-purple-50/50 border border-purple-100 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_8px_rgba(124,58,237,0.05)] transition-all hover:border-[var(--cor-primaria)] hover:shadow-[0_4px_12px_rgba(124,58,237,0.12)] max-md:py-4 max-md:px-5">
+          <div>
+            <span className="text-xs font-bold text-[var(--cor-primaria)] tracking-wider">
+              FATURAMENTO ({labelPeriodo})
+            </span>
+            <h2 className="text-[1.75rem] font-bold text-[var(--cor-texto)] mt-1 max-md:text-2xl">
               {loading ? (
                 <Skeleton width="140px" height="36px" />
               ) : (
@@ -516,15 +261,17 @@ export function Dashboard() {
               )}
             </h2>
           </div>
-          <div className="metric-icon green">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-emerald-100 text-emerald-700 shrink-0">
             <DollarSign size={24} />
           </div>
         </div>
 
-        <div className="metric-card">
-          <div className="metric-info">
-            <span>TICKET MÉDIO</span>
-            <h2>
+        <div className="bg-gradient-to-br from-white to-purple-50/50 border border-purple-100 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_8px_rgba(124,58,237,0.05)] transition-all hover:border-[var(--cor-primaria)] hover:shadow-[0_4px_12px_rgba(124,58,237,0.12)] max-md:py-4 max-md:px-5">
+          <div>
+            <span className="text-xs font-bold text-[var(--cor-primaria)] tracking-wider">
+              TICKET MÉDIO
+            </span>
+            <h2 className="text-[1.75rem] font-bold text-[var(--cor-texto)] mt-1 max-md:text-2xl">
               {loading ? (
                 <Skeleton width="100px" height="36px" />
               ) : (
@@ -532,71 +279,81 @@ export function Dashboard() {
               )}
             </h2>
           </div>
-          <div className="metric-icon purple">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-100 text-purple-700 shrink-0">
             <TrendingUp size={24} />
           </div>
         </div>
       </div>
 
-      <div className="shortcuts-grid">
-        <div className="shortcut-card" onClick={() => navigate("/agenda")}>
-          <div className="shortcut-icon">
+      {/* Atalhos Rápidos */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-5 mb-6 max-md:grid-cols-1">
+        <div
+          className="bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4 cursor-pointer transition-all shadow-sm hover:border-[var(--cor-primaria)] hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(124,58,237,0.1)] hover:bg-purple-50/30"
+          onClick={() => navigate("/agenda")}
+        >
+          <div className="w-11 h-11 rounded-lg bg-[rgba(124,58,237,0.12)] text-[var(--cor-primaria)] flex items-center justify-center shrink-0">
             <Plus size={24} />
           </div>
-          <div className="shortcut-text">
-            <h3>Novo Agendamento</h3>
-            <p>Marcar horário na agenda</p>
+          <div className="flex-1">
+            <h3 className="text-base font-semibold text-[var(--cor-texto)] mb-0.5">
+              Novo Agendamento
+            </h3>
+            <p className="text-sm text-slate-500 m-0">Marcar horário na agenda</p>
           </div>
-          <ArrowUpRight size={20} className="shortcut-arrow" />
+          <ArrowUpRight size={20} className="text-[var(--cor-primaria)] shrink-0" />
         </div>
 
-        <div className="shortcut-card" onClick={() => navigate("/clientes")}>
-          <div className="shortcut-icon secondary">
+        <div
+          className="bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4 cursor-pointer transition-all shadow-sm hover:border-[var(--cor-primaria)] hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(124,58,237,0.1)] hover:bg-purple-50/30"
+          onClick={() => navigate("/clientes")}
+        >
+          <div className="w-11 h-11 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
             <Users size={24} />
           </div>
-          <div className="shortcut-text">
-            <h3>Cadastrar Cliente</h3>
-            <p>Adicionar nova cliente à base</p>
+          <div className="flex-1">
+            <h3 className="text-base font-semibold text-[var(--cor-texto)] mb-0.5">
+              Cadastrar Cliente
+            </h3>
+            <p className="text-sm text-slate-500 m-0">Adicionar nova cliente à base</p>
           </div>
-          <ArrowUpRight size={20} className="shortcut-arrow" />
+          <ArrowUpRight size={20} className="text-[var(--cor-primaria)] shrink-0" />
         </div>
       </div>
 
-      <div className="home-sections-grid">
-        {/* RANKING DE PROFISSIONAIS COM SKELETONS */}
-        <div className="section-box">
-          <div className="section-title">
+      {/* Rankings */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-5 max-md:grid-cols-1">
+        {/* Ranking Funcionárias */}
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center gap-2.5 mb-4 text-[var(--cor-primaria)] border-b-2 border-purple-50 pb-2">
             <Users size={20} />
-            <h3>Atendimentos por Funcionária (Pagos)</h3>
+            <h3 className="text-[1.05rem] font-bold m-0 text-[var(--cor-texto)]">
+              Atendimentos por Funcionária (Pagos)
+            </h3>
           </div>
-          <div className="ranking-list">
+          <div className="flex flex-col">
             {loading ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "12px",
-                }}
-              >
+              <div className="flex flex-col gap-3">
                 {[1, 2, 3].map((i) => (
-                  <Skeleton
-                    key={i}
-                    width="100%"
-                    height="56px"
-                    borderRadius="10px"
-                  />
+                  <Skeleton key={i} width="100%" height="56px" borderRadius="10px" />
                 ))}
               </div>
             ) : rankingProfissionais.length === 0 ? (
-              <p style={{ color: "#64748b", fontSize: "0.9rem" }}>
+              <p className="text-slate-500 text-sm py-4 text-center">
                 Nenhum atendimento pago encontrado.
               </p>
             ) : (
               rankingProfissionais.map((prof) => (
-                <div key={prof.nome} className="ranking-item">
-                  <div className="ranking-detalhes">
-                    <strong>{prof.nome}</strong>
-                    <span>{prof.qtd} atendimentos pagos</span>
+                <div
+                  key={prof.nome}
+                  className="flex items-center justify-between py-3 px-1 border-b border-slate-100 last:border-none"
+                >
+                  <div className="flex flex-col">
+                    <strong className="text-[0.92rem] text-[var(--cor-texto)]">
+                      {prof.nome}
+                    </strong>
+                    <span className="text-xs text-slate-500 mt-0.5">
+                      {prof.qtd} atendimentos pagos
+                    </span>
                   </div>
                 </div>
               ))
@@ -604,42 +361,40 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* RANKING DE SERVIÇOS COM SKELETONS */}
-        <div className="section-box">
-          <div className="section-title">
+        {/* Ranking Serviços */}
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center gap-2.5 mb-4 text-[var(--cor-primaria)] border-b-2 border-purple-50 pb-2">
             <TrendingUp size={20} />
-            <h3>Serviços Mais Procurados</h3>
+            <h3 className="text-[1.05rem] font-bold m-0 text-[var(--cor-texto)]">
+              Serviços Mais Procurados
+            </h3>
           </div>
-          <div className="ranking-list">
+          <div className="flex flex-col">
             {loading ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "12px",
-                }}
-              >
+              <div className="flex flex-col gap-3">
                 {[1, 2, 3].map((i) => (
-                  <Skeleton
-                    key={i}
-                    width="100%"
-                    height="56px"
-                    borderRadius="10px"
-                  />
+                  <Skeleton key={i} width="100%" height="56px" borderRadius="10px" />
                 ))}
               </div>
             ) : rankingServicos.length === 0 ? (
-              <p style={{ color: "#64748b", fontSize: "0.9rem" }}>
+              <p className="text-slate-500 text-sm py-4 text-center">
                 Nenhum serviço pago registrado.
               </p>
             ) : (
               rankingServicos.map((serv) => (
-                <div key={serv.nome} className="ranking-item">
-                  <div className="ranking-detalhes">
-                    <strong>{serv.nome}</strong>
-                    <span>{serv.porcentagem}% da preferência</span>
+                <div
+                  key={serv.nome}
+                  className="flex items-center justify-between py-3 px-1 border-b border-slate-100 last:border-none"
+                >
+                  <div className="flex flex-col">
+                    <strong className="text-[0.92rem] text-[var(--cor-texto)]">
+                      {serv.nome}
+                    </strong>
+                    <span className="text-xs text-slate-500 mt-0.5">
+                      {serv.porcentagem}% da preferência
+                    </span>
                   </div>
-                  <div className="ranking-valor">
+                  <div className="font-bold text-[0.95rem] text-[var(--cor-primaria)]">
                     {formatarMoeda(serv.valorTotal)}
                   </div>
                 </div>
@@ -649,50 +404,32 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* MODAL DE BAIXA DE ATRASADOS CONTINUA NORMAL... */}
+      {/* Modal de Baixa de Atrasados */}
       {isModalPendentesAberto && (
         <div
           className="modal-overlay"
           onClick={() => setIsModalPendentesAberto(false)}
         >
           <div
-            className="modal-box"
+            className="bg-white rounded-xl w-full max-w-[600px] p-6 shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)] animate-[modalAparecer_0.3s_ease-out]"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "600px" }}
           >
-            <div className="modal-header" style={{ marginBottom: "1rem" }}>
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              >
-                <div
-                  style={{
-                    padding: "8px",
-                    backgroundColor: "#FEE2E2",
-                    borderRadius: "8px",
-                    color: "#EF4444",
-                  }}
-                >
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-red-100 rounded-lg text-red-500">
                   <AlertCircle size={24} />
                 </div>
                 <div>
-                  <h2
-                    style={{ margin: 0, fontSize: "1.25rem", color: "#1E293B" }}
-                  >
+                  <h2 className="m-0 text-xl font-bold text-slate-800">
                     Pagamentos em Atraso
                   </h2>
-                  <p
-                    style={{
-                      margin: "2px 0 0",
-                      fontSize: "0.85rem",
-                      color: "#64748B",
-                    }}
-                  >
-                    Dê baixa nos valores que já foram acertados para atualizar o
-                    caixa.
+                  <p className="m-0 mt-0.5 text-xs text-slate-500">
+                    Dê baixa nos valores que já foram acertados para atualizar o caixa.
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 className="btn-fechar"
                 onClick={() => setIsModalPendentesAberto(false)}
               >
@@ -700,16 +437,7 @@ export function Dashboard() {
               </button>
             </div>
 
-            <div
-              style={{
-                maxHeight: "400px",
-                overflowY: "auto",
-                paddingRight: "8px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "10px",
-              }}
-            >
+            <div className="max-h-[400px] overflow-y-auto pr-2 flex flex-col gap-2.5">
               {listaPendentes.map((ag) => {
                 const dataObj = new Date(ag.data_horario);
                 const dataFormatada = `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}`;
@@ -717,91 +445,36 @@ export function Dashboard() {
                 return (
                   <div
                     key={ag.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "16px",
-                      border: "1px solid #E2E8F0",
-                      borderRadius: "10px",
-                      backgroundColor: "#F8FAFC",
-                    }}
+                    className="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-slate-50"
                   >
                     <div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          marginBottom: "4px",
-                        }}
-                      >
-                        <span style={{ fontWeight: "700", color: "#0F172A" }}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-slate-900">
                           {ag.customers?.nome || (ag.customer_id ? "—" : "Venda Balcão")}
                         </span>
-                        <span
-                          style={{
-                            fontSize: "0.8rem",
-                            backgroundColor: "#E2E8F0",
-                            color: "#475569",
-                            padding: "2px 8px",
-                            borderRadius: "12px",
-                            fontWeight: "600",
-                          }}
-                        >
+                        <span className="text-xs bg-slate-200 text-slate-600 py-0.5 px-2 rounded-full font-semibold">
                           {dataFormatada}
                         </span>
                       </div>
-                      <div style={{ fontSize: "0.85rem", color: "#64748B" }}>
-                        {ag.servico}
-                      </div>
+                      <div className="text-sm text-slate-500">{ag.servico}</div>
                     </div>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "16px",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontWeight: "800",
-                          color: "#EF4444",
-                          fontSize: "1.1rem",
-                        }}
-                      >
+                    <div className="flex items-center gap-4">
+                      <span className="font-extrabold text-red-500 text-lg">
                         {formatarMoeda(ag.valor)}
                       </span>
 
                       <button
+                        type="button"
                         onClick={() => {
                           setAgendamentoParaPagamento({
                             id: ag.id,
                             cliente: ag.customers?.nome,
-                            valor: ag.valor
+                            valor: ag.valor,
                           });
                           setIsModalPagamentoAberto(true);
                         }}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          backgroundColor: "#22C55E",
-                          color: "#FFF",
-                          border: "none",
-                          padding: "8px 16px",
-                          borderRadius: "8px",
-                          fontWeight: "600",
-                          cursor: "pointer",
-                          transition: "all 0.2s",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#16A34A")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#22C55E")
-                        }
+                        className="flex items-center gap-1.5 bg-green-500 text-white border-none py-2 px-4 rounded-lg font-semibold cursor-pointer transition-colors hover:bg-green-600"
                       >
                         <CheckCircle2 size={18} />
                         Dar Baixa
@@ -815,7 +488,7 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* MODAL DE PAGAMENTO */}
+      {/* Modal de Pagamento */}
       <ModalPagamento
         isOpen={isModalPagamentoAberto}
         onClose={() => setIsModalPagamentoAberto(false)}
@@ -823,27 +496,22 @@ export function Dashboard() {
         onSave={async (pacotePagamento) => {
           if (agendamentoParaPagamento) {
             try {
-              const { error } = await supabase
-                .from("appointments")
-                .update({
-                  pagamento: "pago",
-                  status: "confirmado",
-                  forma_pagamento: pacotePagamento.metodoPagamento,
-                })
-                .eq("id", agendamentoParaPagamento.id);
-                
-              if (error) throw error;
-              
+              await baixarPagamento({
+                appointmentId: agendamentoParaPagamento.id,
+                tenantId: profile?.tenant_id,
+                metodoPagamento: pacotePagamento.metodoPagamento,
+                valor: agendamentoParaPagamento.valor,
+              });
+
+              toast.success("Pagamento registrado com sucesso!");
               setIsModalPagamentoAberto(false);
-              
+
               if (listaPendentes.length === 1) {
                 setIsModalPendentesAberto(false);
               }
-              
-              carregarDadosPainel();
             } catch (error) {
               console.error("Erro ao registrar pagamento:", error.message);
-              alert("Erro ao registrar pagamento.");
+              toast.error("Erro ao registrar pagamento: " + (error.message || ""));
             }
           }
         }}
