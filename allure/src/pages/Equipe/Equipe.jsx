@@ -336,7 +336,7 @@ export function Equipe() {
               className="bg-slate-50 border border-slate-200 rounded-lg py-[0.7rem] pr-3 pl-9 text-sm outline-none transition-all w-[200px] max-md:w-full focus:border-[var(--cor-primaria)] focus:bg-white"
             />
           </div>
-          <button className="btn-acao-primaria max-md:w-full max-md:justify-center" onClick={abrirModalCadastro}>
+          <button className="bg-gradient-to-br from-[var(--cor-primaria)] to-[#6d28d9] text-white border-none py-3 px-5 rounded-lg text-[0.95rem] font-semibold flex items-center gap-2 cursor-pointer transition-all shadow-[0_4px_12px_rgba(124,58,237,0.25)] hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(124,58,237,0.35)] max-md:w-full max-md:justify-center" onClick={abrirModalCadastro}>
             <UserPlus size={18} />
             <span>Nova Profissional</span>
           </button>
@@ -587,7 +587,7 @@ export function Equipe() {
                 </button>
                 <button
                   type="submit"
-                  className="btn-acao-primaria"
+                  className="bg-gradient-to-br from-[var(--cor-primaria)] to-[#6d28d9] text-white border-none py-3 px-5 rounded-lg text-[0.95rem] font-semibold flex items-center gap-2 cursor-pointer transition-all shadow-[0_4px_12px_rgba(124,58,237,0.25)] hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(124,58,237,0.35)]"
                   disabled={carregandoForm}
                 >
                   {carregandoForm

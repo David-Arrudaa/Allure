@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -18,400 +18,186 @@ import {
   ShoppingBag,
   FileText,
 } from "lucide-react";
-import {
-  fetchPagamentosPeriodo,
-  fetchComissaoProfissional,
-  fetchDesempenhoPeriodo,
-  atualizarComissaoProfissional,
-  buscarProdutoPorNome,
-  ajustarEstoqueProduto,
-  excluirVendaAvulsa,
-} from "../../services/financeiroService";
-import { excluirVendaAvulsa as excluirVendaNormalizada } from "../../services/transacoesService";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Pagination } from "../../components/ui/Pagination";
 import { ModalRecebimentoAvulso } from "../../components/domain/ModalRecebimentoAvulso";
 import { useAuth } from "../../contexts/AuthContext";
-import "./Financeiro.css";
+import { toast } from "../../lib/toast";
+import {
+  useFinanceiroMetricas,
+  useFinanceiroDesempenho,
+  useFinanceiroMutations,
+  METRICAS_VAZIAS,
+} from "../../hooks/useFinanceiro";
+
+const MESES = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+];
 
 export function Financeiro() {
   const { profile } = useAuth();
-  const meses = [
-    "Jan",
-    "Fev",
-    "Mar",
-    "Abr",
-    "Mai",
-    "Jun",
-    "Jul",
-    "Ago",
-    "Set",
-    "Out",
-    "Nov",
-    "Dez",
-  ];
 
   const dataAtual = new Date();
   const [mesSelecionado, setMesSelecionado] = useState(
-    meses[dataAtual.getMonth()],
+    MESES[dataAtual.getMonth()],
   );
   const [anoSelecionado, setAnoSelecionado] = useState(
     dataAtual.getFullYear().toString(),
   );
   const [busca, setBusca] = useState("");
   const [filtroFuncionariaGeral, setFiltroFuncionariaGeral] = useState("");
-  const [loading, setLoading] = useState(true);
-  
+
   const [isModalAvulsoOpen, setIsModalAvulsoOpen] = useState(false);
   const [vendaEditando, setVendaEditando] = useState(null);
   const [vendaParaExcluir, setVendaParaExcluir] = useState(null);
-  const [isExcluindoVenda, setIsExcluindoVenda] = useState(false);
 
-  // ESTADOS DE PAGINAÇÃO (Limite de 20)
+  // Paginação (20 itens)
   const [paginaGeral, setPaginaGeral] = useState(1);
   const [paginaProf, setPaginaProf] = useState(1);
   const itensPorPagina = 20;
 
-  // Estados dos dados gerais
-  const [metricas, setMetricas] = useState({
-    total: 0,
-    pix: 0,
-    dinheiro: 0,
-    cartao: 0,
-  });
-  const [historicoPagamentos, setHistoricoPagamentos] = useState([]);
-
-  // Estados exclusivos do Desempenho (Equipe)
-  const [filtroDesempenho, setFiltroDesempenho] = useState("mes"); // "mes" ou "semana"
-  const [funcionarias, setFuncionarias] = useState([]);
-  const [atendimentosPorProfissional, setAtendimentosPorProfissional] =
-    useState({});
-  const [loadingEquipe, setLoadingEquipe] = useState(false);
-
-  // Controles de interface
+  // Filtro de desempenho da equipe
+  const [filtroDesempenho, setFiltroDesempenho] = useState("mes");
   const [expandirDesempenho, setExpandirDesempenho] = useState(false);
   const [expandirHistorico, setExpandirHistorico] = useState(true);
   const [profSelecionada, setProfSelecionada] = useState(null);
 
+  // Limite de datas para o período geral
+  const { inicioFiltroGeral, fimFiltroGeral } = useMemo(() => {
+    const anoNum = Number(anoSelecionado);
+    if (mesSelecionado === "Ano") {
+      return {
+        inicioFiltroGeral: `${anoNum}-01-01T00:00:00`,
+        fimFiltroGeral: `${anoNum}-12-31T23:59:59`,
+      };
+    }
+    const mesIndex = MESES.indexOf(mesSelecionado);
+    const mesFormatado = String(mesIndex + 1).padStart(2, "0");
+    const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
+    return {
+      inicioFiltroGeral: `${anoNum}-${mesFormatado}-01T00:00:00`,
+      fimFiltroGeral: `${anoNum}-${mesFormatado}-${String(ultimoDiaMes).padStart(2, "0")}T23:59:59`,
+    };
+  }, [mesSelecionado, anoSelecionado]);
+
+  // Limite de datas para o filtro de desempenho
+  const { inicioFiltroDesempenho, fimFiltroDesempenho } = useMemo(() => {
+    if (filtroDesempenho === "semana") {
+      const hoje = new Date();
+      const diaSemana = hoje.getDay();
+      const dataDomingo = new Date(
+        hoje.getFullYear(),
+        hoje.getMonth(),
+        hoje.getDate() - diaSemana,
+      );
+      const dataSabado = new Date(
+        dataDomingo.getFullYear(),
+        dataDomingo.getMonth(),
+        dataDomingo.getDate() + 6,
+      );
+      return {
+        inicioFiltroDesempenho: `${dataDomingo.getFullYear()}-${String(dataDomingo.getMonth() + 1).padStart(2, "0")}-${String(dataDomingo.getDate()).padStart(2, "0")}T00:00:00`,
+        fimFiltroDesempenho: `${dataSabado.getFullYear()}-${String(dataSabado.getMonth() + 1).padStart(2, "0")}-${String(dataSabado.getDate()).padStart(2, "0")}T23:59:59`,
+      };
+    }
+    return {
+      inicioFiltroDesempenho: inicioFiltroGeral,
+      fimFiltroDesempenho: fimFiltroGeral,
+    };
+  }, [filtroDesempenho, inicioFiltroGeral, fimFiltroGeral]);
+
+  // Queries TanStack
+  const {
+    data: dataMetricas,
+    isLoading: loadingGeral,
+  } = useFinanceiroMetricas({
+    inicioFiltro: inicioFiltroGeral,
+    fimFiltro: fimFiltroGeral,
+    profile,
+    busca,
+    filtroFuncionariaGeral,
+  });
+
+  const {
+    data: dataDesempenho,
+    isLoading: loadingEquipe,
+  } = useFinanceiroDesempenho({
+    inicioFiltro: inicioFiltroDesempenho,
+    fimFiltro: fimFiltroDesempenho,
+    profile,
+    busca,
+  });
+
+  const {
+    excluirVenda,
+    isExcluindoVenda,
+    atualizarComissao,
+    invalidarFinanceiro,
+  } = useFinanceiroMutations();
+
+  const metricas = dataMetricas?.metricas || METRICAS_VAZIAS;
+  const historicoPagamentos = dataMetricas?.historicoPagamentos || [];
+  const funcionarias = useMemo(
+    () => dataDesempenho?.funcionarias || [],
+    [dataDesempenho],
+  );
+  const atendimentosPorProfissional =
+    dataDesempenho?.atendimentosPorProfissional || {};
+
+  // Reseta páginas em mudanças de filtro
   useEffect(() => {
     setPaginaGeral(1);
-    carregarMetricasGerais();
   }, [mesSelecionado, anoSelecionado, busca, filtroFuncionariaGeral]);
 
   useEffect(() => {
     setProfSelecionada(null);
-    carregarDesempenhoEquipe();
   }, [mesSelecionado, anoSelecionado, filtroDesempenho, busca]);
 
   useEffect(() => {
     setPaginaProf(1);
   }, [profSelecionada]);
 
-  // 1. CARREGA O FATURAMENTO E HISTÓRICO GERAL
-  const carregarMetricasGerais = async () => {
-    try {
-      setLoading(true);
-      const anoNum = Number(anoSelecionado);
-      let inicioFiltro, fimFiltro;
-
-      if (mesSelecionado === "Ano") {
-        inicioFiltro = `${anoNum}-01-01T00:00:00`;
-        fimFiltro = `${anoNum}-12-31T23:59:59`;
-      } else {
-        const mesIndex = meses.indexOf(mesSelecionado);
-        const mesFormatado = String(mesIndex + 1).padStart(2, "0");
-        const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
-        inicioFiltro = `${anoNum}-${mesFormatado}-01T00:00:00`;
-        fimFiltro = `${anoNum}-${mesFormatado}-${String(ultimoDiaMes).padStart(2, "0")}T23:59:59`;
-      }
-
-      const data = await fetchPagamentosPeriodo({
-        inicioFiltro,
-        fimFiltro,
-        apenasProfissionalId: !profile?.is_admin ? profile.id : null,
-      });
-
-      let sumTotal = 0;
-      let sumPix = 0;
-      let sumDinheiro = 0;
-      let sumCartao = 0;
-      const historicoGeral = [];
-
-      if (data) {
-        data.forEach((item) => {
-          const isVenda =
-            item.duracao === 0 ||
-            String(item.servico || "").toLowerCase().startsWith("venda:");
-          const clienteNome = item.customers?.nome
-            ? item.customers.nome
-            : isVenda
-              ? "Venda Balcão (Avulsa)"
-              : item.customer_id
-                ? "—"
-                : "Não informado";
-          if (busca && !clienteNome.toLowerCase().includes(busca.toLowerCase()))
-            return;
-
-          if (filtroFuncionariaGeral && item.profissionais?.id !== filtroFuncionariaGeral)
-            return;
-
-          const valorNum = Number(item.valor) || 0;
-          sumTotal += valorNum;
-
-          const forma = item.forma_pagamento || "Não informada";
-          const formaStr = forma.toLowerCase();
-
-          if (formaStr === "pix") sumPix += valorNum;
-          else if (formaStr === "dinheiro") sumDinheiro += valorNum;
-          else if (
-            formaStr.includes("crédito") ||
-            formaStr.includes("credito") ||
-            formaStr.includes("débito") ||
-            formaStr.includes("debito") ||
-            formaStr.includes("cartão") ||
-            formaStr.includes("cartao")
-          ) {
-            sumCartao += valorNum;
-          }
-
-          const dataObj = new Date(item.data_horario);
-
-          historicoGeral.push({
-            id: item.id,
-            transacao_id: item.transacao_id,
-            cliente: clienteNome,
-            clienteId: item.customer_id,
-            profissionalId: item.profissional_id,
-            servico: item.servico,
-            valor: formatarMoeda(valorNum),
-            valorNum: valorNum,
-            forma: forma,
-            data: `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}/${dataObj.getFullYear()}`,
-            dataIso: item.data_horario ? item.data_horario.split("T")[0] : "",
-            dataOrd: dataObj.getTime(),
-            isVenda: isVenda,
-          });
-        });
-      }
-
-      let taxaComissaoProf = 50;
-      if (!profile?.is_admin && profile?.id) {
-        const profData = await fetchComissaoProfissional(profile.id);
-        if (profData?.comissao !== undefined && profData?.comissao !== null) {
-          taxaComissaoProf = Number(profData.comissao);
-        }
-      }
-
-      historicoGeral.sort((a, b) => b.dataOrd - a.dataOrd);
-      const comissaoTotal = sumTotal * (taxaComissaoProf / 100);
-      setMetricas({
-        total: sumTotal,
-        pix: sumPix,
-        dinheiro: sumDinheiro,
-        cartao: sumCartao,
-        comissao: comissaoTotal,
-        comissaoTaxa: taxaComissaoProf,
-      });
-      setHistoricoPagamentos(historicoGeral);
-    } catch (error) {
-      console.error("Erro geral:", error.message);
-    } finally {
-      setLoading(false);
+  // Auto-seleciona para funcionária não-admin
+  useEffect(() => {
+    if (!profile?.is_admin && funcionarias.length > 0 && !profSelecionada) {
+      setProfSelecionada(funcionarias[0].id);
+      setExpandirDesempenho(true);
     }
-  };
+  }, [profile, funcionarias, profSelecionada]);
 
   const handleConfirmarExclusaoVenda = async () => {
     if (!vendaParaExcluir || isExcluindoVenda) return;
-    setIsExcluindoVenda(true);
     try {
-      const tenantId = profile?.tenant_id;
-
-      // Se a venda possuir transacao_id vinculado, utiliza a rotina normalizada com devolução de estoque
-      if (vendaParaExcluir.transacao_id && tenantId) {
-        await excluirVendaNormalizada({
-          transacaoId: vendaParaExcluir.transacao_id,
-          tenantId,
-        });
-      } else {
-        // Fallback para vendas legadas
-        if (vendaParaExcluir.servico && tenantId) {
-          const match = vendaParaExcluir.servico.match(
-            /Venda:\s*(.*?)(?:\s*\((\d+)x\))?$/i,
-          );
-          const nomeProd = match
-            ? match[1]?.trim()
-            : vendaParaExcluir.servico.replace(/^Venda:\s*/i, "").trim();
-          const qtd = match && match[2] ? Number(match[2]) : 1;
-
-          if (nomeProd) {
-            const prods = await buscarProdutoPorNome(tenantId, nomeProd);
-            if (prods) {
-              const estoqueAtual = Number(prods.estoque || 0);
-              try {
-                await ajustarEstoqueProduto(prods.id, tenantId, estoqueAtual + qtd);
-              } catch (errEstoque) {
-                console.warn("Falha ao ajustar estoque (comportamento não-bloqueante):", errEstoque.message);
-              }
-            }
-          }
-        }
-        await excluirVendaAvulsa(vendaParaExcluir.id);
-      }
-
+      await excluirVenda({
+        vendaParaExcluir,
+        tenantId: profile?.tenant_id,
+      });
+      toast.success("Venda excluída com sucesso.");
       setVendaParaExcluir(null);
-      await carregarMetricasGerais();
-      await carregarDesempenhoEquipe();
     } catch (err) {
       console.error("Erro ao excluir venda:", err);
-      alert("Erro ao excluir venda: " + (err.message || err));
-    } finally {
-      setIsExcluindoVenda(false);
-    }
-  };
-
-  // 2. CARREGA O DESEMPENHO DA EQUIPE
-  const carregarDesempenhoEquipe = async () => {
-    try {
-      setLoadingEquipe(true);
-      const anoNum = Number(anoSelecionado);
-      let inicioFiltro, fimFiltro;
-
-      if (filtroDesempenho === "semana") {
-        const hoje = new Date();
-        const diaSemana = hoje.getDay();
-
-        const dataDomingo = new Date(
-          hoje.getFullYear(),
-          hoje.getMonth(),
-          hoje.getDate() - diaSemana,
-        );
-        const dataSabado = new Date(
-          dataDomingo.getFullYear(),
-          dataDomingo.getMonth(),
-          dataDomingo.getDate() + 6,
-        );
-
-        inicioFiltro = `${dataDomingo.getFullYear()}-${String(dataDomingo.getMonth() + 1).padStart(2, "0")}-${String(dataDomingo.getDate()).padStart(2, "0")}T00:00:00`;
-        fimFiltro = `${dataSabado.getFullYear()}-${String(dataSabado.getMonth() + 1).padStart(2, "0")}-${String(dataSabado.getDate()).padStart(2, "0")}T23:59:59`;
-      } else {
-        if (mesSelecionado === "Ano") {
-          inicioFiltro = `${anoNum}-01-01T00:00:00`;
-          fimFiltro = `${anoNum}-12-31T23:59:59`;
-        } else {
-          const mesIndex = meses.indexOf(mesSelecionado);
-          const mesFormatado = String(mesIndex + 1).padStart(2, "0");
-          const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
-          inicioFiltro = `${anoNum}-${mesFormatado}-01T00:00:00`;
-          fimFiltro = `${anoNum}-${mesFormatado}-${String(ultimoDiaMes).padStart(2, "0")}T23:59:59`;
-        }
-      }
-
-      const data = await fetchDesempenhoPeriodo({
-        inicioFiltro,
-        fimFiltro,
-        apenasProfissionalId: !profile?.is_admin && profile?.id ? profile.id : null,
-      });
-
-      const mapaDesempenho = {};
-      const mapaAtendimentos = {};
-
-      if (data) {
-        data.forEach((item) => {
-          const profId = item.profissionais?.id || "sem-prof";
-          const profNome = item.profissionais?.nome || "Equipe";
-          const isVendaAvulsa =
-            item.duracao === 0 ||
-            String(item.servico || "").toLowerCase().startsWith("venda:");
-          const clienteNome = item.customers?.nome
-            ? item.customers.nome
-            : isVendaAvulsa
-              ? "Venda Balcão (Avulsa)"
-              : item.customer_id
-                ? "—"
-                : "Não informado";
-          const valorNum = Number(item.valor) || 0;
-
-          const taxaComissao =
-            item.profissionais?.comissao !== undefined &&
-            item.profissionais?.comissao !== null
-              ? Number(item.profissionais.comissao)
-              : 50;
-
-          if (busca && !clienteNome.toLowerCase().includes(busca.toLowerCase()))
-            return;
-
-          if (!mapaDesempenho[profId]) {
-            mapaDesempenho[profId] = {
-              id: profId,
-              nome: profNome,
-              totalProduzidoNum: 0,
-              atendimentos: 0,
-              comissaoPct: taxaComissao,
-            };
-            mapaAtendimentos[profId] = [];
-          }
-
-          mapaDesempenho[profId].totalProduzidoNum += valorNum;
-          mapaDesempenho[profId].atendimentos += 1;
-
-          const dataObj = new Date(item.data_horario);
-          const comissaoItemVal = valorNum * (taxaComissao / 100);
-          mapaAtendimentos[profId].push({
-            id: item.id,
-            cliente: clienteNome,
-            servico: item.servico,
-            valorNum: valorNum,
-            comissaoNum: comissaoItemVal,
-            valor: formatarMoeda(valorNum),
-            comissaoItem: formatarMoeda(comissaoItemVal),
-            data: `${String(dataObj.getDate()).padStart(2, "0")}/${String(dataObj.getMonth() + 1).padStart(2, "0")}/${dataObj.getFullYear()}`,
-            dataOrd: dataObj.getTime(),
-          });
-        });
-      }
-
-      Object.keys(mapaAtendimentos).forEach((id) => {
-        mapaAtendimentos[id].sort((a, b) => b.dataOrd - a.dataOrd);
-      });
-
-      const arrayFuncionarias = Object.values(mapaDesempenho)
-        .map((prof) => {
-          const valorComissaoReal =
-            prof.totalProduzidoNum * (prof.comissaoPct / 100);
-          return {
-            ...prof,
-            totalProduzido: formatarMoeda(prof.totalProduzidoNum),
-            valorReceber: formatarMoeda(valorComissaoReal),
-          };
-        })
-        .sort((a, b) => b.totalProduzidoNum - a.totalProduzidoNum);
-
-      setFuncionarias(arrayFuncionarias);
-      setAtendimentosPorProfissional(mapaAtendimentos);
-
-      if (!profile?.is_admin && arrayFuncionarias.length > 0) {
-        setProfSelecionada(arrayFuncionarias[0].id);
-        setExpandirDesempenho(true);
-      }
-    } catch (error) {
-      console.error("Erro desempenho equipe:", error.message);
-    } finally {
-      setLoadingEquipe(false);
+      toast.error("Erro ao excluir venda: " + (err.message || err));
     }
   };
 
   const handleAtualizarComissao = async (profId, novoValor) => {
-    if (!profId || profId === "sem-prof") return;
-    let valorLimpo = Number(novoValor);
-    if (valorLimpo < 0) valorLimpo = 0;
-    if (valorLimpo > 100) valorLimpo = 100;
-
     try {
-      await atualizarComissaoProfissional(profId, valorLimpo);
-      carregarDesempenhoEquipe();
+      await atualizarComissao({ profId, novoValor });
+      toast.success("Comissão atualizada.");
     } catch (error) {
-      console.error("Erro ao atualizar comissão:", error.message);
-      alert("Erro ao atualizar a porcentagem.");
+      console.error("Erro ao atualizar comissão:", error);
+      toast.error("Erro ao atualizar a porcentagem.");
     }
   };
 
@@ -419,7 +205,7 @@ export function Financeiro() {
     new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
-    }).format(valor);
+    }).format(valor || 0);
 
   const calcularResumoTipos = (idProfissional) => {
     const atendimentos = atendimentosPorProfissional[idProfissional] || [];
@@ -435,16 +221,22 @@ export function Financeiro() {
     if (!prof) return;
 
     const atendimentos = atendimentosPorProfissional[profId] || [];
-
-    // 1. Calcula o período de atendimento/venda formatado
-    let periodoFormatado = "";
+    let periodoFormatado;
     const anoNum = Number(anoSelecionado);
 
     if (filtroDesempenho === "semana") {
       const hoje = new Date();
       const diaSemana = hoje.getDay();
-      const dataDom = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - diaSemana);
-      const dataSab = new Date(dataDom.getFullYear(), dataDom.getMonth(), dataDom.getDate() + 6);
+      const dataDom = new Date(
+        hoje.getFullYear(),
+        hoje.getMonth(),
+        hoje.getDate() - diaSemana,
+      );
+      const dataSab = new Date(
+        dataDom.getFullYear(),
+        dataDom.getMonth(),
+        dataDom.getDate() + 6,
+      );
       const dInicio = `${String(dataDom.getDate()).padStart(2, "0")}/${String(dataDom.getMonth() + 1).padStart(2, "0")}/${dataDom.getFullYear()}`;
       const dFim = `${String(dataSab.getDate()).padStart(2, "0")}/${String(dataSab.getMonth() + 1).padStart(2, "0")}/${dataSab.getFullYear()}`;
       periodoFormatado = `${dInicio} a ${dFim}`;
@@ -452,14 +244,13 @@ export function Financeiro() {
       if (mesSelecionado === "Ano") {
         periodoFormatado = `01/01/${anoNum} a 31/12/${anoNum}`;
       } else {
-        const mesIndex = meses.indexOf(mesSelecionado);
+        const mesIndex = MESES.indexOf(mesSelecionado);
         const mesFormatado = String(mesIndex + 1).padStart(2, "0");
         const ultimoDiaMes = new Date(anoNum, mesIndex + 1, 0).getDate();
         periodoFormatado = `01/${mesFormatado}/${anoNum} a ${String(ultimoDiaMes).padStart(2, "0")}/${mesFormatado}/${anoNum}`;
       }
     }
 
-    // 2. Agrupa os atendimentos por serviço para o descritivo
     const agrupamentoServicos = {};
     let totalQtd = 0;
     let totalValorServicos = 0;
@@ -503,7 +294,7 @@ export function Financeiro() {
           <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; text-align: right; color: #111;">${formatarNum(item.valorTotal)}</td>
           <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; text-align: right; font-weight: 600; color: #111;">${formatarNum(item.comissaoTotal)}</td>
         </tr>
-      `
+      `,
       )
       .join("");
 
@@ -515,23 +306,17 @@ export function Financeiro() {
         <title>Resumo Financeiro - ${prof.nome}</title>
         <style>
           @page { size: A4; margin: 18mm 15mm; }
-          body { 
-            font-family: Arial, Helvetica, sans-serif; 
-            color: #000000; 
-            margin: 0; 
-            padding: 0; 
+          body {
+            font-family: Arial, Helvetica, sans-serif;
+            color: #000000;
+            margin: 0;
+            padding: 0;
             background: #ffffff;
           }
           .topo-header {
             text-align: center;
             margin-bottom: 25px;
             position: relative;
-          }
-          .titulo-empresa {
-            font-size: 16px;
-            font-weight: 700;
-            margin-bottom: 18px;
-            color: #000000;
           }
           .titulo-documento {
             font-size: 14px;
@@ -665,7 +450,7 @@ export function Financeiro() {
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      alert("Por favor, permita popups para gerar e imprimir o PDF.");
+      toast.error("Por favor, permita popups para gerar e imprimir o PDF.");
       return;
     }
 
@@ -702,45 +487,39 @@ export function Financeiro() {
     paginaProf * itensPorPagina,
   );
 
-
   return (
-    <div className="financeiro-container">
-      <div className="financeiro-header">
+    <div className="p-6 bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] min-h-[calc(100vh-3rem)] text-[var(--cor-texto,#334155)] font-['Inter',sans-serif] flex flex-col max-md:p-3.5 print:p-0 print:shadow-none print:border-none print:m-0">
+      {/* Cabeçalho */}
+      <div className="flex justify-between items-center mb-6 pb-4 border-b-2 border-slate-100 flex-wrap gap-4 max-md:flex-col max-md:items-start print:hidden">
         <div>
-          <h2>Controle Financeiro</h2>
-          <p>Gestão de fluxo de caixa e pagamentos</p>
+          <h2 className="text-[1.6rem] font-bold text-[var(--cor-texto,#334155)] tracking-[-0.5px] mb-1 max-md:text-[1.35rem]">
+            Controle Financeiro
+          </h2>
+          <p className="text-slate-500 text-[0.95rem]">
+            Gestão de fluxo de caixa e pagamentos
+          </p>
         </div>
-        <div className="financeiro-header-acoes">
-          <div className="filtro-busca-container">
-            <Search size={16} className="icone-busca" />
+        <div className="flex items-center gap-3 flex-wrap max-md:w-full max-md:justify-start">
+          <div className="relative flex items-center max-md:w-full">
+            <Search size={16} className="absolute left-3 text-slate-400" />
             <input
               type="text"
               placeholder="Buscar cliente..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              className="input-busca"
-              disabled={loading} // Trava a busca enquanto carrega
+              className="bg-slate-50 border border-slate-200 rounded-lg py-2.5 pr-3 pl-9 text-sm text-[var(--cor-texto)] outline-none transition-all w-[200px] focus:border-[var(--cor-primaria)] focus:bg-white max-md:w-full"
+              disabled={loadingGeral}
             />
           </div>
 
           <button
+            type="button"
             onClick={() => setMesSelecionado("Ano")}
-            style={{
-              padding: "0.6rem 1rem",
-              borderRadius: "8px",
-              fontWeight: "600",
-              fontSize: "0.85rem",
-              cursor: "pointer",
-              transition: "all 0.2s",
-              border: "1px solid #CBD5E1",
-              backgroundColor:
-                mesSelecionado === "Ano" ? "var(--cor-primaria)" : "#FFFFFF",
-              color: mesSelecionado === "Ano" ? "#FFFFFF" : "var(--cor-texto)",
-              boxShadow:
-                mesSelecionado === "Ano"
-                  ? "0 4px 12px rgba(199, 75, 103, 0.2)"
-                  : "none",
-            }}
+            className={`py-2.5 px-4 rounded-lg font-semibold text-[0.85rem] cursor-pointer transition-all border ${
+              mesSelecionado === "Ano"
+                ? "bg-[var(--cor-primaria)] text-white border-[var(--cor-primaria)] shadow-[0_4px_12px_rgba(199,75,103,0.2)]"
+                : "bg-white text-[var(--cor-texto)] border-slate-300 hover:border-[var(--cor-primaria)]"
+            }`}
           >
             Ano Todo
           </button>
@@ -748,7 +527,7 @@ export function Financeiro() {
           <select
             value={anoSelecionado}
             onChange={(e) => setAnoSelecionado(e.target.value)}
-            className="select-ano"
+            className="bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-4 text-sm font-semibold text-[var(--cor-texto)] outline-none cursor-pointer focus:border-[var(--cor-primaria)]"
           >
             {anosDisponiveis.map((ano) => (
               <option key={ano} value={ano}>
@@ -756,36 +535,31 @@ export function Financeiro() {
               </option>
             ))}
           </select>
+
           <button
+            type="button"
             onClick={() => {
               setVendaEditando(null);
               setIsModalAvulsoOpen(true);
             }}
-            style={{
-              padding: "0.6rem 1rem",
-              borderRadius: "8px",
-              fontWeight: "600",
-              fontSize: "0.85rem",
-              cursor: "pointer",
-              transition: "all 0.2s",
-              border: "none",
-              backgroundColor: "#22C55E",
-              color: "#FFFFFF",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px"
-            }}
+            className="bg-gradient-to-br from-[var(--cor-primaria)] to-[#6d28d9] text-white border-none py-3 px-5 rounded-lg text-[0.95rem] font-semibold flex items-center gap-2 cursor-pointer transition-all shadow-[0_4px_12px_rgba(124,58,237,0.25)] hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(124,58,237,0.35)] max-md:w-full max-md:justify-center"
           >
             <Plus size={16} /> Nova Venda
           </button>
         </div>
       </div>
 
-      <div className="meses-grid">
-        {meses.map((mes) => (
+      {/* Grid de Meses */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(65px,1fr))] gap-2 mb-6 max-md:grid-cols-4 print:hidden">
+        {MESES.map((mes) => (
           <button
             key={mes}
-            className={`btn-mes ${mesSelecionado === mes ? "ativo" : ""}`}
+            type="button"
+            className={`border rounded-lg py-2.5 text-sm font-semibold cursor-pointer transition-all text-center ${
+              mesSelecionado === mes
+                ? "bg-[var(--cor-primaria)] border-[var(--cor-primaria)] text-white shadow-[0_4px_10px_rgba(124,58,237,0.25)]"
+                : "bg-slate-50 border-slate-200 text-slate-500 hover:border-[var(--cor-primaria)] hover:text-[var(--cor-primaria)]"
+            }`}
             onClick={() => setMesSelecionado(mes)}
           >
             {mes}
@@ -793,111 +567,119 @@ export function Financeiro() {
         ))}
       </div>
 
-      {/* SKELETONS NOS CARDS DE MÉTRICAS */}
-      <div className="metrics-grid">
-        <div className="metric-card destaque">
-          <div className="metric-info">
-            <span>
-              {profile?.is_admin ? "TOTAL FATURADO" : "MEU TOTAL PRODUZIDO"} ({mesSelecionado === "Ano" ? "ANO" : "MÊS"})
+      {/* Cards de Métricas */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5 mb-6 max-md:grid-cols-1 print:page-break-inside-avoid">
+        <div className="bg-gradient-to-br from-white to-purple-50/50 border border-purple-100 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-all hover:border-[var(--cor-primaria)]">
+          <div>
+            <span className="text-xs font-bold text-[var(--cor-primaria)] tracking-wider">
+              {profile?.is_admin ? "TOTAL FATURADO" : "MEU TOTAL PRODUZIDO"} (
+              {mesSelecionado === "Ano" ? "ANO" : "MÊS"})
             </span>
-            <h2>
-              {loading ? (
+            <h2 className="text-[1.5rem] font-bold text-[var(--cor-texto,#334155)] mt-1">
+              {loadingGeral ? (
                 <Skeleton width="120px" height="36px" />
               ) : (
                 formatarMoeda(metricas.total)
               )}
             </h2>
           </div>
-          <div className="metric-icon primary">
+          <div className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center bg-purple-100/60 text-[var(--cor-primaria)]">
             <DollarSign size={24} />
           </div>
         </div>
 
         {!profile?.is_admin ? (
-          <div className="metric-card" style={{ borderColor: "#10B981", backgroundColor: "#F0FDF4" }}>
-            <div className="metric-info">
-              <span style={{ color: "#166534", fontWeight: "700" }}>MINHA COMISSÃO ({metricas.comissaoTaxa || 50}%)</span>
-              <h2 style={{ color: "#15803D" }}>
-                {loading ? (
+          <div className="bg-emerald-50 border border-emerald-500 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-all hover:border-emerald-600">
+            <div>
+              <span className="text-xs font-bold text-emerald-800 tracking-wider">
+                MINHA COMISSÃO ({metricas.comissaoTaxa || 50}%)
+              </span>
+              <h2 className="text-[1.5rem] font-bold text-emerald-700 mt-1">
+                {loadingGeral ? (
                   <Skeleton width="100px" height="36px" />
                 ) : (
                   formatarMoeda(metricas.comissao || 0)
                 )}
               </h2>
             </div>
-            <div className="metric-icon green">
+            <div className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center bg-emerald-100 text-emerald-700">
               <Percent size={24} />
             </div>
           </div>
         ) : (
-          <div className="metric-card">
-            <div className="metric-info">
-              <span>ENTRADAS VIA PIX</span>
-              <h2>
-                {loading ? (
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-all hover:border-[var(--cor-primaria)]">
+            <div>
+              <span className="text-xs font-bold text-slate-500 tracking-wider">
+                ENTRADAS VIA PIX
+              </span>
+              <h2 className="text-[1.5rem] font-bold text-[var(--cor-texto,#334155)] mt-1">
+                {loadingGeral ? (
                   <Skeleton width="100px" height="36px" />
                 ) : (
                   formatarMoeda(metricas.pix)
                 )}
               </h2>
             </div>
-            <div className="metric-icon green">
+            <div className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center bg-emerald-100 text-emerald-700">
               <QrCode size={24} />
             </div>
           </div>
         )}
 
-        <div className="metric-card">
-          <div className="metric-info">
-            <span>{!profile?.is_admin ? "RECEBIDO EM PIX" : "ENTRADAS EM DINHEIRO"}</span>
-            <h2>
-              {loading ? (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-all hover:border-[var(--cor-primaria)]">
+          <div>
+            <span className="text-xs font-bold text-slate-500 tracking-wider">
+              {!profile?.is_admin ? "RECEBIDO EM PIX" : "ENTRADAS EM DINHEIRO"}
+            </span>
+            <h2 className="text-[1.5rem] font-bold text-[var(--cor-texto,#334155)] mt-1">
+              {loadingGeral ? (
                 <Skeleton width="100px" height="36px" />
               ) : (
                 formatarMoeda(!profile?.is_admin ? metricas.pix : metricas.dinheiro)
               )}
             </h2>
           </div>
-          <div className="metric-icon blue">
+          <div className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center bg-blue-100 text-blue-700">
             {!profile?.is_admin ? <QrCode size={24} /> : <Wallet size={24} />}
           </div>
         </div>
 
-        <div className="metric-card">
-          <div className="metric-info">
-            <span>{!profile?.is_admin ? "CARTÃO / DINHEIRO" : "ENTRADAS EM CARTÃO"}</span>
-            <h2>
-              {loading ? (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex justify-between items-center shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-all hover:border-[var(--cor-primaria)]">
+          <div>
+            <span className="text-xs font-bold text-slate-500 tracking-wider">
+              {!profile?.is_admin ? "CARTÃO / DINHEIRO" : "ENTRADAS EM CARTÃO"}
+            </span>
+            <h2 className="text-[1.5rem] font-bold text-[var(--cor-texto,#334155)] mt-1">
+              {loadingGeral ? (
                 <Skeleton width="100px" height="36px" />
               ) : (
-                formatarMoeda(!profile?.is_admin ? (metricas.cartao + metricas.dinheiro) : metricas.cartao)
+                formatarMoeda(
+                  !profile?.is_admin
+                    ? metricas.cartao + metricas.dinheiro
+                    : metricas.cartao,
+                )
               )}
             </h2>
           </div>
-          <div className="metric-icon purple">
+          <div className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center bg-purple-100 text-purple-700">
             <CreditCard size={24} />
           </div>
         </div>
       </div>
 
-      {/* SEÇÃO: DESEMPENHO E COMISSÕES */}
-      <div className="section-box mb-15">
+      {/* Seção: Desempenho e Comissões */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-[0_2px_4px_rgba(0,0,0,0.02)] mb-6 print:p-0 print:shadow-none print:border-none">
         <div
-          className="section-header-clickable"
+          className="flex justify-between items-center cursor-pointer select-none py-1"
           onClick={() => setExpandirDesempenho(!expandirDesempenho)}
         >
-          <div className="section-title">
+          <div className="flex items-center gap-2.5 text-[var(--cor-texto)]">
             <User size={20} />
-            <h3>
-              {profile?.is_admin ? "Comissão e Desempenho da Equipe" : "Minha Comissão e Desempenho"}
-              <span
-                style={{
-                  fontSize: "0.85rem",
-                  color: "#64748B",
-                  marginLeft: "8px",
-                  fontWeight: "500",
-                }}
-              >
+            <h3 className="text-[1.1rem] font-semibold m-0">
+              {profile?.is_admin
+                ? "Comissão e Desempenho da Equipe"
+                : "Minha Comissão e Desempenho"}
+              <span className="text-[0.85rem] text-slate-500 ml-2 font-medium">
                 (
                 {filtroDesempenho === "semana"
                   ? "Semana Atual"
@@ -908,106 +690,57 @@ export function Financeiro() {
               </span>
             </h3>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div className="flex items-center gap-4">
             <div
-              style={{
-                display: "flex",
-                gap: "4px",
-                backgroundColor: "#F1F5F9",
-                padding: "4px",
-                borderRadius: "8px",
-              }}
+              className="flex gap-1 bg-slate-100 p-1 rounded-lg"
               onClick={(e) => e.stopPropagation()}
             >
               <button
+                type="button"
                 onClick={() => setFiltroDesempenho("semana")}
-                style={{
-                  border: "none",
-                  padding: "4px 10px",
-                  borderRadius: "6px",
-                  fontSize: "0.8rem",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  backgroundColor:
-                    filtroDesempenho === "semana" ? "#FFFFFF" : "transparent",
-                  color:
-                    filtroDesempenho === "semana"
-                      ? "var(--cor-primaria)"
-                      : "#64748B",
-                  boxShadow:
-                    filtroDesempenho === "semana"
-                      ? "0 1px 3px rgba(0,0,0,0.1)"
-                      : "none",
-                }}
+                className={`border-none py-1 px-2.5 rounded-md text-xs font-semibold cursor-pointer transition-all ${
+                  filtroDesempenho === "semana"
+                    ? "bg-white text-[var(--cor-primaria)] shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
+                    : "bg-transparent text-slate-500 hover:text-slate-700"
+                }`}
               >
                 Semana Atual
               </button>
               <button
+                type="button"
                 onClick={() => setFiltroDesempenho("mes")}
-                style={{
-                  border: "none",
-                  padding: "4px 10px",
-                  borderRadius: "6px",
-                  fontSize: "0.8rem",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  backgroundColor:
-                    filtroDesempenho === "mes" ? "#FFFFFF" : "transparent",
-                  color:
-                    filtroDesempenho === "mes"
-                      ? "var(--cor-primaria)"
-                      : "#64748B",
-                  boxShadow:
-                    filtroDesempenho === "mes"
-                      ? "0 1px 3px rgba(0,0,0,0.1)"
-                      : "none",
-                }}
+                className={`border-none py-1 px-2.5 rounded-md text-xs font-semibold cursor-pointer transition-all ${
+                  filtroDesempenho === "mes"
+                    ? "bg-white text-[var(--cor-primaria)] shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
+                    : "bg-transparent text-slate-500 hover:text-slate-700"
+                }`}
               >
                 {mesSelecionado === "Ano" ? "Ano Completo" : "Mês Selecionado"}
               </button>
             </div>
 
             {expandirDesempenho ? (
-              <ChevronUp size={20} className="chevron-icon" />
+              <ChevronUp size={20} className="text-slate-400" />
             ) : (
-              <ChevronDown size={20} className="chevron-icon" />
+              <ChevronDown size={20} className="text-slate-400" />
             )}
           </div>
         </div>
 
         {expandirDesempenho && (
-          <div className="section-content">
-            {/* SKELETONS NOS CARDS DE EQUIPE */}
+          <div className="pt-4">
             {loadingEquipe ? (
-              <div className="prof-cards-grid">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-4 mb-4">
                 {[1, 2, 3].map((item) => (
                   <div
                     key={`skel-prof-${item}`}
-                    className="prof-card"
-                    style={{ pointerEvents: "none" }}
+                    className="bg-white border border-slate-200 rounded-lg p-5 flex justify-between items-center pointer-events-none"
                   >
-                    <div
-                      className="prof-card-info"
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
-                      }}
-                    >
+                    <div className="flex flex-col gap-2">
                       <Skeleton width="120px" height="20px" />
                       <Skeleton width="180px" height="14px" />
                     </div>
-                    <div
-                      className="prof-card-valor"
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "flex-end",
-                        gap: "4px",
-                      }}
-                    >
+                    <div className="flex flex-col items-end gap-1">
                       <Skeleton width="80px" height="12px" />
                       <Skeleton width="100px" height="24px" />
                     </div>
@@ -1015,67 +748,39 @@ export function Financeiro() {
                 ))}
               </div>
             ) : funcionarias.length > 0 ? (
-              <div className="prof-cards-grid">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-4 mb-4 max-md:grid-cols-1">
                 {funcionarias.map((prof) => (
                   <div
                     key={prof.id}
-                    className={`prof-card ${profSelecionada === prof.id ? "ativo" : ""}`}
+                    className={`border rounded-lg p-5 flex justify-between items-center cursor-pointer transition-all shadow-[0_2px_4px_rgba(0,0,0,0.02)] ${
+                      profSelecionada === prof.id
+                        ? "border-[var(--cor-primaria)] bg-gradient-to-br from-white to-purple-50/50 shadow-[0_4px_12px_rgba(124,58,237,0.15)]"
+                        : "bg-white border-slate-200 hover:border-[var(--cor-primaria)] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(124,58,237,0.1)]"
+                    }`}
                     onClick={() =>
                       setProfSelecionada(
                         profSelecionada === prof.id ? null : prof.id,
                       )
                     }
                   >
-                    <div className="prof-card-info">
-                      <strong>{prof.nome}</strong>
-                      <span
-                        style={{
-                          display: "flex",
-                          gap: "6px",
-                          flexWrap: "wrap",
-                          alignItems: "center",
-                        }}
-                      >
+                    <div className="flex flex-col">
+                      <strong className="text-[1.05rem] text-[var(--cor-texto,#334155)]">
+                        {prof.nome}
+                      </strong>
+                      <span className="text-xs text-slate-500 mt-1 flex gap-1.5 flex-wrap items-center">
                         {prof.atendimentos}{" "}
                         {prof.atendimentos === 1
                           ? "atendimento"
                           : "atendimentos"}
-                        <span
-                          style={{
-                            width: "4px",
-                            height: "4px",
-                            borderRadius: "50%",
-                            backgroundColor: "#CBD5E1",
-                          }}
-                        ></span>
+                        <span className="w-1 h-1 rounded-full bg-slate-300" />
                         Produzido: {prof.totalProduzido}
                       </span>
                     </div>
-                    <div
-                      className="prof-card-valor"
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "flex-end",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "#64748B",
-                          fontWeight: "600",
-                        }}
-                      >
+                    <div className="flex flex-col items-end justify-center">
+                      <span className="text-[0.75rem] text-slate-500 font-semibold">
                         A RECEBER ({prof.comissaoPct}%)
                       </span>
-                      <strong
-                        style={{
-                          color: "#059669",
-                          fontSize: "1.2rem",
-                          marginTop: "2px",
-                        }}
-                      >
+                      <strong className="text-emerald-600 text-[1.2rem] mt-0.5">
                         {prof.valorReceber}
                       </strong>
                     </div>
@@ -1083,10 +788,7 @@ export function Financeiro() {
                 ))}
               </div>
             ) : (
-              <div
-                className="estado-vazio"
-                style={{ padding: "2rem 0", color: "#64748B" }}
-              >
+              <div className="py-8 text-center text-slate-500">
                 <p>
                   Nenhum atendimento pago registrado neste período para a
                   equipe.
@@ -1095,46 +797,22 @@ export function Financeiro() {
             )}
 
             {profSelecionada && (
-              <div className="prof-detalhes-container">
-                <div className="prof-detalhes-header">
-                  <div className="prof-detalhes-header-info">
-                    <h4>
+              <div className="bg-slate-50 border border-dashed border-slate-300 rounded-lg p-6 mt-4 animate-in fade-in duration-300">
+                <div className="flex justify-between items-start gap-3 flex-wrap mb-5 max-md:flex-col max-md:items-stretch">
+                  <div className="flex-1 min-w-[250px] max-md:min-w-full">
+                    <h4 className="text-[1.15rem] font-bold text-[var(--cor-texto,#334155)] m-0">
                       {profile?.is_admin
                         ? `Histórico Detalhado: ${funcionarias.find((f) => f.id === profSelecionada)?.nome}`
                         : "Meus Atendimentos e Comissões Detalhadas"}
                     </h4>
 
                     {profile?.is_admin ? (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          marginTop: "12px",
-                          backgroundColor: "#F8FAFC",
-                          padding: "8px 12px",
-                          borderRadius: "8px",
-                          border: "1px solid #E2E8F0",
-                          width: "fit-content",
-                        }}
-                      >
-                        <Percent size={16} color="#64748B" />
-                        <label
-                          style={{
-                            fontSize: "0.85rem",
-                            fontWeight: "600",
-                            color: "#475569",
-                          }}
-                        >
+                      <div className="flex items-center gap-2 mt-3 bg-slate-50 py-2 px-3 rounded-lg border border-slate-200 w-fit">
+                        <Percent size={16} className="text-slate-400" />
+                        <label className="text-[0.85rem] font-semibold text-slate-600">
                           Porcentagem de Comissão:
                         </label>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
+                        <div className="flex items-center gap-1">
                           <input
                             type="number"
                             min="0"
@@ -1149,57 +827,36 @@ export function Financeiro() {
                                 e.target.value,
                               )
                             }
-                            style={{
-                              width: "60px",
-                              padding: "6px",
-                              borderRadius: "6px",
-                              border: "1px solid #CBD5E1",
-                              textAlign: "center",
-                              fontWeight: "700",
-                              color: "var(--cor-primaria)",
-                            }}
+                            className="w-[60px] p-1.5 rounded-md border border-slate-300 text-center font-bold text-[var(--cor-primaria)] outline-none focus:border-[var(--cor-primaria)]"
                           />
-                          <span style={{ fontWeight: "700", color: "#64748B" }}>
-                            %
-                          </span>
+                          <span className="font-bold text-slate-500">%</span>
                         </div>
-                        <span
-                          style={{
-                            fontSize: "0.75rem",
-                            color: "#94A3B8",
-                            marginLeft: "8px",
-                          }}
-                        >
+                        <span className="text-xs text-slate-400 ml-2">
                           (Edite e clique fora para salvar)
                         </span>
                       </div>
                     ) : (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          marginTop: "12px",
-                          backgroundColor: "#F0FDF4",
-                          padding: "8px 14px",
-                          borderRadius: "8px",
-                          border: "1px solid #BBF7D0",
-                          width: "fit-content",
-                        }}
-                      >
-                        <Percent size={16} color="#16A34A" />
-                        <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "#166534" }}>
-                          Sua Taxa de Comissão: <strong>{funcionarias.find((f) => f.id === profSelecionada)?.comissaoPct}%</strong>
+                      <div className="flex items-center gap-2 mt-3 bg-emerald-50 py-2 px-3.5 rounded-lg border border-emerald-200 w-fit">
+                        <Percent size={16} className="text-emerald-600" />
+                        <span className="text-[0.85rem] font-semibold text-emerald-800">
+                          Sua Taxa de Comissão:{" "}
+                          <strong>
+                            {
+                              funcionarias.find((f) => f.id === profSelecionada)
+                                ?.comissaoPct
+                            }
+                            %
+                          </strong>
                         </span>
                       </div>
                     )}
                   </div>
 
-                  <div className="prof-detalhes-header-acoes">
+                  <div className="flex items-center gap-2 flex-wrap max-md:w-full max-md:justify-between">
                     <button
                       type="button"
                       onClick={() => gerarRelatorioPDF(profSelecionada)}
-                      className="btn-gerar-relatorio-pdf"
+                      className="inline-flex items-center justify-center gap-1.5 bg-[var(--cor-primaria)] text-white border-none py-2 px-3.5 rounded-lg font-semibold text-[0.85rem] cursor-pointer shadow-[0_2px_6px_rgba(124,58,237,0.2)] transition-all hover:opacity-90 hover:-translate-y-0.5 whitespace-nowrap max-md:flex-1"
                       title="Gerar e Imprimir Relatório em PDF"
                     >
                       <FileText size={16} />
@@ -1208,7 +865,8 @@ export function Financeiro() {
 
                     {profile?.is_admin && (
                       <button
-                        className="btn-fechar"
+                        type="button"
+                        className="bg-transparent border-none text-slate-400 cursor-pointer flex items-center justify-center rounded-full p-1.5 transition-all hover:bg-slate-200 hover:text-rose-600"
                         onClick={() => setProfSelecionada(null)}
                         title="Fechar histórico"
                       >
@@ -1218,53 +876,62 @@ export function Financeiro() {
                   </div>
                 </div>
 
-                <div className="prof-resumo-tags">
-                  <span className="resumo-label">Serviços realizados:</span>
+                <div className="flex items-center flex-wrap gap-3 mb-4 pb-4 border-b border-slate-200">
+                  <span className="text-[0.85rem] text-slate-500 font-medium">
+                    Serviços realizados:
+                  </span>
                   {calcularResumoTipos(profSelecionada).map(
                     ([tipo, quantidade]) => (
-                      <div key={tipo} className="prof-tag">
-                        <strong>{quantidade}</strong> {tipo}
+                      <div
+                        key={tipo}
+                        className="bg-white border border-slate-200 py-1 px-3 rounded-full text-[0.85rem] text-slate-600 shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
+                      >
+                        <strong className="text-[var(--cor-primaria)] mr-1">
+                          {quantidade}
+                        </strong>{" "}
+                        {tipo}
                       </div>
                     ),
                   )}
                 </div>
 
                 {atendimentosDaProf.length > 0 && (
-                  <div className="tabela-financeira mt-10">
+                  <div className="flex flex-col gap-2 overflow-x-auto mt-4">
                     <div
-                      className="tabela-cabecalho prof-table"
-                      style={{ gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr" }}
+                      className="grid py-2 px-4 text-xs font-bold text-slate-500 tracking-wider border-b border-slate-200 min-w-[550px]"
+                      style={{
+                        gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr",
+                      }}
                     >
                       <span>Data</span>
                       <span>Cliente</span>
                       <span>Serviço</span>
-                      <span style={{ textAlign: "right" }}>
-                        Valor Serviço
-                      </span>
-                      <span style={{ textAlign: "right" }}>
+                      <span className="text-right">Valor Serviço</span>
+                      <span className="text-right">
                         {profile?.is_admin ? "Comissão" : "Minha Comissão"}
                       </span>
                     </div>
                     {profPaginado.map((item) => (
                       <div
                         key={item.id}
-                        className="tabela-linha prof-table"
-                        style={{ gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr" }}
+                        className="grid items-center py-3.5 px-4 bg-white border border-slate-200 rounded-lg text-[0.9rem] min-w-[550px]"
+                        style={{
+                          gridTemplateColumns: "1fr 1.8fr 1.8fr 1.2fr 1.2fr",
+                        }}
                       >
-                        <span className="texto-secundario">{item.data}</span>
+                        <span className="text-slate-500 text-[0.85rem]">
+                          {item.data}
+                        </span>
                         <strong>{item.cliente}</strong>
                         <span>
-                          <span className="tag-forma">{item.servico}</span>
+                          <span className="bg-slate-100 py-1 px-2.5 rounded-md text-xs font-semibold text-slate-600">
+                            {item.servico}
+                          </span>
                         </span>
-                        <span
-                          style={{ textAlign: "right", color: "#64748B" }}
-                        >
+                        <span className="text-right text-slate-500">
                           {item.valor}
                         </span>
-                        <span
-                          className="valor-recebido"
-                          style={{ textAlign: "right", color: "#059669", fontWeight: "700" }}
-                        >
+                        <span className="text-right text-emerald-600 font-bold">
                           {item.comissaoItem}
                         </span>
                       </div>
@@ -1286,22 +953,22 @@ export function Financeiro() {
         )}
       </div>
 
-      {/* SEÇÃO: HISTÓRICO GERAL */}
-      <div className="section-box">
+      {/* Seção: Histórico Geral */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-[0_2px_4px_rgba(0,0,0,0.02)] print:p-0 print:shadow-none print:border-none">
         <div
-          className={`section-header-clickable ${expandirHistorico ? "aberto" : ""}`}
+          className="flex justify-between items-center cursor-pointer select-none py-1"
           onClick={() => setExpandirHistorico(!expandirHistorico)}
         >
-          <div className="section-title">
+          <div className="flex items-center gap-2.5 text-[var(--cor-texto)]">
             <Calendar size={20} />
-            <h3>
+            <h3 className="text-[1.1rem] font-semibold m-0">
               Histórico Geral de Recebimentos -{" "}
               {mesSelecionado === "Ano"
                 ? anoSelecionado
                 : `${mesSelecionado}/${anoSelecionado}`}
             </h3>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div className="flex items-center gap-2.5">
             <select
               value={filtroFuncionariaGeral}
               onChange={(e) => {
@@ -1309,43 +976,46 @@ export function Financeiro() {
                 setFiltroFuncionariaGeral(e.target.value);
               }}
               onClick={(e) => e.stopPropagation()}
-              className="select-ano"
-              style={{ fontSize: "0.85rem", padding: "0.4rem 0.6rem" }}
+              className="bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-2.5 text-[0.85rem] font-semibold text-[var(--cor-texto)] outline-none cursor-pointer focus:border-[var(--cor-primaria)]"
             >
               <option value="">Todas as funcionárias</option>
-              {funcionarias.map(f => (
-                <option key={f.id} value={f.id}>{f.nome}</option>
+              {funcionarias.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.nome}
+                </option>
               ))}
             </select>
             {expandirHistorico ? (
-              <ChevronUp size={20} className="chevron-icon" />
+              <ChevronUp size={20} className="text-slate-400" />
             ) : (
-              <ChevronDown size={20} className="chevron-icon" />
+              <ChevronDown size={20} className="text-slate-400" />
             )}
           </div>
         </div>
 
         {expandirHistorico && (
-          <div className="section-content">
-            {/* SKELETONS NA TABELA GERAL */}
-            {loading ? (
-              <div className="tabela-financeira">
-                <div className="tabela-cabecalho geral-table">
+          <div className="pt-4">
+            {loadingGeral ? (
+              <div className="flex flex-col gap-2 overflow-x-auto">
+                <div
+                  className="grid py-2 px-4 text-xs font-bold text-slate-500 tracking-wider border-b border-slate-200 min-w-[620px]"
+                  style={{
+                    gridTemplateColumns: "1.6fr 2fr 1.1fr 1fr 1fr 75px",
+                  }}
+                >
                   <span>Cliente</span>
                   <span>Serviço / Item</span>
                   <span>Forma de Pagto.</span>
                   <span>Data</span>
                   <span>Valor</span>
-                  <span style={{ textAlign: "center" }}>Ações</span>
+                  <span className="text-center">Ações</span>
                 </div>
                 {[1, 2, 3, 4, 5].map((item) => (
                   <div
                     key={`skel-historico-${item}`}
-                    className="tabela-linha geral-table"
+                    className="grid items-center py-3.5 px-4 bg-white border border-slate-200 rounded-lg text-[0.9rem] min-w-[620px]"
                     style={{
-                      display: "grid",
                       gridTemplateColumns: "1.5fr 1.8fr 1fr 1fr 1fr 80px",
-                      alignItems: "center",
                     }}
                   >
                     <Skeleton width="70%" height="20px" />
@@ -1358,37 +1028,56 @@ export function Financeiro() {
                 ))}
               </div>
             ) : historicoPagamentos.length > 0 ? (
-              <div className="tabela-financeira">
-                <div className="tabela-cabecalho geral-table">
+              <div className="flex flex-col gap-2 overflow-x-auto">
+                <div
+                  className="grid py-2 px-4 text-xs font-bold text-slate-500 tracking-wider border-b border-slate-200 min-w-[620px]"
+                  style={{
+                    gridTemplateColumns: "1.6fr 2fr 1.1fr 1fr 1fr 75px",
+                  }}
+                >
                   <span>Cliente</span>
                   <span>Serviço / Item</span>
                   <span>Forma de Pagto.</span>
                   <span>Data</span>
                   <span>Valor</span>
-                  <span style={{ textAlign: "center" }}>Ações</span>
+                  <span className="text-center">Ações</span>
                 </div>
                 {historicoPaginado.map((item) => (
-                  <div key={item.id} className="tabela-linha geral-table">
+                  <div
+                    key={item.id}
+                    className="grid items-center py-3.5 px-4 bg-white border border-slate-200 rounded-lg text-[0.9rem] min-w-[620px]"
+                    style={{
+                      gridTemplateColumns: "1.6fr 2fr 1.1fr 1fr 1fr 75px",
+                    }}
+                  >
                     <strong>{item.cliente}</strong>
-                    <div className="celula-servico-venda">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       {item.isVenda && (
-                        <span className="badge-venda-item">
+                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 border border-emerald-200 text-[0.72rem] font-bold py-0.5 px-1.5 rounded-md whitespace-nowrap">
                           <ShoppingBag size={12} /> Venda
                         </span>
                       )}
-                      <span className="texto-secundario">{item.servico}</span>
+                      <span className="text-slate-500 text-[0.85rem]">
+                        {item.servico}
+                      </span>
                     </div>
                     <span>
-                      <span className="tag-forma">{item.forma}</span>
+                      <span className="bg-slate-100 py-1 px-2 rounded-md text-xs font-semibold text-slate-600">
+                        {item.forma}
+                      </span>
                     </span>
-                    <span className="texto-secundario">{item.data}</span>
-                    <span className="valor-recebido">{item.valor}</span>
-                    <div className="acoes-tabela-venda">
+                    <span className="text-slate-500 text-[0.85rem]">
+                      {item.data}
+                    </span>
+                    <span className="font-bold text-[var(--cor-primaria)]">
+                      {item.valor}
+                    </span>
+                    <div className="flex items-center justify-center gap-1.5">
                       {item.isVenda ? (
                         <>
                           <button
                             type="button"
-                            className="btn-acao-tabela btn-editar-venda"
+                            className="bg-transparent border border-slate-200 rounded-md w-7 h-7 inline-flex items-center justify-center cursor-pointer transition-all text-[var(--cor-primaria,#7c3aed)] hover:bg-purple-50 hover:border-purple-300 hover:scale-105"
                             title="Editar Venda"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1400,7 +1089,7 @@ export function Financeiro() {
                           </button>
                           <button
                             type="button"
-                            className="btn-acao-tabela btn-excluir-venda"
+                            className="bg-transparent border border-slate-200 rounded-md w-7 h-7 inline-flex items-center justify-center cursor-pointer transition-all text-red-500 hover:bg-red-50 hover:border-red-300 hover:scale-105"
                             title="Excluir Venda"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1411,7 +1100,7 @@ export function Financeiro() {
                           </button>
                         </>
                       ) : (
-                        <span className="texto-secundario" style={{ opacity: 0.4 }}>-</span>
+                        <span className="text-slate-500 opacity-40">-</span>
                       )}
                     </div>
                   </div>
@@ -1427,18 +1116,20 @@ export function Financeiro() {
                 )}
               </div>
             ) : (
-              <div className="estado-vazio">
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-slate-400 gap-3">
                 <Calendar size={40} />
-                <p>Nenhum recebimento registrado para este período.</p>
+                <p className="text-[0.95rem] m-0">
+                  Nenhum recebimento registrado para este período.
+                </p>
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* MODAL DE CRIAÇÃO E EDIÇÃO DE VENDA */}
-      <ModalRecebimentoAvulso 
-        isOpen={isModalAvulsoOpen} 
+      {/* Modal de Criação e Edição de Venda */}
+      <ModalRecebimentoAvulso
+        isOpen={isModalAvulsoOpen}
         vendaEditando={vendaEditando}
         onClose={() => {
           setIsModalAvulsoOpen(false);
@@ -1447,30 +1138,32 @@ export function Financeiro() {
         onSave={() => {
           setIsModalAvulsoOpen(false);
           setVendaEditando(null);
-          carregarMetricasGerais();
-          carregarDesempenhoEquipe();
+          invalidarFinanceiro();
         }}
       />
 
-      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE VENDA */}
+      {/* Modal de Confirmação de Exclusão de Venda */}
       {vendaParaExcluir && (
         <div
-          className="modal-overlay"
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
           onClick={() => !isExcluindoVenda && setVendaParaExcluir(null)}
         >
           <div
-            className="modal-box modal-exclusao-venda-box"
+            className="bg-white rounded-xl p-6 max-w-[440px] w-[90%] shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="modal-header">
-              <div className="modal-header-titulo-wrapper">
-                <div className="modal-header-icone icone-excluir-venda">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-red-100 text-red-600">
                   <Trash2 size={20} />
                 </div>
-                <h2>Excluir Venda</h2>
+                <h2 className="text-lg font-bold text-slate-800">
+                  Excluir Venda
+                </h2>
               </div>
               <button
-                className="btn-fechar"
+                type="button"
+                className="bg-transparent border-none text-slate-400 cursor-pointer flex items-center justify-center rounded-full p-1.5 transition-all hover:bg-slate-100 hover:text-red-500"
                 onClick={() => setVendaParaExcluir(null)}
                 disabled={isExcluindoVenda}
               >
@@ -1478,25 +1171,26 @@ export function Financeiro() {
               </button>
             </div>
 
-            <div className="modal-exclusao-venda-conteudo">
-              <p className="texto-aviso-exclusao">
+            <div className="flex flex-col gap-4 py-4">
+              <p className="text-slate-700 text-[0.95rem] leading-[1.45] m-0">
                 Tem certeza que deseja excluir esta venda de{" "}
                 <strong>"{vendaParaExcluir.servico}"</strong> no valor de{" "}
                 <strong>{vendaParaExcluir.valor}</strong>?
               </p>
-              <div className="box-alerta-estoque-devolucao">
-                <AlertCircle size={18} className="icone-alerta-devolucao" />
+              <div className="flex items-start gap-2.5 bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-emerald-800 text-[0.85rem] leading-[1.4]">
+                <AlertCircle size={18} className="shrink-0 text-emerald-600 mt-0.5" />
                 <span>
-                  O valor será debitado do faturamento e as unidades vendidas serão{" "}
+                  O valor será debitado do faturamento e as unidades vendidas
+                  serão{" "}
                   <strong>devolvidas ao estoque do produto</strong>.
                 </span>
               </div>
             </div>
 
-            <div className="modal-footer">
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
               <button
                 type="button"
-                className="btn-cancelar"
+                className="py-2.5 px-4 rounded-lg font-semibold text-sm cursor-pointer transition-all border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                 onClick={() => setVendaParaExcluir(null)}
                 disabled={isExcluindoVenda}
               >
@@ -1504,7 +1198,7 @@ export function Financeiro() {
               </button>
               <button
                 type="button"
-                className="btn-confirmar-exclusao-final"
+                className="py-2.5 px-5 rounded-lg font-semibold text-sm cursor-pointer transition-all border-none bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
                 onClick={handleConfirmarExclusaoVenda}
                 disabled={isExcluindoVenda}
               >
