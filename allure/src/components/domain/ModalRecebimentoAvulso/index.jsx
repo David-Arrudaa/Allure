@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   X,
-  Package,
   User,
+  Users,
   Calendar,
   CreditCard,
   AlertTriangle,
@@ -13,7 +13,6 @@ import {
   PlusCircle,
   Percent,
 } from "lucide-react";
-import { supabase } from "../../../services/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
 import { fetchProdutos } from "../../../services/produtosService";
 import { fetchProfissionais } from "../../../services/equipeService";
