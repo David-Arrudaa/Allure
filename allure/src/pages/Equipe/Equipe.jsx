@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   UserPlus,
   Search,
@@ -9,24 +9,26 @@ import {
   Edit,
   Camera,
 } from "lucide-react";
-import {
-  fetchProfissionais,
-  atualizarOrdemProfissional,
-  criarProfissional,
-  atualizarProfissional,
-  excluirProfissional,
-  criarUsuarioAuth,
-} from "../../services/equipeService";
 import { useAuth } from "../../contexts/AuthContext";
+import { useEquipe } from "../../hooks/useEquipe";
+import { toast } from "../../lib/toast";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { ModalReativarProfissional } from "../../components/domain/ModalReativarProfissional";
-import "./Equipe.css";
 
 export function Equipe() {
   const { user, profile } = useAuth();
   const [busca, setBusca] = useState("");
-  const [equipe, setEquipe] = useState([]);
-  const [carregandoDados, setCarregandoDados] = useState(true);
+
+  const {
+    equipe,
+    isLoading: carregandoDados,
+    criarProfissional,
+    atualizarProfissional,
+    excluirProfissional,
+    reordenarProfissional,
+    criarUsuarioAuth,
+  } = useEquipe();
+
   const [carregandoForm, setCarregandoForm] = useState(false);
 
   // Controle do modal de reativação de login existente
@@ -55,23 +57,6 @@ export function Equipe() {
   // Controles do modal de exclusão
   const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
   const [profParaExcluir, setProfParaExcluir] = useState(null);
-
-  // 1. BUSCAR PROFISSIONAIS NO BANCO DE DADOS
-  const buscarProfissionais = async () => {
-    try {
-      setCarregandoDados(true);
-      const data = await fetchProfissionais();
-      setEquipe(data);
-    } catch (error) {
-      console.error("Erro ao buscar equipe:", error.message);
-    } finally {
-      setCarregandoDados(false);
-    }
-  };
-
-  useEffect(() => {
-    buscarProfissionais();
-  }, []);
 
   // Formata o nome para Primeira Letra Maiúscula
   const formatarNome = (texto) => {
@@ -122,7 +107,7 @@ export function Equipe() {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        alert("A imagem é muito grande. Escolha uma foto com menos de 5MB.");
+        toast.error("A imagem é muito grande. Escolha uma foto com menos de 5MB.");
         return;
       }
       const reader = new FileReader();
@@ -139,8 +124,7 @@ export function Equipe() {
     if (!formFunc.nome || !formFunc.especialidade) return;
 
     if (!editandoId && formFunc.email && formFunc.senha && formFunc.senha.length < 8) {
-      alert("A senha de acesso deve conter no mínimo 8 caracteres para maior segurança.");
-      setCarregandoForm(false);
+      toast.error("A senha de acesso deve conter no mínimo 8 caracteres para maior segurança.");
       return;
     }
 
@@ -163,7 +147,7 @@ export function Equipe() {
                 prof.ordem >= novaOrdem &&
                 prof.ordem < ordemAntiga
               ) {
-                await atualizarOrdemProfissional(prof.id, prof.ordem + 1);
+                await reordenarProfissional({ id: prof.id, novaOrdem: prof.ordem + 1 });
               }
             }
           } else if (novaOrdem > ordemAntiga) {
@@ -173,7 +157,7 @@ export function Equipe() {
                 prof.ordem <= novaOrdem &&
                 prof.ordem > ordemAntiga
               ) {
-                await atualizarOrdemProfissional(prof.id, prof.ordem - 1);
+                await reordenarProfissional({ id: prof.id, novaOrdem: prof.ordem - 1 });
               }
             }
           }
@@ -194,7 +178,8 @@ export function Equipe() {
       };
 
       if (editandoId) {
-        await atualizarProfissional(editandoId, dadosParaSalvar);
+        await atualizarProfissional({ id: editandoId, payload: dadosParaSalvar });
+        toast.success("Profissional atualizada com sucesso!");
       } else {
         // Criar usuário no Auth (sem deslogar o admin)
         if (formFunc.email && formFunc.senha) {
@@ -252,13 +237,13 @@ export function Equipe() {
         }
 
         await criarProfissional(dadosParaSalvar);
+        toast.success("Profissional cadastrada com sucesso!");
       }
 
       setModalAberto(false);
-      buscarProfissionais();
     } catch (error) {
       console.error("Erro ao salvar profissional:", error.message);
-      alert("Erro ao salvar: " + error.message);
+      toast.error("Erro ao salvar: " + error.message);
     } finally {
       setCarregandoForm(false);
     }
@@ -279,13 +264,13 @@ export function Equipe() {
     setCarregandoReativacao(true);
     try {
       await criarProfissional(modalReativarInfo.dadosParaSalvar);
+      toast.success("Profissional reativada com sucesso!");
 
       setModalReativarInfo({ aberto: false });
       setModalAberto(false);
-      buscarProfissionais();
     } catch (error) {
       console.error("Erro ao reativar profissional:", error.message);
-      alert("Erro ao reativar profissional: " + error.message);
+      toast.error("Erro ao reativar profissional: " + error.message);
     } finally {
       setCarregandoReativacao(false);
     }
@@ -303,19 +288,19 @@ export function Equipe() {
   const confirmarExclusao = async () => {
     if (!profParaExcluir) return;
     if (profParaExcluir === profile?.id) {
-      alert("Você não pode excluir o seu próprio usuário administrador.");
+      toast.error("Você não pode excluir o seu próprio usuário administrador.");
       setModalExcluirAberto(false);
       setProfParaExcluir(null);
       return;
     }
     try {
       await excluirProfissional(profParaExcluir);
+      toast.success("Profissional excluída com sucesso!");
       setModalExcluirAberto(false);
       setProfParaExcluir(null);
-      buscarProfissionais();
     } catch (error) {
       console.error("Erro ao excluir profissional:", error.message);
-      alert(
+      toast.error(
         "Não foi possível excluir. Esta profissional já possui agendamentos no sistema.",
       );
     }
@@ -330,69 +315,51 @@ export function Equipe() {
     f.nome.toLowerCase().includes(busca.toLowerCase()),
   );
 
+  const inputClasse =
+    "w-full py-3 px-3 border border-slate-200 rounded-lg outline-none text-[0.95rem] transition-colors focus:border-[var(--cor-primaria)]";
+
   return (
-    <div className="equipe-container">
-      <div className="equipe-header">
+    <div className="bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-6 max-md:p-4 min-h-[calc(100vh-3rem)] max-md:min-h-[calc(100vh-80px)] text-[var(--cor-texto)]">
+      <div className="flex justify-between items-center mb-8 pb-4 border-b-2 border-slate-100 flex-wrap gap-4 max-md:flex-col max-md:items-start">
         <div>
-          <h2>Equipe</h2>
-          <p>Gerencie as profissionais do seu negócio</p>
+          <h2 className="text-[1.6rem] font-bold mb-1">Equipe</h2>
+          <p className="text-slate-500 text-[0.95rem]">Gerencie as profissionais do seu negócio</p>
         </div>
-        <div className="equipe-header-acoes">
-          <div className="filtro-busca-container">
-            <Search size={16} className="icone-busca" />
+        <div className="flex items-center gap-4 max-md:w-full max-md:flex-col max-md:items-stretch">
+          <div className="relative flex items-center max-md:w-full">
+            <Search size={16} className="absolute left-3 text-slate-400" />
             <input
               type="text"
               placeholder="Buscar profissional..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              className="input-busca"
+              className="bg-slate-50 border border-slate-200 rounded-lg py-[0.7rem] pr-3 pl-9 text-sm outline-none transition-all w-[200px] max-md:w-full focus:border-[var(--cor-primaria)] focus:bg-white"
             />
           </div>
-          <button className="btn-acao-primaria" onClick={abrirModalCadastro}>
+          <button className="btn-acao-primaria max-md:w-full max-md:justify-center" onClick={abrirModalCadastro}>
             <UserPlus size={18} />
             <span>Nova Profissional</span>
           </button>
         </div>
       </div>
 
-      <div className="equipe-grid">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-6 max-md:grid-cols-1">
         {carregandoDados ? (
-          /* ========================================================= */
-          /* MÁGICA DOS SKELETONS AQUI - GERANDO 6 CARTÕES FANTASMAS   */
-          /* ========================================================= */
           [1, 2, 3, 4, 5, 6].map((item) => (
             <div
               key={item}
-              className="equipe-card"
+              className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex justify-between items-start"
               style={{ pointerEvents: "none" }}
             >
-              <div className="equipe-card-info">
-                {/* Foto Fantasma */}
+              <div className="flex gap-4 items-start min-w-0 flex-1">
                 <Skeleton width="48px" height="48px" borderRadius="50%" />
-
-                <div
-                  className="info-textos"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "6px",
-                    marginLeft: "8px",
-                  }}
-                >
-                  {/* Nome Fantasma */}
+                <div className="flex flex-col gap-1.5 ml-2">
                   <Skeleton width="130px" height="18px" />
-                  {/* Especialidade Fantasma */}
                   <Skeleton width="90px" height="14px" />
-                  {/* Telefone Fantasma */}
                   <Skeleton width="100px" height="14px" />
                 </div>
               </div>
-
-              <div
-                className="equipe-card-acoes"
-                style={{ display: "flex", gap: "8px" }}
-              >
-                {/* Botões de Ação Fantasmas */}
+              <div className="flex gap-2">
                 <Skeleton width="32px" height="32px" borderRadius="8px" />
                 <Skeleton width="32px" height="32px" borderRadius="8px" />
               </div>
@@ -400,45 +367,42 @@ export function Equipe() {
           ))
         ) : equipeFiltrada.length > 0 ? (
           equipeFiltrada.map((prof) => (
-            <div key={prof.id} className="equipe-card">
-              <div className="equipe-card-info">
+            <div
+              key={prof.id}
+              className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex justify-between items-start transition-all hover:border-[var(--cor-primaria)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] hover:-translate-y-0.5"
+            >
+              <div className="flex gap-4 items-start min-w-0 flex-1">
                 {prof.foto ? (
                   <img
                     src={prof.foto}
                     alt={prof.nome}
-                    className="avatar-img-card"
+                    className="w-[50px] h-[50px] shrink-0 rounded-full object-cover shadow-[0_2px_8px_rgba(0,0,0,0.1)]"
                   />
                 ) : (
-                  <div className="avatar-placeholder">
+                  <div className="w-[50px] h-[50px] shrink-0 rounded-full bg-gradient-to-br from-[var(--cor-primaria)] to-[#6d28d9] text-white flex items-center justify-center text-2xl font-bold">
                     {prof.nome.charAt(0)}
                   </div>
                 )}
 
-                <div className="info-textos">
-                  <h3>
+                <div className="flex flex-col gap-1 min-w-0 flex-1 break-words">
+                  <h3 className="m-0 text-[1.1rem] leading-snug">
                     {prof.nome}{" "}
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "#94a3b8",
-                        fontWeight: "normal",
-                      }}
-                    >
+                    <span className="text-xs text-slate-400 font-normal">
                       (Ordem: {prof.ordem ?? 1})
                     </span>
                   </h3>
-                  <span className="especialidade">
+                  <span className="flex items-center gap-1 text-[0.85rem] text-[var(--cor-primaria)] font-semibold">
                     <Briefcase size={14} /> {prof.especialidade}
                   </span>
-                  <span className="telefone">
+                  <span className="text-[0.85rem] text-slate-500">
                     {prof.telefone || "Sem telefone"}
                   </span>
                 </div>
               </div>
 
-              <div className="equipe-card-acoes">
+              <div className="flex gap-1">
                 <button
-                  className="btn-editar"
+                  className="bg-transparent border-none text-slate-300 cursor-pointer transition-colors p-2 hover:text-[var(--cor-primaria)]"
                   onClick={() => abrirModalEdicao(prof)}
                   title="Editar"
                 >
@@ -446,7 +410,7 @@ export function Equipe() {
                 </button>
                 {prof.id !== profile?.id && (
                   <button
-                    className="btn-excluir"
+                    className="bg-transparent border-none text-slate-300 cursor-pointer transition-colors p-2 hover:text-red-500"
                     onClick={() => abrirModalExcluir(prof.id)}
                     title="Excluir"
                   >
@@ -457,32 +421,25 @@ export function Equipe() {
             </div>
           ))
         ) : (
-          <div
-            className="estado-vazio-equipe"
-            style={{
-              gridColumn: "1 / -1",
-              textAlign: "center",
-              padding: "3rem",
-            }}
-          >
+          <div className="col-span-full text-center p-12 text-slate-400">
             Nenhuma profissional encontrada.
           </div>
         )}
       </div>
 
-      {/* Modais continuam normais daqui para baixo... */}
       {/* Modal de Cadastro / Edição */}
       {modalAberto && (
-        <div className="modal-overlay">
+        <div className="fixed inset-0 bg-[rgba(15,23,42,0.6)] flex items-center justify-center z-[1000] p-4">
           <div
-            className="modal-content"
+            className="bg-white rounded-xl w-full max-w-[450px] p-6 shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)] animate-[modalAparecer_0.3s_ease-out]"
             style={{ maxHeight: "90vh", overflowY: "auto" }}
           >
-            <div className="modal-header">
-              <h3>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="m-0 text-xl font-bold">
                 {editandoId ? "Editar Profissional" : "Cadastrar Profissional"}
               </h3>
               <button
+                type="button"
                 className="btn-fechar"
                 onClick={() => setModalAberto(false)}
               >
@@ -490,31 +447,31 @@ export function Equipe() {
               </button>
             </div>
 
-            <form onSubmit={handleSalvar} className="modal-form">
-              <div className="upload-foto-container">
-                <div className="avatar-preview">
+            <form onSubmit={handleSalvar} className="flex flex-col gap-4">
+              <div className="flex items-center gap-5 mb-2 pb-4 border-b border-dashed border-slate-200">
+                <div className="w-16 h-16 shrink-0 rounded-full overflow-hidden bg-slate-100 border-2 border-slate-200 flex items-center justify-center">
                   {formFunc.foto ? (
-                    <img src={formFunc.foto} alt="Preview" />
+                    <img src={formFunc.foto} alt="Preview" className="w-full h-full object-cover" />
                   ) : (
                     <Camera size={24} color="#94a3b8" />
                   )}
                 </div>
-                <div className="upload-foto-textos">
-                  <label className="btn-secundario upload-label">
+                <div className="flex flex-col gap-2 items-start">
+                  <label className="bg-transparent border border-slate-200 py-2 px-4 rounded-lg font-semibold text-slate-500 cursor-pointer text-[0.85rem] transition-colors hover:bg-slate-50">
                     Escolher Foto
                     <input
                       type="file"
                       accept="image/*"
                       onChange={handleFotoChange}
-                      style={{ display: "none" }}
+                      className="hidden"
                     />
                   </label>
-                  <span className="upload-dica">JPG, PNG. Max 5MB.</span>
+                  <span className="text-xs text-slate-400">JPG, PNG. Max 5MB.</span>
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Nome Completo *</label>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-slate-600">Nome Completo *</label>
                 <input
                   type="text"
                   required
@@ -526,11 +483,12 @@ export function Equipe() {
                       nome: formatarNome(e.target.value),
                     })
                   }
+                  className={inputClasse}
                 />
               </div>
 
-              <div className="form-group">
-                <label>Especialidade *</label>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-slate-600">Especialidade *</label>
                 <input
                   type="text"
                   required
@@ -542,11 +500,12 @@ export function Equipe() {
                       especialidade: formatarNome(e.target.value),
                     })
                   }
+                  className={inputClasse}
                 />
               </div>
 
-              <div className="form-group">
-                <label>Telefone</label>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-slate-600">Telefone</label>
                 <input
                   type="text"
                   placeholder="(00) 00000-0000"
@@ -554,11 +513,12 @@ export function Equipe() {
                   onChange={(e) =>
                     setFormFunc({ ...formFunc, telefone: e.target.value })
                   }
+                  className={inputClasse}
                 />
               </div>
 
-              <div className="form-group">
-                <label>E-mail (Login) *</label>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-slate-600">E-mail (Login) *</label>
                 <input
                   type="email"
                   required
@@ -567,12 +527,13 @@ export function Equipe() {
                   onChange={(e) =>
                     setFormFunc({ ...formFunc, email: e.target.value })
                   }
+                  className={inputClasse}
                 />
               </div>
 
               {!editandoId && (
-                <div className="form-group">
-                  <label>Senha Provisória (Mínimo 8 caracteres) *</label>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold text-slate-600">Senha Provisória (Mínimo 8 caracteres) *</label>
                   <input
                     type="password"
                     required
@@ -582,11 +543,12 @@ export function Equipe() {
                     onChange={(e) =>
                       setFormFunc({ ...formFunc, senha: e.target.value })
                     }
+                    className={inputClasse}
                   />
                 </div>
               )}
 
-              <div className="form-group" style={{ flexDirection: "row", alignItems: "center", gap: "8px", marginTop: "0.5rem" }}>
+              <div className="flex items-center gap-2 mt-2">
                 <input
                   type="checkbox"
                   id="isAdminCheckbox"
@@ -594,15 +556,15 @@ export function Equipe() {
                   onChange={(e) =>
                     setFormFunc({ ...formFunc, is_admin: e.target.checked })
                   }
-                  style={{ width: "auto" }}
+                  className="w-auto"
                 />
-                <label htmlFor="isAdminCheckbox" style={{ marginBottom: 0, cursor: "pointer", fontWeight: "normal" }}>
+                <label htmlFor="isAdminCheckbox" className="mb-0 cursor-pointer font-normal text-sm text-slate-600">
                   Dar permissão de <strong>Administrador</strong> (Pode ver tudo)
                 </label>
               </div>
 
-              <div className="form-group">
-                <label>Ordem de Exibição na Agenda</label>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-slate-600">Ordem de Exibição na Agenda</label>
                 <input
                   type="number"
                   placeholder="Ex: 1"
@@ -610,13 +572,14 @@ export function Equipe() {
                   onChange={(e) =>
                     setFormFunc({ ...formFunc, ordem: e.target.value })
                   }
+                  className={inputClasse}
                 />
               </div>
 
-              <div className="modal-acoes" style={{ marginTop: "1.5rem" }}>
+              <div className="flex justify-end gap-4 mt-6">
                 <button
                   type="button"
-                  className="btn-secundario"
+                  className="bg-transparent border border-slate-200 py-3 px-5 rounded-lg font-semibold cursor-pointer text-slate-500 transition-colors hover:bg-slate-50"
                   onClick={() => setModalAberto(false)}
                   disabled={carregandoForm}
                 >
@@ -641,38 +604,32 @@ export function Equipe() {
 
       {/* Modal de Confirmação de Exclusão */}
       {modalExcluirAberto && (
-        <div className="modal-overlay">
-          <div className="modal-content modal-pequeno">
-            <div className="modal-header">
-              <h3
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  color: "#ef4444",
-                }}
-              >
+        <div className="fixed inset-0 bg-[rgba(15,23,42,0.6)] flex items-center justify-center z-[1000] p-4">
+          <div className="bg-white rounded-xl w-full max-w-[400px] p-6 shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)] animate-[modalAparecer_0.3s_ease-out]">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="flex items-center gap-2 text-red-500 text-xl font-bold m-0">
                 <AlertTriangle size={20} />
                 Excluir Profissional
               </h3>
-              <button className="btn-fechar" onClick={cancelarExclusao}>
+              <button type="button" className="btn-fechar" onClick={cancelarExclusao}>
                 <X size={20} />
               </button>
             </div>
-            <div
-              className="modal-body"
-              style={{ marginBottom: "1.5rem", color: "#475569" }}
-            >
+            <div className="mb-6 text-slate-600">
               <p>
                 Tem certeza que deseja excluir esta profissional? Esta ação não
                 poderá ser desfeita.
               </p>
             </div>
-            <div className="modal-acoes">
-              <button className="btn-secundario" onClick={cancelarExclusao}>
+            <div className="flex justify-end gap-4">
+              <button type="button" className="bg-transparent border border-slate-200 py-3 px-5 rounded-lg font-semibold cursor-pointer text-slate-500 transition-colors hover:bg-slate-50" onClick={cancelarExclusao}>
                 Cancelar
               </button>
-              <button className="btn-acao-perigo" onClick={confirmarExclusao}>
+              <button
+                type="button"
+                className="bg-red-500 text-white border-none py-3 px-5 rounded-lg font-semibold cursor-pointer transition-all shadow-[0_4px_12px_rgba(239,68,68,0.25)] hover:bg-red-600 hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(239,68,68,0.35)]"
+                onClick={confirmarExclusao}
+              >
                 Sim, Excluir
               </button>
             </div>
