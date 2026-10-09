@@ -28,14 +28,8 @@ export function temAcessoModuloCursos(tenantId) {
   if (!tenantId) return false;
   if (TENANTS_COM_CURSOS.includes("*")) return true;
   const cleanId = String(tenantId).trim().toLowerCase();
-  const autorizado = TENANTS_COM_CURSOS.some(
+  return TENANTS_COM_CURSOS.some(
     (id) => String(id).trim().toLowerCase() === cleanId
   );
-  console.info("[Allure Cursos] Verificação de Acesso:", {
-    tenantId,
-    autorizado,
-    tenantsAutorizados: TENANTS_COM_CURSOS,
-  });
-  return autorizado;
 }
 
