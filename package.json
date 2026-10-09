@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "npm --prefix allure run dev",
-    "build": "npm --prefix allure run build",
+    "build": "npm --prefix allure run build && node -e \"const fs = require('fs'); fs.cpSync('allure/dist', 'dist', {recursive: true});\"",
     "lint": "npm --prefix allure run lint",
     "preview": "npm --prefix allure run preview"
   }
