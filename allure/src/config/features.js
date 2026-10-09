@@ -14,6 +14,7 @@
  * ];
  */
 export const TENANTS_COM_CURSOS = [
+  '*', // Habilitado para todos (teste de verificação)
   '2eb7f70a-0310-420a-92b1-b62403c4951e', // Kings
   '11111111-1111-1111-1111-111111111111', // GAB
   'f334805e-00ff-47f5-9612-59e98c45ded2', // Salão de teste
@@ -25,8 +26,8 @@ export const TENANTS_COM_CURSOS = [
  * @returns {boolean}
  */
 export function temAcessoModuloCursos(tenantId) {
-  if (!tenantId) return false;
   if (TENANTS_COM_CURSOS.includes("*")) return true;
+  if (!tenantId) return false;
   const cleanId = String(tenantId).trim().toLowerCase();
   return TENANTS_COM_CURSOS.some(
     (id) => String(id).trim().toLowerCase() === cleanId
