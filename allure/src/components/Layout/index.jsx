@@ -15,8 +15,10 @@ import {
   ChevronLeft,
   ChevronRight,
   BarChart3,
+  GraduationCap,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { temAcessoModuloCursos } from "../../config/features";
 import { ErrorBoundary } from "../ErrorBoundary";
 import logoHeader from "../../assets/logo-header.png";
 import "./Layout.css";
@@ -96,6 +98,13 @@ export function Layout() {
             <Users size={20} />
             <span className="nav-label">Clientes</span>
           </NavLink>
+
+          {temAcessoModuloCursos(profile?.tenant_id) && (
+            <NavLink to="/cursos" className="nav-item" onClick={fecharMenuMobile} title="Cursos">
+              <GraduationCap size={20} />
+              <span className="nav-label">Cursos</span>
+            </NavLink>
+          )}
 
           <NavLink to="/servicos" className="nav-item" onClick={fecharMenuMobile} title="Serviços">
             <Scissors size={20} />

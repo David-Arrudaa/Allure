@@ -8,16 +8,26 @@ import { Clientes } from "../pages/Clientes";
 import { Servicos } from "../pages/Servicos";
 import { Produtos } from "../pages/Produtos/Produtos";
 import { Relatorios } from "../pages/Relatorios/Relatorios";
+import { Cursos } from "../pages/Cursos/Cursos";
 import { PrivateRoute } from "./PrivateRoute";
 import { Layout } from "../components/Layout/index.jsx";
 import { useAuth } from "../contexts/AuthContext";
 import { AgendamentoPublico } from "../pages/AgendamentoPublico/AgendamentoPublico";
 import { Configuracoes } from "../pages/Configuracoes/Configuracoes";
 import { RedefinirSenha } from "../pages/RedefinirSenha";
+import { temAcessoModuloCursos } from "../config/features";
 
 function AdminRoute({ children }) {
   const { user } = useAuth();
   if (!user?.is_admin) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+}
+
+function CursosRoute({ children }) {
+  const { user } = useAuth();
+  if (!temAcessoModuloCursos(user?.tenant_id)) {
     return <Navigate to="/" replace />;
   }
   return children;
@@ -44,6 +54,7 @@ export function AppRoutes() {
           <Route index element={<Home />} />
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/clientes" element={<Clientes />} />
+          <Route path="/cursos" element={<CursosRoute><Cursos /></CursosRoute>} />
           <Route path="/servicos" element={<Servicos />} />
           <Route path="/produtos" element={<AdminRoute><Produtos /></AdminRoute>} />
           {/* Rotas de Finanças e Equipe */}
