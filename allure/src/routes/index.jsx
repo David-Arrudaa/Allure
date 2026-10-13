@@ -9,6 +9,7 @@ import { Servicos } from "../pages/Servicos";
 import { Produtos } from "../pages/Produtos/Produtos";
 import { Relatorios } from "../pages/Relatorios/Relatorios";
 import { Cursos } from "../pages/Cursos/Cursos";
+import { Pacotes } from "../pages/Pacotes/Pacotes";
 import { PrivateRoute } from "./PrivateRoute";
 import { Layout } from "../components/Layout/index.jsx";
 import { useAuth } from "../contexts/AuthContext";
@@ -56,6 +57,7 @@ export function AppRoutes() {
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/cursos" element={<CursosRoute><Cursos /></CursosRoute>} />
           <Route path="/servicos" element={<Servicos />} />
+          <Route path="/pacotes" element={<Pacotes />} />
           <Route path="/produtos" element={<AdminRoute><Produtos /></AdminRoute>} />
           {/* Rotas de Finanças e Equipe */}
           <Route path="/financeiro" element={<Financeiro />} />

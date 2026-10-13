@@ -72,7 +72,7 @@ Consolidado após auditoria de negócio + auditoria técnica (code review).
 |------|--------|---------|
 | Coluna `transacao_itens.profissional_id` | ✅ CONCLUÍDO | Existe, FK para `profissionais` |
 | Backend aceita profissional por item | ✅ CONCLUÍDO | `transacoesService.js` usa `item.profissionalId \|\| profissionalId` no insert e no update |
-| Índice na FK | ❌ NÃO FEITO | Advisor do Supabase sinaliza FK sem índice |
+| Índice na FK | ✅ CONCLUÍDO | Índices criados no banco: `idx_transacao_itens_profissional_id` e `idx_transacao_pagamentos_transacao_id` |
 | UI: seletor de profissional por item | ✅ CONCLUÍDO | `ModalRecebimentoAvulso` agora tem `<select>` de profissional em cada item do carrinho e envia `profissionalId` no `itensPayload` |
 
 ---
@@ -87,7 +87,7 @@ Consolidado após auditoria de negócio + auditoria técnica (code review).
 | Hook `registrarConsumo` | ✅ CONCLUÍDO | Exposto em `useProdutos.js` |
 | Constraint de tipo em `transacoes` | ✅ CONCLUÍDO | Aceita `consumo_interno` e `ajuste_estoque` |
 | Modal de Uso Interno na UI | ✅ CONCLUÍDO | Modal implementado em `Produtos.jsx`: exibe estoque disponível, input com validação de limite, confirmação desabilitada se esgotado e chamada para `registrarConsumo` |
-| UI de configuração das taxas | ❌ NÃO FEITO | Nenhuma tela permite ao admin definir as taxas do tenant. Só editável direto no banco |
+| UI de configuração das taxas | ✅ CONCLUÍDO | Tela de Configurações reativada no menu lateral para administradores; card de Maquininha permite configurar toggle de repasse, taxa de débito (%) e crédito (%) com salvamento direto na tabela `tenants` |
 
 ---
 
@@ -124,7 +124,7 @@ Consolidado após auditoria de negócio + auditoria técnica (code review).
 | Item | Status | Detalhe |
 |------|--------|---------|
 | Agenda pública `/agendar/:tenant_id` | ✅ CONCLUÍDO | Religada ao Supabase: busca serviços e equipe reais do tenant, valida dados da cliente (reusa cadastro ou cria novo) e insere o agendamento em `appointments` como pendente |
-| `Pacotes.jsx` | ❌ NÃO FEITO | Sem rota em `routes/index.jsx`, botões sem ação. **Mas** as RPCs `comprar_pacote` e `usar_sessao_pacote` já existem no banco — é religar, não construir |
+| `Pacotes.jsx` | ✅ CONCLUÍDO | Tela de Pacotes religada e roteada em `/pacotes`: adicionada ao menu lateral, lista pacotes reais do banco, permite cadastro com nome, sessões e valor, e exclusão com feedback |
 | Configurações → WhatsApp (Evolution API) | ❌ NÃO FEITO | Campos na tela, `onSubmit` vazio. **Causa raiz do gap de lembrete automático** — a tela sugere que está ativo |
 | Configurações → Pesquisas de Satisfação | ❌ NÃO FEITO | Card estático, sem coleta |
 

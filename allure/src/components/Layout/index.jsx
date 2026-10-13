@@ -111,6 +111,11 @@ export function Layout() {
             <span className="nav-label">Serviços</span>
           </NavLink>
 
+          <NavLink to="/pacotes" className="nav-item" onClick={fecharMenuMobile} title="Pacotes">
+            <Package size={20} />
+            <span className="nav-label">Pacotes</span>
+          </NavLink>
+
           {profile?.is_admin && (
             <NavLink to="/produtos" className="nav-item" onClick={fecharMenuMobile} title="Produtos">
               <Package size={20} />
@@ -135,17 +140,17 @@ export function Layout() {
             <span className="nav-label">Relatórios</span>
           </NavLink>
 
-          {/*
-          <NavLink
-            to="/configuracoes"
-            className="nav-item"
-            onClick={fecharMenuMobile}
-            title="Configurações"
-          >
-            <Settings size={20} />
-            <span className="nav-label">Configurações</span>
-          </NavLink> 
-          */}
+          {profile?.is_admin && (
+            <NavLink
+              to="/configuracoes"
+              className="nav-item"
+              onClick={fecharMenuMobile}
+              title="Configurações"
+            >
+              <Settings size={20} />
+              <span className="nav-label">Configurações</span>
+            </NavLink>
+          )}
         </nav>
 
         {/* RODAPÉ DO MENU */}
