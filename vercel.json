@@ -1,4 +1,6 @@
 {
+  "buildCommand": "npm --prefix allure run build",
+  "installCommand": "npm --prefix allure install",
   "outputDirectory": "allure/dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

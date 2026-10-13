@@ -1,7 +1,11 @@
 {
   "name": "allure-root",
   "private": true,
+  "workspaces": [
+    "allure"
+  ],
   "scripts": {
+    "install:allure": "npm --prefix allure install",
     "dev": "npm --prefix allure run dev",
     "build": "npm --prefix allure run build",
     "lint": "npm --prefix allure run lint",
