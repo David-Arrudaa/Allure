@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ModalConfirmacaoRetroativo } from "../ModalConfirmacaoRetroativo";
 import { toast } from "../../../lib/toast";
+import { dispararLembreteAutomatico } from "../../../services/whatsappService";
 import "./ModalAgendamento.css";
 
 const agendamentoSchema = z.object({
@@ -548,6 +549,19 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       }
 
       if (resSalvar && resSalvar.error) throw resSalvar.error;
+
+      // Dispara lembrete automático se a Evolution API estiver ativa
+      if (!isBloqueio && telefoneCliente) {
+        const profEncontrado = listaProfissionais.find((p) => String(p.id) === String(profissionalId));
+        dispararLembreteAutomatico({
+          tenantId: tenantIdFinal,
+          nomeCliente: buscaCliente || "Cliente",
+          telefoneCliente,
+          nomeProfissional: profEncontrado?.nome,
+          nomeServico: servico,
+          dataHorario: `${pacotes[0]?.dataStr}T${pacotes[0]?.horaStr}:00`,
+        }).catch((e) => console.warn("Lembrete WhatsApp:", e));
+      }
 
       if (onSave) onSave();
       onClose();

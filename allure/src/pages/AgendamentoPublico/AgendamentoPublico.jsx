@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { supabase } from "../../services/supabase";
+import { dispararLembreteAutomatico } from "../../services/whatsappService";
 
 const agendamentoSchema = z.object({
   serviceId: z.string().min(1, "Selecione um serviço"),
@@ -110,6 +111,17 @@ export function AgendamentoPublico() {
         }]);
 
       if (errApp) throw errApp;
+
+      // Dispara lembrete automático se a Evolution API estiver configurada e ativa
+      const profSel = profissionais.find((p) => String(p.id) === String(data.professionalId));
+      dispararLembreteAutomatico({
+        tenantId: tenant_id,
+        nomeCliente: nomeFormatado,
+        telefoneCliente: telLimpo,
+        nomeProfissional: profSel?.nome,
+        nomeServico: servicoSel?.nome,
+        dataHorario: dataHorarioCompleta,
+      }).catch((e) => console.warn("Lembrete WhatsApp:", e));
 
       setStep(3); // Success page
     } catch (err) {

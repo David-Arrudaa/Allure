@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
-import { MessageCircle, Save, CreditCard, Loader2 } from "lucide-react";
+import { MessageCircle, Save, CreditCard, Loader2, Send } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../services/supabase";
+import {
+  fetchConfigWhatsapp,
+  salvarConfigWhatsapp,
+  enviarMensagemEvolution,
+} from "../../services/whatsappService";
 import { toast } from "../../lib/toast";
 import "./Configuracoes.css";
 
@@ -11,28 +16,54 @@ export function Configuracoes() {
 
   const [loading, setLoading] = useState(true);
   const [salvandoTaxas, setSalvandoTaxas] = useState(false);
+  const [salvandoWhatsapp, setSalvandoWhatsapp] = useState(false);
+  const [enviandoTeste, setEnviandoTeste] = useState(false);
 
   // Estados de taxas de cartão
   const [descontarTaxa, setDescontarTaxa] = useState(false);
   const [taxaDebito, setTaxaDebito] = useState("1.99");
   const [taxaCredito, setTaxaCredito] = useState("3.99");
 
+  // Estados de WhatsApp (Evolution API)
+  const [apiUrl, setApiUrl] = useState("");
+  const [apiToken, setApiToken] = useState("");
+  const [ativoWhatsapp, setAtivoWhatsapp] = useState(false);
+  const [mensagemLembrete, setMensagemLembrete] = useState(
+    "Olá {cliente}, seu agendamento de {servico} com {profissional} está confirmado para {data} às {horario}. Te esperamos!"
+  );
+  const [telefoneTeste, setTelefoneTeste] = useState("");
+
   useEffect(() => {
     async function carregarConfiguracoes() {
       if (!tenantId) return;
       try {
         setLoading(true);
-        const { data, error } = await supabase
-          .from("tenants")
-          .select("taxa_cartao_debito, taxa_cartao_credito, descontar_taxa_cartao_comissao")
-          .eq("id", tenantId)
-          .single();
+        const [resTenant, resWhats] = await Promise.all([
+          supabase
+            .from("tenants")
+            .select("taxa_cartao_debito, taxa_cartao_credito, descontar_taxa_cartao_comissao")
+            .eq("id", tenantId)
+            .single(),
+          fetchConfigWhatsapp(tenantId),
+        ]);
 
-        if (error) throw error;
-        if (data) {
-          setDescontarTaxa(Boolean(data.descontar_taxa_cartao_comissao));
-          setTaxaDebito(data.taxa_cartao_debito !== null ? String(data.taxa_cartao_debito) : "1.99");
-          setTaxaCredito(data.taxa_cartao_credito !== null ? String(data.taxa_cartao_credito) : "3.99");
+        if (resTenant.data) {
+          setDescontarTaxa(Boolean(resTenant.data.descontar_taxa_cartao_comissao));
+          setTaxaDebito(
+            resTenant.data.taxa_cartao_debito !== null ? String(resTenant.data.taxa_cartao_debito) : "1.99"
+          );
+          setTaxaCredito(
+            resTenant.data.taxa_cartao_credito !== null ? String(resTenant.data.taxa_cartao_credito) : "3.99"
+          );
+        }
+
+        if (resWhats) {
+          setApiUrl(resWhats.api_url || "");
+          setApiToken(resWhats.api_token || "");
+          setAtivoWhatsapp(Boolean(resWhats.ativo));
+          if (resWhats.mensagem_lembrete) {
+            setMensagemLembrete(resWhats.mensagem_lembrete);
+          }
         }
       } catch (err) {
         console.error("Erro ao carregar configurações:", err);
@@ -65,6 +96,52 @@ export function Configuracoes() {
       toast.error("Erro ao salvar taxas de cartão.");
     } finally {
       setSalvandoTaxas(false);
+    }
+  };
+
+  const handleSalvarWhatsapp = async (e) => {
+    e.preventDefault();
+    if (!tenantId) return;
+
+    try {
+      setSalvandoWhatsapp(true);
+      await salvarConfigWhatsapp(tenantId, {
+        apiUrl,
+        apiToken,
+        ativo: ativoWhatsapp,
+        mensagemLembrete,
+      });
+
+      toast.success("Configuração de WhatsApp salva com sucesso!");
+    } catch (err) {
+      console.error("Erro ao salvar whatsapp:", err);
+      toast.error("Erro ao salvar integração com WhatsApp.");
+    } finally {
+      setSalvandoWhatsapp(false);
+    }
+  };
+
+  const handleTestarEnvio = async () => {
+    if (!apiUrl.trim() || !apiToken.trim() || !telefoneTeste.trim()) {
+      toast.error("Informe a URL da API, a chave e o número para teste.");
+      return;
+    }
+
+    try {
+      setEnviandoTeste(true);
+      await enviarMensagemEvolution({
+        apiUrl,
+        apiToken,
+        numero: telefoneTeste,
+        texto: "Teste de envio LUZZ: sua integração com a Evolution API está funcionando perfeitamente!",
+      });
+
+      toast.success("Mensagem de teste enviada com sucesso no WhatsApp!");
+    } catch (err) {
+      console.error("Erro no envio de teste:", err);
+      toast.error(`Falha no envio: ${err.message}`);
+    } finally {
+      setEnviandoTeste(false);
     }
   };
 
@@ -149,41 +226,115 @@ export function Configuracoes() {
         <div className="config-card">
           <div className="config-card-header">
             <MessageCircle size={20} color="#16A34A" />
-            <h3>Integração WhatsApp (Evolution API)</h3>
+            <h3>Lembretes Automáticos via WhatsApp (Evolution API)</h3>
           </div>
           <div className="config-card-body">
-            <form className="config-form" onSubmit={(e) => e.preventDefault()}>
-              <div className="config-form-group">
-                <label>Instância ID</label>
+            <form className="config-form" onSubmit={handleSalvarWhatsapp}>
+              <div className="config-checkbox-group" style={{ marginBottom: "1rem" }}>
                 <input
-                  type="text"
-                  placeholder="Ex: luzz-salao-01"
-                />
-              </div>
-
-              <div className="config-form-group">
-                <label>API Key</label>
-                <input
-                  type="password"
-                  placeholder="Sua chave de API da Evolution"
-                />
-              </div>
-
-              <div className="config-checkbox-group">
-                <input
-                  id="auto-feedback"
-                  name="auto-feedback"
+                  id="ativo-whatsapp"
                   type="checkbox"
+                  checked={ativoWhatsapp}
+                  onChange={(e) => setAtivoWhatsapp(e.target.checked)}
                 />
-                <label htmlFor="auto-feedback">
-                  Disparar lembrete e pesquisa de satisfação automaticamente ao concluir atendimento
+                <label htmlFor="ativo-whatsapp">
+                  <strong>Ativar disparos automáticos de WhatsApp</strong>
+                  <span style={{ display: "block", fontSize: "0.8rem", color: "#64748B", marginTop: "2px" }}>
+                    Envia lembretes para os clientes automaticamente ao agendar e confirmar horários.
+                  </span>
                 </label>
               </div>
 
-              <button type="button" className="btn-salvar-config">
-                <Save size={18} />
-                Salvar Configurações
-              </button>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div className="config-form-group">
+                  <label>URL da Evolution API com Instância *</label>
+                  <input
+                    type="text"
+                    value={apiUrl}
+                    onChange={(e) => setApiUrl(e.target.value)}
+                    placeholder="https://api.seudominio.com/message/sendText/sua-instancia"
+                  />
+                  <span style={{ fontSize: "0.75rem", color: "#94A3B8" }}>
+                    Ex: https://evolution.app.br ou com /message/sendText/instancia
+                  </span>
+                </div>
+
+                <div className="config-form-group">
+                  <label>API Key / Global Token *</label>
+                  <input
+                    type="password"
+                    value={apiToken}
+                    onChange={(e) => setApiToken(e.target.value)}
+                    placeholder="Sua chave apikey da Evolution"
+                  />
+                </div>
+              </div>
+
+              <div className="config-form-group" style={{ marginTop: "1rem" }}>
+                <label>Template da Mensagem de Lembrete</label>
+                <textarea
+                  rows={3}
+                  value={mensagemLembrete}
+                  onChange={(e) => setMensagemLembrete(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: "8px",
+                    border: "1px solid #CBD5E1",
+                    fontSize: "0.85rem",
+                    outline: "none",
+                  }}
+                  placeholder="Olá {cliente}, seu agendamento de {servico} com {profissional} está marcado..."
+                />
+                <div style={{ fontSize: "0.75rem", color: "#64748B", marginTop: "4px" }}>
+                  Tags disponíveis: <code>{"{cliente}"}</code>, <code>{"{servico}"}</code>, <code>{"{profissional}"}</code>, <code>{"{data}"}</code>, <code>{"{horario}"}</code>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", marginTop: "1.2rem", flexWrap: "wrap" }}>
+                <button type="submit" className="btn-salvar-config" disabled={salvandoWhatsapp}>
+                  {salvandoWhatsapp ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                  {salvandoWhatsapp ? "Salvando..." : "Salvar Configurações de WhatsApp"}
+                </button>
+              </div>
+
+              {/* TESTE DE ENVIO */}
+              <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px dashed #E2E8F0" }}>
+                <div style={{ fontSize: "0.85rem", fontWeight: "600", color: "#334155", marginBottom: "6px" }}>
+                  Testar Conexão com WhatsApp
+                </div>
+                <div style={{ display: "flex", gap: "8px", maxWidth: "450px" }}>
+                  <input
+                    type="text"
+                    value={telefoneTeste}
+                    onChange={(e) => setTelefoneTeste(e.target.value)}
+                    placeholder="Seu celular: (11) 99999-9999"
+                    style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #CBD5E1", fontSize: "0.85rem" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleTestarEnvio}
+                    disabled={enviandoTeste || !apiUrl || !apiToken}
+                    style={{
+                      padding: "8px 14px",
+                      background: "#16A34A",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "8px",
+                      fontSize: "0.85rem",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      opacity: !apiUrl || !apiToken ? 0.6 : 1,
+                    }}
+                  >
+                    {enviandoTeste ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                    {enviandoTeste ? "Enviando..." : "Enviar Teste"}
+                  </button>
+                </div>
+              </div>
             </form>
           </div>
         </div>

@@ -125,7 +125,7 @@ Consolidado após auditoria de negócio + auditoria técnica (code review).
 |------|--------|---------|
 | Agenda pública `/agendar/:tenant_id` | ✅ CONCLUÍDO | Religada ao Supabase: busca serviços e equipe reais do tenant, valida dados da cliente (reusa cadastro ou cria novo) e insere o agendamento em `appointments` como pendente |
 | `Pacotes.jsx` | ✅ CONCLUÍDO | Tela de Pacotes religada e roteada em `/pacotes`: adicionada ao menu lateral, lista pacotes reais do banco, permite cadastro com nome, sessões e valor, e exclusão com feedback |
-| Configurações → WhatsApp (Evolution API) | ❌ NÃO FEITO | Campos na tela, `onSubmit` vazio. **Causa raiz do gap de lembrete automático** — a tela sugere que está ativo |
+| Configurações → WhatsApp (Evolution API) | ✅ CONCLUÍDO | Integração real implementada: tela permite salvar URL, token e template com tags dinâmicas ({cliente}, {horario}, etc.), teste de disparo com botão na tela, e disparo automático de lembrete em `ModalAgendamento` e `AgendamentoPublico` |
 | Configurações → Pesquisas de Satisfação | ❌ NÃO FEITO | Card estático, sem coleta |
 
 ---
