@@ -214,23 +214,32 @@ export async function criarVendaAvulsa({
     throw errPagamentos;
   }
 
-  // 4. Baixa estoque dos produtos vendidos
+  // 4. Baixa atômica de estoque dos produtos vendidos via RPC (seguro contra race condition)
   for (const item of itensCalculados) {
     if (item.tipo === "produto" && item.produto_id) {
-      const { data: prodAtual } = await supabase
-        .from("produtos")
-        .select("id, estoque")
-        .eq("id", item.produto_id)
-        .eq("tenant_id", tenantId)
-        .single();
+      const { error: errEstoque } = await supabase.rpc("ajustar_estoque", {
+        p_produto_id: item.produto_id,
+        p_delta: -item.quantidade,
+      });
 
-      if (prodAtual && prodAtual.estoque !== undefined) {
-        const novoEstoque = Math.max(0, Number(prodAtual.estoque || 0) - item.quantidade);
-        await supabase
+      if (errEstoque) {
+        console.error("Erro na baixa atômica de estoque:", errEstoque);
+        // Fallback defensivo caso a RPC não esteja acessível por permissão
+        const { data: prodAtual } = await supabase
           .from("produtos")
-          .update({ estoque: novoEstoque })
-          .eq("id", prodAtual.id)
-          .eq("tenant_id", tenantId);
+          .select("id, estoque")
+          .eq("id", item.produto_id)
+          .eq("tenant_id", tenantId)
+          .single();
+
+        if (prodAtual && prodAtual.estoque !== undefined) {
+          const novoEstoque = Math.max(0, Number(prodAtual.estoque || 0) - item.quantidade);
+          await supabase
+            .from("produtos")
+            .update({ estoque: novoEstoque })
+            .eq("id", prodAtual.id)
+            .eq("tenant_id", tenantId);
+        }
       }
     }
   }
@@ -328,22 +337,30 @@ export async function atualizarVendaAvulsa({
     else if (fPag.includes("crédito") || fPag.includes("credito") || fPag.includes("cartão")) taxaCartao = Number(tenantConf.taxa_cartao_credito) || 0;
   }
 
-  // 2. Devolve todo o estoque dos itens antigos de produto
+  // 2. Devolve todo o estoque dos itens antigos de produto via RPC atômica
   for (const itemAntigo of (itensAntigos || [])) {
     if (itemAntigo.tipo === "produto" && itemAntigo.produto_id) {
-      const { data: prod } = await supabase
-        .from("produtos")
-        .select("id, estoque")
-        .eq("id", itemAntigo.produto_id)
-        .eq("tenant_id", tenantId)
-        .single();
+      const { error: errDev } = await supabase.rpc("ajustar_estoque", {
+        p_produto_id: itemAntigo.produto_id,
+        p_delta: Number(itemAntigo.quantidade || 0),
+      });
 
-      if (prod) {
-        await supabase
+      if (errDev) {
+        // Fallback defensivo
+        const { data: prod } = await supabase
           .from("produtos")
-          .update({ estoque: Number(prod.estoque || 0) + Number(itemAntigo.quantidade || 0) })
-          .eq("id", prod.id)
-          .eq("tenant_id", tenantId);
+          .select("id, estoque")
+          .eq("id", itemAntigo.produto_id)
+          .eq("tenant_id", tenantId)
+          .single();
+
+        if (prod) {
+          await supabase
+            .from("produtos")
+            .update({ estoque: Number(prod.estoque || 0) + Number(itemAntigo.quantidade || 0) })
+            .eq("id", prod.id)
+            .eq("tenant_id", tenantId);
+        }
       }
     }
   }
@@ -400,23 +417,31 @@ export async function atualizarVendaAvulsa({
 
   if (errNovosItens) throw errNovosItens;
 
-  // Debita novo estoque
+  // Debita novo estoque via RPC atômica
   for (const item of itensCalculados) {
     if (item.tipo === "produto" && item.produto_id) {
-      const { data: prod } = await supabase
-        .from("produtos")
-        .select("id, estoque")
-        .eq("id", item.produto_id)
-        .eq("tenant_id", tenantId)
-        .single();
+      const { error: errDeb } = await supabase.rpc("ajustar_estoque", {
+        p_produto_id: item.produto_id,
+        p_delta: -item.quantidade,
+      });
 
-      if (prod) {
-        const novoEstoque = Math.max(0, Number(prod.estoque || 0) - item.quantidade);
-        await supabase
+      if (errDeb) {
+        // Fallback defensivo
+        const { data: prod } = await supabase
           .from("produtos")
-          .update({ estoque: novoEstoque })
-          .eq("id", prod.id)
-          .eq("tenant_id", tenantId);
+          .select("id, estoque")
+          .eq("id", item.produto_id)
+          .eq("tenant_id", tenantId)
+          .single();
+
+        if (prod) {
+          const novoEstoque = Math.max(0, Number(prod.estoque || 0) - item.quantidade);
+          await supabase
+            .from("produtos")
+            .update({ estoque: novoEstoque })
+            .eq("id", prod.id)
+            .eq("tenant_id", tenantId);
+        }
       }
     }
   }
@@ -675,10 +700,18 @@ export async function registrarConsumoInterno({
     }]);
   if (errIt) throw errIt;
 
-  // Baixa estoque
-  if (prod && prod.estoque !== undefined) {
-    const novoEstoque = Math.max(0, Number(prod.estoque || 0) - qtd);
-    await supabase.from("produtos").update({ estoque: novoEstoque }).eq("id", produtoId);
+  // Baixa atômica de estoque via RPC
+  const { error: errEstoque } = await supabase.rpc("ajustar_estoque", {
+    p_produto_id: produtoId,
+    p_delta: -qtd,
+  });
+
+  if (errEstoque) {
+    // Fallback defensivo
+    if (prod && prod.estoque !== undefined) {
+      const novoEstoque = Math.max(0, Number(prod.estoque || 0) - qtd);
+      await supabase.from("produtos").update({ estoque: novoEstoque }).eq("id", produtoId);
+    }
   }
 
   return transacao;

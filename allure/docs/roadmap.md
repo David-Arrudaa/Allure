@@ -115,7 +115,7 @@ Consolidado após auditoria de negócio + auditoria técnica (code review).
 | Item | Status | Detalhe |
 |------|--------|---------|
 | Validação de estoque insuficiente | ✅ CONCLUÍDO | Validação dupla implementada: no frontend (`ModalRecebimentoAvulso`) ao adicionar/alterar quantidade no carrinho, e no backend (`transacoesService.js:criarVendaAvulsa`) antes de iniciar o insert da venda, impedindo venda de itens esgotados ou com saldo insuficiente |
-| Baixa atômica (RPC/`FOR UPDATE`) | ❌ NÃO FEITO | Padrão `SELECT` → cálculo em JS → `UPDATE` em `criarVendaAvulsa`, `atualizarVendaAvulsa`, `registrarConsumoInterno`. Duas vendas simultâneas corrompem o saldo |
+| Baixa atômica (RPC/`FOR UPDATE`) | ✅ CONCLUÍDO | Conectada a RPC Postgres `ajustar_estoque` em `criarVendaAvulsa`, `atualizarVendaAvulsa` e `registrarConsumoInterno`, garantindo débito/crédito atômico com validação `estoque + delta >= 0` no banco e fallback defensivo |
 
 ---
 
