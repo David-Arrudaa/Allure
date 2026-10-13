@@ -130,27 +130,20 @@ Consolidado após auditoria de negócio + auditoria técnica (code review).
 
 ---
 
-## Gaps de negócio (nunca iniciados)
+## Gaps de negócio (Mapeamento Estratégico para Próximas Sprints)
 
-Priorizados pela ótica de dono de salão:
-
-| # | Gap | Impacto se não resolver |
-|---|-----|------------------------|
-| G1 | Lembrete automático de agendamento | No-show é a maior fonte de prejuízo de agenda em salão pequeno; hoje 100% manual |
-| G2 | Agenda pública funcional | Perde reserva fora do horário comercial; risco reputacional com o mockup no ar |
-| G3 | Pacotes/assinaturas recorrentes | Sem receita recorrente previsível nem caixa antecipado |
-| G4 | DRE / controle de despesas | Mostra faturamento e comissão, não lucro — preço e contratação no achismo |
-| G5 | Política de no-show + contagem de faltas | Falta recorrente normalizada, sem dado para agir |
-| G6 | Validade e fornecedor/custo de produto | Perda por vencimento; margem real de revenda desconhecida (sem CMV) |
-| G7 | Horário de trabalho, folga, almoço recorrente | "Pausa" é bloqueio manual um a um; risco de overbooking |
-| G8 | Fila de espera | Horário vago por cancelamento não é reaproveitado |
-| G9 | Meta de vendas por profissional | Sem gestão de performance individual |
-| G10 | Alerta de estoque baixo | Ruptura sem aviso |
-| G11 | Fidelidade/pontos | Sem alavanca de retenção estruturada |
-| G12 | Split de conta entre clientes distintos | Diferente do pagamento misto (múltiplas *formas* ≠ múltiplos *pagadores*) |
-| G13 | Múltiplas unidades na mesma conta | Arquitetura multi-tenant existe, mas sem troca de filial nem consolidação de rede |
-| G14 | Anamnese/ficha técnica por serviço | Responsabilidade técnica em procedimento químico/estético |
-| G15 | Aniversariantes do dia/mês | Oportunidade de contato perdida |
+| # | Gap | Status | Impacto no Negócio & Requisitos |
+|---|-----|--------|---------------------------------|
+| G1 | Lembrete automático de agendamento | ✅ CONCLUÍDO | Integrado com Evolution API, envio automático ao agendar e tela de configuração/teste ativa |
+| G2 | Agenda pública funcional | ✅ CONCLUÍDO | Rota `/agendar/:tenant_id` conectada ao catálogo real e gravando em `appointments` |
+| G3 | Pacotes/assinaturas recorrentes | ✅ CONCLUÍDO | Módulo `/pacotes` conectado ao banco com listagem e criação de pacotes de sessões |
+| G4 | DRE / Controle de Despesas | 📋 BACKLOG PRIORITÁRIO | Cadastrar plano de contas simples (Aluguel, Energia, Água, Produtos, Folha) e lançamentos de saídas em tabela `despesas`. Necessário para calcular Lucro Líquido Real (Faturamento - Comissões - Despesas) no Financeiro |
+| G5 | Horário de trabalho, folga e almoço | 📋 BACKLOG PRIORITÁRIO | Criar tabela `profissionais_jornada` (dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim) para bloquear automaticamente slots na Agenda sem exigir criação manual de blocos diários de pausa |
+| G6 | Fila de espera inteligente | 📋 BACKLOG | Tabela `fila_espera` (cliente_id, servico_id, profissional_id, data_preferencial). Ao cancelar agendamento, sugerir preenchimento imediato para clientes da fila via WhatsApp |
+| G7 | Política de No-Show & Taxa de Falta | 📋 BACKLOG | Armazenar contagem de faltas no perfil da cliente (`customers.total_no_shows`) e alertar a recepção na criação do agendamento quando a cliente for reincidente |
+| G8 | Gestão de Validade e Fornecedor | 📋 BACKLOG | Adicionar `data_validade`, `lote` e `fornecedor_id` no cadastro de produtos para alerta preventivo de produtos vencidos no lavatório |
+| G9 | Meta de vendas por profissional | 📋 BACKLOG FUTURO | Metas mensais em `profissionais.meta_mensal` com barra de progresso no painel da colaboradora |
+| G10 | Split de conta entre múltiplos clientes | 📋 BACKLOG FUTURO | Permitir dividir os pagamentos de uma comanda entre 2 ou mais clientes pagadores |
 
 ---
 
