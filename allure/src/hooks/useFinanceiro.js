@@ -120,8 +120,8 @@ export function useFinanceiroMetricas({
       let taxaComissaoProf = 50;
       if (!profile?.is_admin && profile?.id) {
         const profData = await fetchComissaoProfissional(profile.id);
-        if (profData?.comissao !== undefined && profData?.comissao !== null) {
-          taxaComissaoProf = Number(profData.comissao);
+        if (profData?.comissao_servicos !== undefined && profData?.comissao_servicos !== null) {
+          taxaComissaoProf = Number(profData.comissao_servicos);
         }
       }
 
@@ -186,11 +186,13 @@ export function useFinanceiroDesempenho({
                 : "Não informado";
           const valorNum = Number(item.valor) || 0;
 
-          const taxaComissao =
-            item.profissionais?.comissao !== undefined &&
-            item.profissionais?.comissao !== null
-              ? Number(item.profissionais.comissao)
-              : 50;
+          const taxaComissao = isVendaAvulsa
+            ? (item.profissionais?.comissao_produtos !== undefined && item.profissionais?.comissao_produtos !== null
+                ? Number(item.profissionais.comissao_produtos)
+                : 0)
+            : (item.profissionais?.comissao_servicos !== undefined && item.profissionais?.comissao_servicos !== null
+                ? Number(item.profissionais.comissao_servicos)
+                : 50);
 
           if (busca && !clienteNome.toLowerCase().includes(busca.toLowerCase()))
             return;
@@ -200,17 +202,19 @@ export function useFinanceiroDesempenho({
               id: profId,
               nome: profNome,
               totalProduzidoNum: 0,
+              totalComissaoNum: 0,
               atendimentos: 0,
               comissaoPct: taxaComissao,
             };
             mapaAtendimentos[profId] = [];
           }
 
+          const comissaoItemVal = valorNum * (taxaComissao / 100);
           mapaDesempenho[profId].totalProduzidoNum += valorNum;
+          mapaDesempenho[profId].totalComissaoNum += comissaoItemVal;
           mapaDesempenho[profId].atendimentos += 1;
 
           const dataObj = new Date(item.data_horario);
-          const comissaoItemVal = valorNum * (taxaComissao / 100);
           mapaAtendimentos[profId].push({
             id: item.id,
             cliente: clienteNome,
@@ -231,8 +235,7 @@ export function useFinanceiroDesempenho({
 
       const arrayFuncionarias = Object.values(mapaDesempenho)
         .map((prof) => {
-          const valorComissaoReal =
-            prof.totalProduzidoNum * (prof.comissaoPct / 100);
+          const valorComissaoReal = prof.totalComissaoNum;
           return {
             ...prof,
             totalProduzido: formatarMoeda(prof.totalProduzidoNum),

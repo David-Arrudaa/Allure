@@ -10,12 +10,20 @@ export async function fetchServicos() {
 }
 
 export async function createServico(payload) {
+  // Converte string vazia pra null pro DB
+  if (payload.comissao_percentual === "") {
+    payload.comissao_percentual = null;
+  }
   const { data, error } = await supabase.from("servicos").insert([payload]).select().single();
   if (error) throw error;
   return data;
 }
 
 export async function updateServico(id, payload) {
+  // Converte string vazia pra null pro DB
+  if (payload.comissao_percentual === "") {
+    payload.comissao_percentual = null;
+  }
   const { data, error } = await supabase.from("servicos").update(payload).eq("id", id).select().single();
   if (error) throw error;
   return data;

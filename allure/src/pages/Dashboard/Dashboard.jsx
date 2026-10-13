@@ -22,7 +22,8 @@ export function Dashboard() {
   const { profile } = useAuth();
   const hojeFormatoInput = new Date().toISOString().split("T")[0];
 
-  const [filtroPeriodo, setFiltroPeriodo] = useState("mes");
+  // Abre no caixa do dia: é a pergunta mais frequente ao fim do expediente.
+  const [filtroPeriodo, setFiltroPeriodo] = useState("hoje");
   const [dataCustomInicio, setDataCustomInicio] = useState(hojeFormatoInput);
   const [dataCustomFim, setDataCustomFim] = useState(hojeFormatoInput);
 

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { supabase } from "../../services/supabase";
 
 const agendamentoSchema = z.object({
   serviceId: z.string().min(1, "Selecione um serviço"),
@@ -14,9 +15,14 @@ const agendamentoSchema = z.object({
 });
 
 export function AgendamentoPublico() {
-  const { tenant_id: _tenant_id } = useParams();
+  const { tenant_id } = useParams();
   const [step, setStep] = useState(1); // 1: Detalhes, 2: Dados Pessoais, 3: Confirmacao
-  
+  const [servicos, setServicos] = useState([]);
+  const [profissionais, setProfissionais] = useState([]);
+  const [loadingDados, setLoadingDados] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [erroMsg, setErroMsg] = useState("");
+
   const { register, handleSubmit, formState: { errors }, trigger } = useForm({
     resolver: zodResolver(agendamentoSchema),
     defaultValues: {
@@ -29,9 +35,89 @@ export function AgendamentoPublico() {
     }
   });
 
-  const onSubmit = (data) => {
-    console.log("Submitting appointment...", data);
-    setStep(3); // Success page
+  useEffect(() => {
+    async function carregarCatalogo() {
+      if (!tenant_id) return;
+      setLoadingDados(true);
+      try {
+        const [resServicos, resProfissionais] = await Promise.all([
+          supabase.from("servicos").select("id, nome, preco").eq("tenant_id", tenant_id).order("nome"),
+          supabase.from("profissionais").select("id, nome").eq("tenant_id", tenant_id).order("nome")
+        ]);
+
+        if (resServicos.data) setServicos(resServicos.data);
+        if (resProfissionais.data) setProfissionais(resProfissionais.data);
+      } catch (err) {
+        console.error("Erro ao carregar catálogo público:", err);
+      } finally {
+        setLoadingDados(false);
+      }
+    }
+    carregarCatalogo();
+  }, [tenant_id]);
+
+  const onSubmit = async (data) => {
+    if (!tenant_id) return;
+    setSalvando(true);
+    setErroMsg("");
+
+    try {
+      const servicoSel = servicos.find((s) => String(s.id) === String(data.serviceId));
+      const telLimpo = data.clientPhone.trim();
+      const nomeFormatado = data.clientName.trim();
+
+      // 1. Busca se cliente já existe pelo telefone ou cria nova
+      let customerId = null;
+      const { data: clienteExistente } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("tenant_id", tenant_id)
+        .eq("telefone", telLimpo)
+        .maybeSingle();
+
+      if (clienteExistente?.id) {
+        customerId = clienteExistente.id;
+      } else {
+        const { data: novoCliente, error: errCliente } = await supabase
+          .from("customers")
+          .insert([{
+            tenant_id,
+            nome: nomeFormatado,
+            telefone: telLimpo,
+            is_whatsapp: true,
+          }])
+          .select("id")
+          .single();
+
+        if (errCliente) throw errCliente;
+        customerId = novoCliente.id;
+      }
+
+      // 2. Insere agendamento pendente
+      const dataHorarioCompleta = `${data.date}T${data.time}:00`;
+      const { error: errApp } = await supabase
+        .from("appointments")
+        .insert([{
+          tenant_id,
+          customer_id: customerId,
+          profissional_id: data.professionalId,
+          servico: servicoSel ? servicoSel.nome : "Atendimento",
+          valor: Number(servicoSel?.preco || 0),
+          data_horario: dataHorarioCompleta,
+          status: "pendente",
+          pagamento: "pendente",
+          duracao: 60,
+        }]);
+
+      if (errApp) throw errApp;
+
+      setStep(3); // Success page
+    } catch (err) {
+      console.error("Erro ao criar agendamento público:", err);
+      setErroMsg("Não foi possível concluir seu agendamento. Tente novamente.");
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const handleNext = async () => {
@@ -51,24 +137,36 @@ export function AgendamentoPublico() {
         
         <div className="p-6">
           <form onSubmit={handleSubmit(onSubmit)}>
+            {erroMsg && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-md">
+                {erroMsg}
+              </div>
+            )}
+
             {step === 1 && (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Serviço</label>
-                  <select {...register("serviceId")} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm rounded-md border">
-                    <option value="">Selecione...</option>
-                    <option value="1">Corte de Cabelo</option>
-                    <option value="2">Manicure</option>
+                  <select {...register("serviceId")} disabled={loadingDados} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm rounded-md border">
+                    <option value="">{loadingDados ? "Carregando serviços..." : "Selecione um serviço..."}</option>
+                    {servicos.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nome} - R$ {Number(s.preco || 0).toFixed(2).replace(".", ",")}
+                      </option>
+                    ))}
                   </select>
                   {errors.serviceId && <p className="mt-1 text-sm text-red-600">{errors.serviceId.message}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Profissional</label>
-                  <select {...register("professionalId")} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm rounded-md border">
-                    <option value="">Qualquer profissional</option>
-                    <option value="1">João Silva</option>
-                    <option value="2">Maria Oliveira</option>
+                  <select {...register("professionalId")} disabled={loadingDados} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm rounded-md border">
+                    <option value="">{loadingDados ? "Carregando equipe..." : "Selecione o profissional..."}</option>
+                    {profissionais.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nome}
+                      </option>
+                    ))}
                   </select>
                   {errors.professionalId && <p className="mt-1 text-sm text-red-600">{errors.professionalId.message}</p>}
                 </div>
@@ -118,11 +216,12 @@ export function AgendamentoPublico() {
                   >
                     Voltar
                   </button>
-                  <button 
+                  <button
                     type="submit"
-                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                    disabled={salvando}
+                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
                   >
-                    Confirmar
+                    {salvando ? "Agendando..." : "Confirmar"}
                   </button>
                 </div>
               </div>

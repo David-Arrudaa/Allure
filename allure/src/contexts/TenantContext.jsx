@@ -34,7 +34,7 @@ export function TenantProvider({ children }) {
   // FOUC Prevention: Skeleton global enquanto carrega o tema
   if (loading) {
     return (
-      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: "#f8fafc" }}>
+      <div style={{ height: "100dvh", display: "flex", justifyContent: "center", alignItems: "center", background: "#f8fafc" }}>
         <p>Carregando ambiente...</p>
       </div>
     );

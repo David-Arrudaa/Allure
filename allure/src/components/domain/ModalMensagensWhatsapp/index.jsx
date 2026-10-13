@@ -214,12 +214,11 @@ export function ModalMensagensWhatsapp({ isOpen, onClose, agendamento }) {
     setTextoForm((prev) => prev + ` ${tag} `);
   };
 
+  // Overlay não fecha no clique: evita perder o texto da mensagem em
+  // edição com um toque acidental na borda. Fecha só por X/Cancelar.
   return (
-    <div className="modal-whatsapp-overlay" onClick={onClose}>
-      <div
-        className="modal-whatsapp-card"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="modal-whatsapp-overlay">
+      <div className="modal-whatsapp-card">
         {/* CABEÇALHO */}
         <div className="modal-whatsapp-header">
           <h3 className="modal-whatsapp-titulo">

@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 
-export async function fetchClientes(paginaAtual = 1, itensPorPagina = 25, termoBusca = "") {
+export async function fetchClientes(paginaAtual = 1, itensPorPagina = 25, termoBusca = "", filtroInatividade = "") {
   let countQuery = supabase
     .from("customers")
     .select("*", { count: "exact", head: true });
@@ -31,6 +31,9 @@ export async function fetchClientes(paginaAtual = 1, itensPorPagina = 25, termoB
 
   const listaFormatada = data.map((item) => {
     let ultimaVisitaStr = "A definir";
+    // Declarada fora do if: o return abaixo a referencia mesmo quando a
+    // cliente não tem agendamento (fica null = nunca visitou).
+    let diasSemVisita = null;
     if (item.appointments && item.appointments.length > 0) {
       const hoje = new Date();
       const passados = item.appointments
@@ -42,9 +45,11 @@ export async function fetchClientes(paginaAtual = 1, itensPorPagina = 25, termoB
         )
         .map((a) => new Date(a.data_horario));
 
+      let diasSemVisita = null;
       if (passados.length > 0) {
         const maxDate = new Date(Math.max(...passados));
         ultimaVisitaStr = `${String(maxDate.getDate()).padStart(2, "0")}/${String(maxDate.getMonth() + 1).padStart(2, "0")}/${maxDate.getFullYear()}`;
+        diasSemVisita = Math.floor((hoje - maxDate) / (1000 * 60 * 60 * 24));
       }
     }
 
@@ -55,13 +60,22 @@ export async function fetchClientes(paginaAtual = 1, itensPorPagina = 25, termoB
       is_whatsapp: item.is_whatsapp ?? true,
       observacoes: item.observacoes,
       ultimaVisita: ultimaVisitaStr,
+      diasSemVisita,
       originalData: item
     };
   });
 
+  // Aplica filtro de inatividade de clientes (+30 ou +60 dias sem visita)
+  let listaFinal = listaFormatada;
+  if (filtroInatividade === "ausentes_30") {
+    listaFinal = listaFormatada.filter((c) => c.diasSemVisita !== null && c.diasSemVisita >= 30);
+  } else if (filtroInatividade === "ausentes_60") {
+    listaFinal = listaFormatada.filter((c) => c.diasSemVisita !== null && c.diasSemVisita >= 60);
+  }
+
   return {
-    clientes: listaFormatada,
-    totalCount: count || 0
+    clientes: listaFinal,
+    totalCount: filtroInatividade ? listaFinal.length : (count || 0)
   };
 }
 

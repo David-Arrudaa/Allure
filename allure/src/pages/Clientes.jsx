@@ -5,6 +5,7 @@ import { ModalHistorico } from "../components/domain/ModalHistorico";
 import { Skeleton } from "../components/ui/Skeleton";
 import { Pagination } from "../components/ui/Pagination";
 import { useClientes } from "../hooks/useClientes";
+import { MessageCircle } from "lucide-react";
 import "./Clientes.css";
 
 export function Clientes() {
@@ -17,9 +18,15 @@ export function Clientes() {
   const [clienteParaExcluir, setClienteParaExcluir] = useState(null);
 
   const [paginaAtual, setPaginaAtual] = useState(1);
+  const [filtroInatividade, setFiltroInatividade] = useState("");
   const itensPorPagina = 25;
 
-  const { clientes, totalClientes, isLoading, excluirCliente, isSalvando } = useClientes(paginaAtual, itensPorPagina, busca);
+  const { clientes, totalClientes, isLoading, excluirCliente, isSalvando } = useClientes(
+    paginaAtual,
+    itensPorPagina,
+    busca,
+    filtroInatividade
+  );
 
   const handleBuscaChange = (e) => {
     setBusca(e.target.value);
@@ -67,8 +74,8 @@ export function Clientes() {
       </div>
 
       <div className="clientes-conteudo">
-        <div className="clientes-filtros">
-          <div className="busca-container">
+        <div className="clientes-filtros flex flex-wrap gap-2 mb-4">
+          <div className="busca-container flex-1 min-w-[200px]">
             <Search size={18} />
             <input
               type="text"
@@ -77,6 +84,18 @@ export function Clientes() {
               onChange={handleBuscaChange}
             />
           </div>
+          <select
+            className="p-2 border border-slate-300 rounded-lg text-sm text-slate-600 bg-white"
+            value={filtroInatividade}
+            onChange={(e) => {
+              setFiltroInatividade(e.target.value);
+              setPaginaAtual(1);
+            }}
+          >
+            <option value="">Todas</option>
+            <option value="ausentes_30">Ausentes +30 dias</option>
+            <option value="ausentes_60">Risco (+60 dias)</option>
+          </select>
         </div>
 
         <div className="tabela-container">
@@ -136,6 +155,19 @@ export function Clientes() {
                     <td>{cliente.ultimaVisita}</td>
                     <td>
                       <div className="acoes-tabela">
+                        {cliente.telefone && cliente.telefone !== "Não informado" && (
+                          <button
+                            className="btn-acao bg-green-50 text-green-600 hover:bg-green-100"
+                            title="WhatsApp"
+                            onClick={() => {
+                              const tel = cliente.telefone.replace(/\D/g, "");
+                              const msg = encodeURIComponent(`Oi ${cliente.nome}, sentimos sua falta! Que tal renovar o visual essa semana?`);
+                              window.open(`https://wa.me/55${tel}?text=${msg}`, "_blank");
+                            }}
+                          >
+                            <MessageCircle size={18} />
+                          </button>
+                        )}
                         <button
                           className="btn-acao historico"
                           title="Ver Histórico"
@@ -176,12 +208,23 @@ export function Clientes() {
                     style={{
                       textAlign: "center",
                       padding: "3rem",
-                      color: "#94A3B8",
+                      color: "#64748b",
                     }}
                   >
-                    {busca.length > 0 && busca.length < 3
-                      ? "Digite pelo menos 3 letras para buscar..."
-                      : `Nenhuma cliente encontrada com a busca "${busca}".`}
+                    {!busca.trim() ? (
+                      <div>
+                        <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem" }}>
+                          Você ainda não tem nenhuma cliente cadastrada.
+                        </p>
+                        <p style={{ margin: 0, fontSize: "0.85rem", color: "#94a3b8" }}>
+                          Toque em <strong>Nova Cliente</strong> no topo para começar.
+                        </p>
+                      </div>
+                    ) : busca.length < 3 ? (
+                      "Digite pelo menos 3 letras para buscar..."
+                    ) : (
+                      `Nenhuma cliente encontrada para "${busca}".`
+                    )}
                   </td>
                 </tr>
               )}

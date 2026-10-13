@@ -279,6 +279,19 @@ export function Financeiro() {
       totalComissaoServicos += comiss;
     });
 
+    const escapeHtml = (texto) =>
+      String(texto ?? "").replace(
+        /[&<>"']/g,
+        (c) =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          })[c],
+      );
+
     const formatarNum = (num) =>
       new Intl.NumberFormat("pt-BR", {
         minimumFractionDigits: 2,
@@ -289,7 +302,7 @@ export function Financeiro() {
       .map(
         (item) => `
         <tr>
-          <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; color: #111;">${item.nome}</td>
+          <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; color: #111;">${escapeHtml(item.nome)}</td>
           <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; text-align: center; color: #111;">${item.quantidade}</td>
           <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; text-align: right; color: #111;">${formatarNum(item.valorTotal)}</td>
           <td style="border: 1px solid #777; padding: 6px 10px; font-size: 12px; text-align: right; font-weight: 600; color: #111;">${formatarNum(item.comissaoTotal)}</td>
@@ -303,7 +316,7 @@ export function Financeiro() {
       <html lang="pt-BR">
       <head>
         <meta charset="UTF-8">
-        <title>Resumo Financeiro - ${prof.nome}</title>
+        <title>Resumo Financeiro - ${escapeHtml(prof.nome)}</title>
         <style>
           @page { size: A4; margin: 18mm 15mm; }
           body {
@@ -381,7 +394,7 @@ export function Financeiro() {
       <body>
         <div class="topo-header">
           <div class="titulo-documento">RESUMO FINANCEIRO</div>
-          <div class="nome-profissional">${prof.nome}</div>
+          <div class="nome-profissional">${escapeHtml(prof.nome)}</div>
           <div class="periodo-venda">Período de Atendimento/Venda: ${periodoFormatado}</div>
         </div>
 
@@ -457,6 +470,13 @@ export function Financeiro() {
     printWindow.document.open();
     printWindow.document.write(htmlRelatorio);
     printWindow.document.close();
+    // Corta a referência com a janela-mãe após a injeção do HTML,
+    // evitando que script no relatório acerte window.opener.localStorage.
+    try {
+      printWindow.opener = null;
+    } catch {
+      // Navegadores muito restritos podem bloquear a reatribuição — inofensivo
+    }
 
     setTimeout(() => {
       printWindow.focus();

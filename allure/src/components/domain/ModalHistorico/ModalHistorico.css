@@ -162,7 +162,7 @@
    ========================================= */
 @media (max-width: 600px) {
   .historico-lista {
-    max-height: 48vh;
+    max-height: 48dvh;
     padding-left: 0.2rem;
     padding-right: 0.2rem;
   }

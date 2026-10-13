@@ -1,12 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchClientes, createCliente, updateCliente, deleteCliente } from "../services/clientesService";
 
-export function useClientes(paginaAtual, itensPorPagina, termoBusca) {
+export function useClientes(paginaAtual, itensPorPagina, termoBusca, filtroInatividade = "") {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["clientes", paginaAtual, itensPorPagina, termoBusca],
-    queryFn: () => fetchClientes(paginaAtual, itensPorPagina, termoBusca),
+    queryKey: ["clientes", paginaAtual, itensPorPagina, termoBusca, filtroInatividade],
+    queryFn: () => fetchClientes(paginaAtual, itensPorPagina, termoBusca, filtroInatividade),
     placeholderData: (previousData) => previousData,
   });
 

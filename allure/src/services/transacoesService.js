@@ -1,8 +1,57 @@
 import { supabase } from "./supabase";
 
 /**
+ * Normaliza a lista de pagamentos e devolve um rótulo legível para
+ * `transacoes.forma_pagamento`, que as telas legadas (Financeiro, Relatórios,
+ * Agenda) ainda leem como string única.
+ * Uma forma -> o nome dela. Várias -> "Misto (Pix + Dinheiro)".
+ */
+function resolverPagamentos(pagamentos, formaPagamentoFallback, valorTotal) {
+  const lista = (pagamentos || [])
+    .map((p) => ({
+      forma: p.forma || p.forma_pagamento || formaPagamentoFallback,
+      valor: Math.round((Number(p.valor) || 0) * 100) / 100,
+    }))
+    .filter((p) => p.valor > 0);
+
+  // Venda sem divisão (ou fluxo legado): uma linha com o total.
+  if (lista.length === 0) {
+    return {
+      lista: [{ forma: formaPagamentoFallback, valor: valorTotal }],
+      rotulo: formaPagamentoFallback,
+    };
+  }
+
+  if (lista.length === 1) return { lista, rotulo: lista[0].forma };
+
+  return {
+    lista,
+    rotulo: `Misto (${lista.map((p) => p.forma).join(" + ")})`,
+  };
+}
+
+/**
+ * Grava as parcelas de pagamento de uma transação em `transacao_pagamentos`.
+ * ponytail: não é atômico com o header — se falhar, o chamador desfaz a
+ * transação. Migrar para RPC transacional junto com a baixa de estoque.
+ */
+async function salvarPagamentos(tenantId, transacaoId, lista) {
+  if (!lista || lista.length === 0) return;
+  const { error } = await supabase.from("transacao_pagamentos").insert(
+    lista.map((p) => ({
+      tenant_id: tenantId,
+      transacao_id: transacaoId,
+      forma_pagamento: p.forma,
+      valor: p.valor,
+    })),
+  );
+  if (error) throw error;
+}
+
+/**
  * Cria uma nova venda avulsa de produtos ou serviços com múltiplos itens (Header / Detail).
  * - Cria registro na tabela `transacoes`
+ * - Cria as parcelas de pagamento em `transacao_pagamentos` (pagamento misto)
  * - Cria múltiplos itens na tabela `transacao_itens`
  * - Atualiza o estoque de cada produto vendido
  * - Cria registro espelho em `appointments` para manter compatibilidade com telas legadas
@@ -16,12 +65,42 @@ export async function criarVendaAvulsa({
   dataTransacao = new Date().toISOString(),
   desconto = 0,
   observacoes = null,
-  itens = [], // Array de { tipo: 'produto'|'servico', produtoId, servicoId, descricao, quantidade, valorUnitario }
+  itens = [], // Array de { tipo: 'produto'|'servico', produtoId, servicoId, descricao, quantidade, valorUnitario, profissionalId, comissao_percentual }
+  pagamentos = [], // Array de { forma, valor }. Vazio = uma forma só, com o total.
 }) {
   if (!tenantId) throw new Error("tenantId é obrigatório.");
   if (!itens || itens.length === 0) throw new Error("A venda deve conter pelo menos um item.");
 
-  // 1. Calcula os totais dos itens
+  // 1. Busca dados da profissional pra fallback da comissão
+  let comissaoPadraoProduto = 0;
+  let comissaoPadraoServico = 0;
+  if (profissionalId) {
+    const { data: prof } = await supabase
+      .from("profissionais")
+      .select("comissao_produtos, comissao_servicos")
+      .eq("id", profissionalId)
+      .single();
+    if (prof) {
+      comissaoPadraoProduto = Number(prof.comissao_produtos) || 0;
+      comissaoPadraoServico = Number(prof.comissao_servicos) || 0;
+    }
+  }
+
+  // Busca config de taxa do tenant
+  const { data: tenantConf } = await supabase
+    .from("tenants")
+    .select("taxa_cartao_debito, taxa_cartao_credito, descontar_taxa_cartao_comissao")
+    .eq("id", tenantId)
+    .single();
+
+  let taxaCartao = 0;
+  if (tenantConf?.descontar_taxa_cartao_comissao) {
+    const fPag = formaPagamento.toLowerCase();
+    if (fPag.includes("débito") || fPag.includes("debito")) taxaCartao = Number(tenantConf.taxa_cartao_debito) || 0;
+    else if (fPag.includes("crédito") || fPag.includes("credito") || fPag.includes("cartão")) taxaCartao = Number(tenantConf.taxa_cartao_credito) || 0;
+  }
+
+  // 1. Calcula os totais dos itens e resolve comissão
   let valorTotal = 0;
   const itensCalculados = itens.map((item) => {
     const qtd = Math.max(1, Number(item.quantidade) || 1);
@@ -29,20 +108,62 @@ export async function criarVendaAvulsa({
     const subtotal = Math.round(qtd * vUnit * 100) / 100;
     valorTotal += subtotal;
 
+    const tipo = item.tipo || "produto";
+    let pctComissao = Number(item.comissao_percentual);
+    if (isNaN(pctComissao) || item.comissao_percentual === undefined || item.comissao_percentual === null) {
+      pctComissao = tipo === "produto" ? comissaoPadraoProduto : comissaoPadraoServico;
+    }
+
+    const valorBaseComissao = subtotal - (subtotal * (taxaCartao / 100));
+    const valComissao = Math.round(valorBaseComissao * (pctComissao / 100) * 100) / 100;
+
     return {
       tenant_id: tenantId,
-      tipo: item.tipo || "produto",
-      produto_id: item.tipo === "servico" ? null : (item.produtoId || null),
-      servico_id: item.tipo === "produto" ? null : (item.servicoId || null),
+      tipo,
+      produto_id: tipo === "servico" ? null : (item.produtoId || null),
+      servico_id: tipo === "produto" ? null : (item.servicoId || null),
+      profissional_id: item.profissionalId || profissionalId, // Suporte a multiprofissional (Fase 3)
       descricao: item.descricao || "Item sem descrição",
       quantidade: qtd,
       valor_unitario: vUnit,
       subtotal,
+      comissao_percentual_aplicada: pctComissao,
+      valor_comissao: valComissao,
     };
   });
 
   const descontoNum = Math.max(0, Number(desconto) || 0);
   const valorTotalFinal = Math.max(0, Math.round(valorTotal * 100) / 100);
+  const valorLiquido = Math.max(0, Math.round((valorTotalFinal - descontoNum) * 100) / 100);
+
+  // Resolve pagamentos ANTES do insert: o header grava o rótulo consolidado
+  // que as telas legadas leem como string única.
+  const { lista: listaPagamentos, rotulo: rotuloPagamento } = resolverPagamentos(
+    pagamentos,
+    formaPagamento,
+    valorLiquido,
+  );
+
+  // Validação prévia de estoque insuficiente para todos os itens de produto
+  for (const item of itensCalculados) {
+    if (item.tipo === "produto" && item.produto_id) {
+      const { data: prodCheck } = await supabase
+        .from("produtos")
+        .select("nome, estoque")
+        .eq("id", item.produto_id)
+        .eq("tenant_id", tenantId)
+        .single();
+
+      if (prodCheck) {
+        const estAtual = Number(prodCheck.estoque || 0);
+        if (estAtual < item.quantidade) {
+          throw new Error(
+            `Estoque insuficiente para "${prodCheck.nome}". Disponível: ${estAtual} un., Solicitado: ${item.quantidade} un.`
+          );
+        }
+      }
+    }
+  }
 
   // 2. Insere a transação Header
   const { data: transacao, error: errTransacao } = await supabase
@@ -54,7 +175,7 @@ export async function criarVendaAvulsa({
         customer_id: customerId,
         profissional_id: profissionalId,
         data_transacao: dataTransacao,
-        forma_pagamento: formaPagamento,
+        forma_pagamento: rotuloPagamento,
         status_pagamento: statusPagamento,
         valor_total: valorTotalFinal,
         desconto: descontoNum,
@@ -81,6 +202,16 @@ export async function criarVendaAvulsa({
     // Se falhar os itens, desfaz a transação para não ficar órfão
     await supabase.from("transacoes").delete().eq("id", transacao.id);
     throw errItens;
+  }
+
+  // 3b. Grava as parcelas de pagamento (pagamento misto)
+  try {
+    await salvarPagamentos(tenantId, transacao.id, listaPagamentos);
+  } catch (errPagamentos) {
+    // Mesmo desfazer em cascata dos itens: sem as parcelas o caixa não fecha.
+    await supabase.from("transacao_itens").delete().eq("transacao_id", transacao.id);
+    await supabase.from("transacoes").delete().eq("id", transacao.id);
+    throw errPagamentos;
   }
 
   // 4. Baixa estoque dos produtos vendidos
@@ -148,12 +279,13 @@ export async function atualizarVendaAvulsa({
   tenantId,
   profissionalId,
   customerId = null,
-  formaPagamento,
-  statusPagamento,
+  formaPagamento = "Pix",
+  statusPagamento = "pago",
   dataTransacao,
   desconto = 0,
   observacoes = null,
   itensNovos = [],
+  pagamentos = [], // Array de { forma, valor }. Vazio = uma forma só, com o total.
 }) {
   if (!transacaoId || !tenantId) throw new Error("transacaoId e tenantId são obrigatórios.");
   if (!itensNovos || itensNovos.length === 0) throw new Error("A venda deve conter pelo menos um item.");
@@ -166,6 +298,35 @@ export async function atualizarVendaAvulsa({
     .eq("tenant_id", tenantId);
 
   if (errBuscaAntigos) throw errBuscaAntigos;
+
+  // Busca dados da profissional pra fallback da comissão
+  let comissaoPadraoProduto = 0;
+  let comissaoPadraoServico = 0;
+  if (profissionalId) {
+    const { data: prof } = await supabase
+      .from("profissionais")
+      .select("comissao_produtos, comissao_servicos")
+      .eq("id", profissionalId)
+      .single();
+    if (prof) {
+      comissaoPadraoProduto = Number(prof.comissao_produtos) || 0;
+      comissaoPadraoServico = Number(prof.comissao_servicos) || 0;
+    }
+  }
+
+  // Busca config de taxa do tenant
+  const { data: tenantConf } = await supabase
+    .from("tenants")
+    .select("taxa_cartao_debito, taxa_cartao_credito, descontar_taxa_cartao_comissao")
+    .eq("id", tenantId)
+    .single();
+
+  let taxaCartao = 0;
+  if (tenantConf?.descontar_taxa_cartao_comissao) {
+    const fPag = formaPagamento.toLowerCase();
+    if (fPag.includes("débito") || fPag.includes("debito")) taxaCartao = Number(tenantConf.taxa_cartao_debito) || 0;
+    else if (fPag.includes("crédito") || fPag.includes("credito") || fPag.includes("cartão")) taxaCartao = Number(tenantConf.taxa_cartao_credito) || 0;
+  }
 
   // 2. Devolve todo o estoque dos itens antigos de produto
   for (const itemAntigo of (itensAntigos || [])) {
@@ -194,7 +355,7 @@ export async function atualizarVendaAvulsa({
     .eq("transacao_id", transacaoId)
     .eq("tenant_id", tenantId);
 
-  // 4. Calcula novos itens e debita estoque
+  // 4. Calcula novos itens e debita estoque (preserva comissão e profissional por item)
   let valorTotal = 0;
   const itensCalculados = itensNovos.map((item) => {
     const qtd = Math.max(1, Number(item.quantidade) || 1);
@@ -202,16 +363,32 @@ export async function atualizarVendaAvulsa({
     const subtotal = Math.round(qtd * vUnit * 100) / 100;
     valorTotal += subtotal;
 
+    const tipo = item.tipo || "produto";
+    let pctComissao = Number(item.comissao_percentual);
+    if (
+      isNaN(pctComissao) ||
+      item.comissao_percentual === undefined ||
+      item.comissao_percentual === null
+    ) {
+      pctComissao = tipo === "produto" ? comissaoPadraoProduto : comissaoPadraoServico;
+    }
+
+    const valorBaseComissao = subtotal - subtotal * (taxaCartao / 100);
+    const valComissao = Math.round(valorBaseComissao * (pctComissao / 100) * 100) / 100;
+
     return {
       transacao_id: transacaoId,
       tenant_id: tenantId,
-      tipo: item.tipo || "produto",
-      produto_id: item.tipo === "servico" ? null : (item.produtoId || null),
-      servico_id: item.tipo === "produto" ? null : (item.servicoId || null),
+      tipo,
+      produto_id: tipo === "servico" ? null : (item.produtoId || null),
+      servico_id: tipo === "produto" ? null : (item.servicoId || null),
+      profissional_id: item.profissionalId || profissionalId,
       descricao: item.descricao || "Item sem descrição",
       quantidade: qtd,
       valor_unitario: vUnit,
       subtotal,
+      comissao_percentual_aplicada: pctComissao,
+      valor_comissao: valComissao,
     };
   });
 
@@ -246,6 +423,22 @@ export async function atualizarVendaAvulsa({
 
   const descontoNum = Math.max(0, Number(desconto) || 0);
   const valorTotalFinal = Math.max(0, Math.round(valorTotal * 100) / 100);
+  const valorLiquido = Math.max(0, Math.round((valorTotalFinal - descontoNum) * 100) / 100);
+
+  // Resolve pagamentos e substitui em transacao_pagamentos
+  const { lista: listaPagamentos, rotulo: rotuloPagamento } = resolverPagamentos(
+    pagamentos,
+    formaPagamento,
+    valorLiquido,
+  );
+
+  await supabase
+    .from("transacao_pagamentos")
+    .delete()
+    .eq("transacao_id", transacaoId)
+    .eq("tenant_id", tenantId);
+
+  await salvarPagamentos(tenantId, transacaoId, listaPagamentos);
 
   // 5. Atualiza o cabeçalho em transacoes
   const { data: transacaoAtualizada, error: errUpdateTransacao } = await supabase
@@ -254,7 +447,7 @@ export async function atualizarVendaAvulsa({
       customer_id: customerId,
       profissional_id: profissionalId,
       data_transacao: dataTransacao,
-      forma_pagamento: formaPagamento,
+      forma_pagamento: rotuloPagamento,
       status_pagamento: statusPagamento,
       valor_total: valorTotalFinal,
       desconto: descontoNum,
@@ -427,6 +620,71 @@ export async function listarTransacoes({
 }
 
 /**
+ * Registra consumo interno (lavatório, uso profissional)
+ */
+export async function registrarConsumoInterno({
+  tenantId,
+  produtoId,
+  quantidade,
+  profissionalId,
+  motivo = "Uso Interno"
+}) {
+  if (!tenantId || !produtoId) throw new Error("Faltam dados obrigatórios");
+
+  const qtd = Math.max(1, Number(quantidade) || 1);
+
+  // Header com valor zero
+  const { data: transacao, error: errTr } = await supabase
+    .from("transacoes")
+    .insert([{
+      tenant_id: tenantId,
+      tipo: "consumo_interno",
+      profissional_id: profissionalId || null,
+      data_transacao: new Date().toISOString(),
+      forma_pagamento: "N/A",
+      status_pagamento: "concluido",
+      valor_total: 0,
+      desconto: 0,
+      motivo
+    }])
+    .select().single();
+  if (errTr) throw errTr;
+
+  // Busca dados do produto
+  const { data: prod } = await supabase
+    .from("produtos")
+    .select("nome, estoque")
+    .eq("id", produtoId)
+    .single();
+
+  // Detail
+  const { error: errIt } = await supabase
+    .from("transacao_itens")
+    .insert([{
+      tenant_id: tenantId,
+      transacao_id: transacao.id,
+      tipo: "produto",
+      produto_id: produtoId,
+      profissional_id: profissionalId || null,
+      descricao: prod ? prod.nome : "Consumo",
+      quantidade: qtd,
+      valor_unitario: 0,
+      subtotal: 0,
+      comissao_percentual_aplicada: 0,
+      valor_comissao: 0
+    }]);
+  if (errIt) throw errIt;
+
+  // Baixa estoque
+  if (prod && prod.estoque !== undefined) {
+    const novoEstoque = Math.max(0, Number(prod.estoque || 0) - qtd);
+    await supabase.from("produtos").update({ estoque: novoEstoque }).eq("id", produtoId);
+  }
+
+  return transacao;
+}
+
+/**
  * Processa o pagamento de um agendamento da Agenda:
  * - Garante a criação ou atualização do cabeçalho em `transacoes`
  * - Garante o registro do item de serviço em `transacao_itens`
@@ -441,6 +699,20 @@ export async function registrarPagamentoAgendamento({
 }) {
   if (!appointmentId || !tenantId) {
     throw new Error("appointmentId e tenantId são obrigatórios.");
+  }
+
+  // Busca config de taxa do tenant
+  const { data: tenantConf } = await supabase
+    .from("tenants")
+    .select("taxa_cartao_debito, taxa_cartao_credito, descontar_taxa_cartao_comissao")
+    .eq("id", tenantId)
+    .single();
+
+  let taxaCartao = 0;
+  if (tenantConf?.descontar_taxa_cartao_comissao) {
+    const fPag = formaPagamento.toLowerCase();
+    if (fPag.includes("débito") || fPag.includes("debito")) taxaCartao = Number(tenantConf.taxa_cartao_debito) || 0;
+    else if (fPag.includes("crédito") || fPag.includes("credito") || fPag.includes("cartão")) taxaCartao = Number(tenantConf.taxa_cartao_credito) || 0;
   }
 
   // 1. Busca os dados atuais do agendamento
@@ -508,7 +780,22 @@ export async function registrarPagamentoAgendamento({
     if (errTransacao) throw errTransacao;
     transacaoId = novaTransacao.id;
 
-    // 4. Cria o item do serviço em transacao_itens
+    // 4. Busca comissão padrão da profissional para fallback
+    let pctComissao = 0;
+    if (agendamento.profissional_id) {
+      const { data: prof } = await supabase
+        .from("profissionais")
+        .select("comissao_servicos")
+        .eq("id", agendamento.profissional_id)
+        .single();
+      if (prof) {
+        pctComissao = Number(prof.comissao_servicos) || 0;
+      }
+    }
+    const valorBaseComissao = valorFinal - (valorFinal * (taxaCartao / 100));
+    const valComissao = Math.round(valorBaseComissao * (pctComissao / 100) * 100) / 100;
+
+    // 5. Cria o item do serviço em transacao_itens
     await supabase.from("transacao_itens").insert([
       {
         tenant_id: tenantId,
@@ -520,11 +807,13 @@ export async function registrarPagamentoAgendamento({
         quantidade: 1,
         valor_unitario: valorFinal,
         subtotal: valorFinal,
+        comissao_percentual_aplicada: pctComissao,
+        valor_comissao: valComissao,
       },
     ]);
   }
 
-  // 5. Atualiza o agendamento em appointments
+  // 6. Atualiza o agendamento em appointments
   const { error: errApp } = await supabase
     .from("appointments")
     .update({

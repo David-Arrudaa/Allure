@@ -11,12 +11,20 @@ export async function fetchProdutos(tenantId) {
 }
 
 export async function createProduto(payload) {
+  // Converte string vazia pra null pro DB
+  if (payload.comissao_percentual === "") {
+    payload.comissao_percentual = null;
+  }
   const { data, error } = await supabase.from("produtos").insert([payload]).select().single();
   if (error) throw error;
   return data;
 }
 
 export async function updateProduto(id, tenantId, payload) {
+  // Converte string vazia pra null pro DB
+  if (payload.comissao_percentual === "") {
+    payload.comissao_percentual = null;
+  }
   const { data, error } = await supabase
     .from("produtos")
     .update(payload)

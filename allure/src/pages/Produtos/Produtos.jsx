@@ -18,13 +18,17 @@ const produtoSchema = z.object({
     const num = Number(val);
     return !isNaN(num) && num >= 0;
   }, "Estoque inválido"),
+  comissao_percentual: z.string().optional(),
 });
 
 export function Produtos() {
   const { profile } = useAuth();
   const [busca, setBusca] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalConsumoOpen, setIsModalConsumoOpen] = useState(false);
   const [produtoEditando, setProdutoEditando] = useState(null);
+  const [produtoParaConsumo, setProdutoParaConsumo] = useState(null);
+  const [qtdConsumo, setQtdConsumo] = useState(1);
   const [produtoParaExcluir, setProdutoParaExcluir] = useState(null);
 
   const {
@@ -33,6 +37,7 @@ export function Produtos() {
     criarProduto,
     atualizarProduto,
     excluirProduto,
+    registrarConsumo,
     isSalvando,
   } = useProdutos(profile?.tenant_id);
 
@@ -47,6 +52,7 @@ export function Produtos() {
       nome: "",
       preco: "",
       estoque: "0",
+      comissao_percentual: "",
     },
   });
 
@@ -61,6 +67,10 @@ export function Produtos() {
             : "",
         estoque:
           produto.estoque !== undefined ? String(produto.estoque) : "0",
+        comissao_percentual:
+          produto.comissao_percentual !== undefined && produto.comissao_percentual !== null
+            ? String(produto.comissao_percentual)
+            : "",
       });
     } else {
       setProdutoEditando(null);
@@ -68,6 +78,7 @@ export function Produtos() {
         nome: "",
         preco: "",
         estoque: "0",
+        comissao_percentual: "",
       });
     }
     setIsModalOpen(true);
@@ -96,6 +107,7 @@ export function Produtos() {
         nome: formatarNome(data.nome.trim()),
         preco: precoNumerico,
         estoque: estoqueNumerico,
+        comissao_percentual: data.comissao_percentual ? Number(data.comissao_percentual) : null,
         tenant_id: profile.tenant_id,
       };
 
@@ -144,6 +156,31 @@ export function Produtos() {
   const produtosFiltrados = produtos.filter((prod) =>
     prod.nome.toLowerCase().includes(busca.toLowerCase()),
   );
+
+  const abrirModalConsumo = (produto) => {
+    setProdutoParaConsumo(produto);
+    setQtdConsumo(1);
+    setIsModalConsumoOpen(true);
+  };
+
+  const confirmarConsumo = async () => {
+    if (!produtoParaConsumo || !profile?.tenant_id) return;
+    try {
+      await registrarConsumo({
+        tenantId: profile.tenant_id,
+        produtoId: produtoParaConsumo.id,
+        quantidade: qtdConsumo,
+        profissionalId: profile.id,
+        motivo: "Uso Interno / Lavatório"
+      });
+      toast.success("Baixa de estoque registrada!");
+      setIsModalConsumoOpen(false);
+      setProdutoParaConsumo(null);
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao registrar consumo.");
+    }
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-6 max-md:p-3 min-h-[calc(100vh-3rem)] flex flex-col">
@@ -249,18 +286,18 @@ export function Produtos() {
                     </td>
                     <td className="p-4 align-middle max-md:flex max-md:justify-between max-md:py-2 max-md:px-0">
                       <span className="hidden max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase max-md:inline">Ações</span>
-                      <div className="flex gap-2">
+                      <div className="flex gap-3">
                         {profile?.is_admin && (
                           <>
                             <button
-                              className="bg-transparent border-none p-[0.4rem] rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all hover:bg-blue-50 hover:text-blue-500"
+                              className="bg-transparent border-none p-[0.4rem] min-w-[44px] min-h-[44px] rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all hover:bg-blue-50 hover:text-blue-500"
                               onClick={() => abrirModal(produto)}
                               title="Editar Produto"
                             >
                               <Edit2 size={18} />
                             </button>
                             <button
-                              className="bg-transparent border-none p-[0.4rem] rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"
+                              className="bg-transparent border-none p-[0.4rem] min-w-[44px] min-h-[44px] rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"
                               onClick={() => setProdutoParaExcluir(produto)}
                               title="Excluir Produto"
                             >
@@ -268,6 +305,13 @@ export function Produtos() {
                             </button>
                           </>
                         )}
+                        <button
+                          className="bg-transparent border-none p-[0.4rem] min-w-[44px] min-h-[44px] rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all hover:bg-orange-50 hover:text-orange-500"
+                          onClick={() => abrirModalConsumo(produto)}
+                          title="Uso Interno / Lavatório"
+                        >
+                          <Search size={18} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -339,6 +383,7 @@ export function Produtos() {
                   <label className="text-sm font-semibold text-slate-600">Preço (R$) *</label>
                   <input
                     type="text"
+                    inputMode="decimal"
                     placeholder="Ex: 45,00"
                     {...register("preco")}
                     className="w-full py-3 px-4 border border-slate-300 rounded-lg text-[0.95rem] text-[var(--cor-texto)] bg-slate-50 outline-none transition-all focus:border-[var(--cor-primaria)] focus:bg-white focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)]"
@@ -418,6 +463,91 @@ export function Produtos() {
                 onClick={confirmarExclusao}
               >
                 Sim, apagar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL DE USO INTERNO / LAVATÓRIO */}
+      {isModalConsumoOpen && produtoParaConsumo && (
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setIsModalConsumoOpen(false);
+            setProdutoParaConsumo(null);
+          }}
+        >
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "420px" }}
+          >
+            <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
+              <h3 className="m-0 text-lg font-bold text-slate-800">
+                Uso Interno / Lavatório
+              </h3>
+              <button
+                type="button"
+                className="btn-fechar"
+                onClick={() => {
+                  setIsModalConsumoOpen(false);
+                  setProdutoParaConsumo(null);
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-600 mb-4">
+              Dê baixa nos itens retirados para uso no salão (tintas, shampoos, insumos). Essa ação não gera receita financeira.
+            </p>
+
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4">
+              <div className="text-xs text-slate-500 font-semibold uppercase">Produto</div>
+              <div className="text-sm font-bold text-slate-800">{produtoParaConsumo.nome}</div>
+              <div className="text-xs text-slate-500 mt-1">
+                Estoque atual: <strong>{produtoParaConsumo.estoque} un.</strong>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5 mb-6">
+              <label className="text-sm font-semibold text-slate-700">
+                Quantidade a retirar *
+              </label>
+              <input
+                type="number"
+                min="1"
+                max={Math.max(1, Number(produtoParaConsumo.estoque) || 1)}
+                value={qtdConsumo}
+                onChange={(e) => setQtdConsumo(Math.max(1, Number(e.target.value) || 1))}
+                className="w-full py-2.5 px-3 border border-slate-300 rounded-lg text-sm text-slate-800 bg-white outline-none focus:border-[var(--cor-primaria)]"
+              />
+              {qtdConsumo > (Number(produtoParaConsumo.estoque) || 0) && (
+                <span className="text-xs text-amber-600 font-medium mt-1">
+                  Atenção: quantidade maior que o estoque registrado no sistema.
+                </span>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="btn-cancelar py-2 px-4 text-sm font-semibold rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50"
+                onClick={() => {
+                  setIsModalConsumoOpen(false);
+                  setProdutoParaConsumo(null);
+                }}
+                disabled={isSalvando}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-salvar py-2 px-4 text-sm font-semibold rounded-lg bg-[var(--cor-primaria,#7C3AED)] text-white hover:opacity-90"
+                onClick={confirmarConsumo}
+                disabled={isSalvando || !produtoParaConsumo.estoque || produtoParaConsumo.estoque <= 0}
+              >
+                {isSalvando ? "Registrando..." : "Confirmar Baixa"}
               </button>
             </div>
           </div>

@@ -25,7 +25,7 @@ export async function fetchPagamentosPeriodo({ inicioFiltro, fimFiltro, apenasPr
 export async function fetchComissaoProfissional(profissionalId) {
   const { data, error } = await supabase
     .from("profissionais")
-    .select("comissao")
+    .select("comissao_servicos, comissao_produtos")
     .eq("id", profissionalId)
     .single();
   if (error) throw error;
@@ -37,7 +37,7 @@ export async function fetchDesempenhoPeriodo({ inicioFiltro, fimFiltro, apenasPr
   let query = supabase
     .from("appointments")
     .select(
-      `id, valor, servico, data_horario, duracao, customer_id, profissionais ( id, nome, comissao ), customers ( nome )`
+      `id, transacao_id, valor, servico, data_horario, duracao, customer_id, profissionais ( id, nome, comissao_servicos, comissao_produtos ), customers ( nome )`
     )
     .gte("data_horario", inicioFiltro)
     .lte("data_horario", fimFiltro)

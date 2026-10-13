@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { X } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useServicos } from "../../../hooks/useServicos";
+import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { toast } from "../../../lib/toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,11 +14,14 @@ const servicoSchema = z.object({
     const num = Number(val.replace(",", "."));
     return num > 1;
   }, "O valor deve ser acima de R$ 1,00"),
+  comissao_percentual: z.string().optional(),
 });
 
 export function ModalServico({ isOpen, onClose, servico }) {
   const { profile } = useAuth();
   const { criarServico, atualizarServico, isSalvando } = useServicos();
+
+  useEscapeKey(onClose, isOpen);
 
   const {
     register,
@@ -29,6 +33,7 @@ export function ModalServico({ isOpen, onClose, servico }) {
     defaultValues: {
       nome: "",
       preco: "",
+      comissao_percentual: "",
     },
   });
 
@@ -38,11 +43,13 @@ export function ModalServico({ isOpen, onClose, servico }) {
         reset({
           nome: servico.nome || "",
           preco: servico.preco ? String(servico.preco).replace(".", ",") : "",
+          comissao_percentual: servico.comissao_percentual ? String(servico.comissao_percentual) : "",
         });
       } else {
         reset({
           nome: "",
           preco: "",
+          comissao_percentual: "",
         });
       }
     }
@@ -63,6 +70,7 @@ export function ModalServico({ isOpen, onClose, servico }) {
       const payload = {
         nome: formatarNome(dadosServico.nome),
         preco: precoNumerico,
+        comissao_percentual: dadosServico.comissao_percentual ? Number(dadosServico.comissao_percentual) : null,
         tenant_id: profile?.tenant_id || "11111111-1111-1111-1111-111111111111",
       };
 
@@ -81,11 +89,12 @@ export function ModalServico({ isOpen, onClose, servico }) {
     }
   };
 
+  // Overlay não fecha no clique: evita perder o formulário preenchido
+  // com um toque acidental na borda (tela pequena). Fecha só por X/Cancelar.
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div
         className="bg-white rounded-2xl w-[92%] max-w-[480px] p-8 shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)] flex flex-col animate-[modalAparecer_0.25s_ease-out]"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-6 pb-3 border-b border-slate-100">
           <h2 className="text-xl font-bold text-[var(--cor-texto)] m-0">
@@ -125,6 +134,7 @@ export function ModalServico({ isOpen, onClose, servico }) {
             <label className="text-sm font-semibold text-slate-600">Valor (R$) *</label>
             <input
               type="text"
+              inputMode="decimal"
               placeholder="Ex: 80,00"
               {...register("preco")}
               className="w-full py-3 px-4 border border-slate-300 rounded-lg text-[0.95rem] text-[var(--cor-texto)] bg-slate-50 outline-none transition-all focus:border-[var(--cor-primaria)] focus:bg-white focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)]"
@@ -134,6 +144,20 @@ export function ModalServico({ isOpen, onClose, servico }) {
                 {errors.preco.message}
               </span>
             )}
+          </div>
+
+          <div className="flex flex-col gap-1.5 mt-2">
+            <label className="text-sm font-semibold text-slate-600">Comissão Específica (%)</label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              placeholder="Opcional. Ex: 30"
+              {...register("comissao_percentual")}
+              className="w-full py-3 px-4 border border-slate-300 rounded-lg text-[0.95rem] text-[var(--cor-texto)] bg-slate-50 outline-none transition-all focus:border-[var(--cor-primaria)] focus:bg-white focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)]"
+            />
+            <span className="text-xs text-slate-500 mt-1">Se em branco, usará a comissão padrão da profissional.</span>
           </div>
 
           <button

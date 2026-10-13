@@ -123,11 +123,11 @@ export function Servicos() {
                     </td>
                     <td className="p-4 align-middle max-md:flex max-md:justify-between max-md:py-2 max-md:px-0">
                       <span className="hidden max-md:font-semibold max-md:text-slate-500 max-md:text-xs max-md:uppercase max-md:inline">Ações</span>
-                      <div className="flex gap-2">
+                      <div className="flex gap-3">
                         {profile?.is_admin && (
                           <>
                             <button
-                              className="bg-transparent border-none p-[0.4rem] rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all hover:bg-blue-50 hover:text-blue-500"
+                              className="bg-transparent border-none p-[0.4rem] min-w-[44px] min-h-[44px] rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all hover:bg-blue-50 hover:text-blue-500"
                               title="Editar Serviço"
                               onClick={() => {
                                 setServicoEditando(servico);
@@ -137,7 +137,7 @@ export function Servicos() {
                               <Edit2 size={18} />
                             </button>
                             <button
-                              className="bg-transparent border-none p-[0.4rem] rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"
+                              className="bg-transparent border-none p-[0.4rem] min-w-[44px] min-h-[44px] rounded-md cursor-pointer text-slate-400 flex items-center justify-center transition-all hover:bg-red-50 hover:text-red-500"
                               title="Excluir Serviço"
                               onClick={() => setServicoParaExcluir(servico)}
                             >
@@ -156,10 +156,23 @@ export function Servicos() {
                     style={{
                       textAlign: "center",
                       padding: "3rem",
-                      color: "#94A3B8",
+                      color: "#64748b",
                     }}
                   >
-                    Nenhum serviço encontrado com a busca "{busca}".
+                    {!busca.trim() ? (
+                      <div>
+                        <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem" }}>
+                          Nenhum serviço cadastrado ainda.
+                        </p>
+                        {profile?.is_admin && (
+                          <p style={{ margin: 0, fontSize: "0.85rem", color: "#94a3b8" }}>
+                            Toque em <strong>Novo Serviço</strong> no topo para começar.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      `Nenhum serviço encontrado para "${busca}".`
+                    )}
                   </td>
                 </tr>
               )}

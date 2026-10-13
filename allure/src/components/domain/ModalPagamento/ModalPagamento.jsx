@@ -110,9 +110,11 @@ export function ModalPagamento({ isOpen, onClose, dados, onSave }) {
     }
   };
 
+  // Overlay não fecha no clique: evita perder valor/desconto/forma de
+  // pagamento com um toque acidental na borda. Fecha só por X/Cancelar.
   return (
-    <div className="modal-pagamento-overlay" onClick={onClose}>
-      <div className="modal-pagamento-box" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-pagamento-overlay">
+      <div className="modal-pagamento-box">
         {/* CABEÇALHO */}
         <div className="modal-pagamento-header">
           <h2

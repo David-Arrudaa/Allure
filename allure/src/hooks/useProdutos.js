@@ -5,6 +5,7 @@ import {
   updateProduto,
   deleteProduto,
 } from "../services/produtosService";
+import { registrarConsumoInterno } from "../services/transacoesService";
 
 export function useProdutos(tenantId) {
   const queryClient = useQueryClient();
@@ -37,6 +38,13 @@ export function useProdutos(tenantId) {
     },
   });
 
+  const consumoInternoMutation = useMutation({
+    mutationFn: (params) => registrarConsumoInterno(params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["produtos", tenantId] });
+    },
+  });
+
   return {
     produtos: query.data || [],
     isLoading: query.isLoading,
@@ -45,7 +53,8 @@ export function useProdutos(tenantId) {
     criarProduto: criarMutation.mutateAsync,
     atualizarProduto: atualizarMutation.mutateAsync,
     excluirProduto: excluirMutation.mutateAsync,
-    isSalvando: criarMutation.isPending || atualizarMutation.isPending,
+    registrarConsumo: consumoInternoMutation.mutateAsync,
+    isSalvando: criarMutation.isPending || atualizarMutation.isPending || consumoInternoMutation.isPending,
     isExcluindo: excluirMutation.isPending,
   };
 }

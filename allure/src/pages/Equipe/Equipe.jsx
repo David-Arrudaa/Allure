@@ -52,6 +52,11 @@ export function Equipe() {
     telefone: "",
     ordem: "",
     foto: "",
+    email: "",
+    senha: "",
+    is_admin: false,
+    comissao_servicos: "",
+    comissao_produtos: "",
   });
 
   // Controles do modal de exclusão
@@ -79,6 +84,8 @@ export function Equipe() {
       email: "",
       senha: "",
       is_admin: false,
+      comissao_servicos: "",
+      comissao_produtos: "",
     });
     setModalAberto(true);
   };
@@ -98,6 +105,8 @@ export function Equipe() {
       email: prof.email || "",
       senha: "", // Nunca carregamos a senha por segurança
       is_admin: prof.is_admin || false,
+      comissao_servicos: prof.comissao_servicos ? String(prof.comissao_servicos) : "",
+      comissao_produtos: prof.comissao_produtos ? String(prof.comissao_produtos) : "",
     });
     setModalAberto(true);
   };
@@ -174,6 +183,8 @@ export function Equipe() {
         foto: formFunc.foto || null,
         email: formFunc.email ? formFunc.email.trim() : null,
         is_admin: formFunc.is_admin || false,
+        comissao_servicos: formFunc.comissao_servicos ? Number(formFunc.comissao_servicos) : 0,
+        comissao_produtos: formFunc.comissao_produtos ? Number(formFunc.comissao_produtos) : 0,
         tenant_id: tenantIdFinal,
       };
 
@@ -432,7 +443,7 @@ export function Equipe() {
         <div className="fixed inset-0 bg-[rgba(15,23,42,0.6)] flex items-center justify-center z-[1000] p-4">
           <div
             className="bg-white rounded-xl w-full max-w-[450px] p-6 shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)] animate-[modalAparecer_0.3s_ease-out]"
-            style={{ maxHeight: "90vh", overflowY: "auto" }}
+            style={{ maxHeight: "90dvh", overflowY: "auto" }}
           >
             <div className="flex justify-between items-center mb-6">
               <h3 className="m-0 text-xl font-bold">
@@ -548,7 +559,36 @@ export function Equipe() {
                 </div>
               )}
 
-              <div className="flex items-center gap-2 mt-2">
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold text-slate-600">Comissão Padrão (Serviços) %</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="Ex: 50"
+                    value={formFunc.comissao_servicos}
+                    onChange={(e) => setFormFunc({ ...formFunc, comissao_servicos: e.target.value })}
+                    className={inputClasse}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold text-slate-600">Comissão Padrão (Produtos) %</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="Ex: 10"
+                    value={formFunc.comissao_produtos}
+                    onChange={(e) => setFormFunc({ ...formFunc, comissao_produtos: e.target.value })}
+                    className={inputClasse}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mt-4">
                 <input
                   type="checkbox"
                   id="isAdminCheckbox"

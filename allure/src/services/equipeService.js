@@ -4,7 +4,11 @@ import { supabase } from "./supabase";
 export async function fetchProfissionais() {
   const { data, error } = await supabase
     .from("profissionais")
-    .select("*")
+    // Colunas explícitas: evita trafegar senha/comissao para quem não usa.
+    // ponytail: defesa em profundidade, não isolamento — a policy de SELECT
+    // ainda libera todas as colunas via PostgREST. Fechar de verdade exige
+    // REVOKE SELECT por coluna + RPC de admin (ver docs/uso-usuarios.md).
+    .select("id, nome, especialidade, telefone, ordem, foto, email, is_admin, comissao_servicos, comissao_produtos")
     .order("ordem", { ascending: true })
     .order("nome", { ascending: true });
   if (error) throw error;

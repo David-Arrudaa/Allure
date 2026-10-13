@@ -461,6 +461,10 @@ export function Agenda() {
       mostrarNotificacao(`Agendamento marcado como ${novoStatus}!`);
     } catch (error) {
       console.error("Erro ao alterar status:", error.message);
+      mostrarNotificacao(
+        "Não deu para mudar a situação desse horário. Tente de novo.",
+        "excluir",
+      );
     }
   };
 
@@ -477,6 +481,10 @@ export function Agenda() {
       mostrarNotificacao("Agendamento excluído com sucesso.", "excluir");
     } catch (error) {
       console.error("Erro ao excluir agendamento:", error.message);
+      mostrarNotificacao(
+        "Não deu para excluir esse horário. Ele continua na agenda — tente de novo.",
+        "excluir",
+      );
     }
   };
 

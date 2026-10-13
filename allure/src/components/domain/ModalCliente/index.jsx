@@ -4,6 +4,8 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useClientes } from "../../../hooks/useClientes";
+import { useEscapeKey } from "../../../hooks/useEscapeKey";
+import { toast } from "../../../lib/toast";
 import "./ModalCliente.css";
 // import "../ModalAgendamento/ModalAgendamento.css";
 
@@ -47,6 +49,8 @@ const montarObservacoesComAniversario = (obsExistente, dataNasc) => {
 
 export function ModalCliente({ isOpen, onClose, cliente }) {
   const { criarCliente, atualizarCliente, isSalvando } = useClientes();
+
+  useEscapeKey(onClose, isOpen);
 
   const {
     register,
@@ -114,13 +118,15 @@ export function ModalCliente({ isOpen, onClose, cliente }) {
       onClose();
     } catch (error) {
       console.error("Erro ao salvar cliente:", error.message);
-      alert(`Erro ao salvar cliente: ${error.message}`);
+      toast.error("Não deu para salvar os dados dessa cliente. Tente novamente.");
     }
   };
 
+  // Overlay não fecha no clique: evita perder o formulário preenchido
+  // com um toque acidental na borda (tela pequena). Fecha só por X/Cancelar.
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="modal-box">
         <div className="modal-header">
           <h2>{cliente ? "Editar Cliente" : "Nova Cliente"}</h2>
           <button className="btn-fechar" onClick={onClose} title="Fechar">
@@ -152,6 +158,8 @@ export function ModalCliente({ isOpen, onClose, cliente }) {
                 render={({ field: { onChange, value } }) => (
                   <input
                     type="text"
+                    inputMode="numeric"
+                    autoComplete="tel"
                     placeholder="(00) 00000-0000"
                     value={value}
                     onChange={(e) => onChange(applyPhoneMask(e.target.value))}

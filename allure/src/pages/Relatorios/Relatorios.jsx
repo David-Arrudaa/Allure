@@ -137,11 +137,17 @@ export function Relatorios() {
     dadosPagos.forEach((item) => {
       const valor = Number(item.valor) || 0;
       total += valor;
-      const taxa =
-        item.profissionais?.comissao !== undefined && item.profissionais?.comissao !== null
-          ? Number(item.profissionais.comissao)
-          : 50;
-      comissoes += valor * (taxa / 100);
+
+      const ehVendaProd = isVenda(item);
+      const taxaPadrao = ehVendaProd
+        ? (item.profissionais?.comissao_produtos !== undefined && item.profissionais?.comissao_produtos !== null
+            ? Number(item.profissionais.comissao_produtos)
+            : 0)
+        : (item.profissionais?.comissao_servicos !== undefined && item.profissionais?.comissao_servicos !== null
+            ? Number(item.profissionais.comissao_servicos)
+            : 50);
+
+      comissoes += valor * (taxaPadrao / 100);
 
       const tipo = nomeFormaPagamento(item.forma_pagamento);
       if (tipo === "pix") pix += valor;
@@ -207,18 +213,23 @@ export function Relatorios() {
     dadosPagos.forEach((item) => {
       const id = item.profissionais?.id || item.profissional_id || "sem-prof";
       const nome = item.profissionais?.nome || "Equipe";
-      const taxa =
-        item.profissionais?.comissao !== undefined && item.profissionais?.comissao !== null
-          ? Number(item.profissionais.comissao)
-          : 50;
+      const ehVendaProd = isVenda(item);
+      const taxa = ehVendaProd
+        ? (item.profissionais?.comissao_produtos !== undefined && item.profissionais?.comissao_produtos !== null
+            ? Number(item.profissionais.comissao_produtos)
+            : 0)
+        : (item.profissionais?.comissao_servicos !== undefined && item.profissionais?.comissao_servicos !== null
+            ? Number(item.profissionais.comissao_servicos)
+            : 50);
       const valor = Number(item.valor) || 0;
-      if (!mapa[id]) mapa[id] = { id, nome, atendimentos: 0, totalProduzido: 0, comissaoPct: taxa };
+      const comissaoItem = valor * (taxa / 100);
+
+      if (!mapa[id]) mapa[id] = { id, nome, atendimentos: 0, totalProduzido: 0, comissaoValor: 0 };
       mapa[id].atendimentos += 1;
       mapa[id].totalProduzido += valor;
+      mapa[id].comissaoValor += comissaoItem;
     });
-    return Object.values(mapa)
-      .map((p) => ({ ...p, comissaoValor: p.totalProduzido * (p.comissaoPct / 100) }))
-      .sort((a, b) => b.totalProduzido - a.totalProduzido);
+    return Object.values(mapa).sort((a, b) => b.totalProduzido - a.totalProduzido);
   }, [dadosPagos]);
 
   const abas = [
@@ -309,6 +320,11 @@ export function Relatorios() {
       return;
     }
     janela.document.documentElement.innerHTML = html;
+    try {
+      janela.opener = null;
+    } catch {
+      // Inofensivo se bloqueado pelo navegador
+    }
     setTimeout(() => {
       janela.focus();
       janela.print();

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { fetchProdutos } from "../../../services/produtosService";
-import { fetchProfissionais } from "../../../services/equipeService";
+import { fetchProfissionaisParaAgenda as fetchProfissionais } from "../../../services/agendaService";
 import { fetchClientes } from "../../../services/clientesService";
 import {
   criarVendaAvulsa,
@@ -69,6 +69,10 @@ export function ModalRecebimentoAvulso({
   const [profissionalId, setProfissionalId] = useState("");
   const [clienteId, setClienteId] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("Pix");
+  // Pagamento misto: lista de parcelas { id, forma, valorTexto }
+  const [pagamentos, setPagamentos] = useState([
+    { id: "pag-1", forma: "Pix", valorTexto: "" },
+  ]);
   const [dataRecebimento, setDataRecebimento] = useState(
     new Date().toISOString().split("T")[0]
   );
@@ -99,7 +103,7 @@ export function ModalRecebimentoAvulso({
     try {
       const [prodsList, profsList, clientesData] = await Promise.all([
         fetchProdutos(tenantId).catch(() => []),
-        fetchProfissionais(tenantId).catch(() => []),
+        fetchProfissionais().catch(() => []),
         fetchClientes({ tenantId, page: 1, pageSize: 200 }).catch(() => ({ clientes: [] })),
       ]);
 
@@ -163,9 +167,9 @@ export function ModalRecebimentoAvulso({
           ""
         );
         setClienteId(vendaEditando.customer_id || vendaEditando.clienteId || "");
-        setFormaPagamento(
-          vendaEditando.forma_pagamento || vendaEditando.forma || "Pix"
-        );
+        const formaInicial = vendaEditando.forma_pagamento || vendaEditando.forma || "Pix";
+        setFormaPagamento(formaInicial);
+        setPagamentos([{ id: "pag-1", forma: formaInicial, valorTexto: "" }]);
         setDataRecebimento(
           vendaEditando.dataIso ||
           (vendaEditando.data_horario
@@ -185,6 +189,7 @@ export function ModalRecebimentoAvulso({
         setObservacoes("");
         setClienteId("");
         setFormaPagamento("Pix");
+        setPagamentos([{ id: "pag-1", forma: "Pix", valorTexto: "" }]);
         setDataRecebimento(new Date().toISOString().split("T")[0]);
 
         if (profsList.length > 0) {
@@ -213,6 +218,44 @@ export function ModalRecebimentoAvulso({
     return Math.max(0, subtotalCarrinho - descontoNumerico);
   }, [subtotalCarrinho, descontoNumerico]);
 
+  // Soma das parcelas de pagamento informadas pelo usuário
+  const totalPagamentosDigitado = useMemo(() => {
+    return pagamentos.reduce((acc, curr) => {
+      const v = parseMoedaParaNumero(curr.valorTexto);
+      return acc + (isNaN(v) ? 0 : v);
+    }, 0);
+  }, [pagamentos]);
+
+  // Se houver mais de uma forma, o valor digitado precisa bater com o total líquido
+  const diferencaPagamento = useMemo(() => {
+    if (pagamentos.length <= 1) return 0;
+    return Math.round((totalLiquido - totalPagamentosDigitado) * 100) / 100;
+  }, [totalLiquido, totalPagamentosDigitado, pagamentos.length]);
+
+  const adicionarFormaPagamento = () => {
+    setPagamentos((prev) => [
+      ...prev,
+      { id: `pag-${Date.now()}`, forma: "Dinheiro", valorTexto: "" },
+    ]);
+  };
+
+  const removerFormaPagamento = (id) => {
+    if (pagamentos.length <= 1) return;
+    setPagamentos((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const alterarFormaPagamentoItem = (id, campo, valor) => {
+    setPagamentos((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        if (campo === "valorTexto") {
+          return { ...p, valorTexto: aplicarMascaraMoeda(valor) };
+        }
+        return { ...p, [campo]: valor };
+      })
+    );
+  };
+
   // Ações do Carrinho
   const adicionarAoCarrinho = () => {
     if (!produtoParaAdicionarId) {
@@ -224,6 +267,13 @@ export function ModalRecebimentoAvulso({
     if (!prod) return;
 
     const qtd = Math.max(1, Number(qtdParaAdicionar) || 1);
+    const estoqueDisponivel = Number(prod.estoque || 0);
+
+    if (estoqueDisponivel <= 0) {
+      setErroMsg(`O produto "${prod.nome}" está esgotado no estoque.`);
+      return;
+    }
+
     const precoUnitario = Number(prod.preco || 0);
 
     const indexExistente = itensCarrinho.findIndex(
@@ -232,6 +282,12 @@ export function ModalRecebimentoAvulso({
 
     if (indexExistente >= 0) {
       const novaQtd = itensCarrinho[indexExistente].quantidade + qtd;
+      if (novaQtd > estoqueDisponivel) {
+        setErroMsg(
+          `Quantidade total (${novaQtd} un.) excede o estoque disponível (${estoqueDisponivel} un.) de "${prod.nome}".`
+        );
+        return;
+      }
       const novoCarrinho = [...itensCarrinho];
       novoCarrinho[indexExistente] = {
         ...novoCarrinho[indexExistente],
@@ -249,6 +305,8 @@ export function ModalRecebimentoAvulso({
           precoUnitario,
           quantidade: qtd,
           subtotal: qtd * precoUnitario,
+          comissao_percentual: prod.comissao_percentual,
+          profissionalId: profissionalId || (profissionais[0]?.id || null),
         },
       ]);
     }
@@ -274,6 +332,17 @@ export function ModalRecebimentoAvulso({
     );
   };
 
+  const alterarProfissionalItem = (idTemporario, novoProfissionalId) => {
+    setItensCarrinho((prev) =>
+      prev.map((it) => {
+        if (it.idTemporario === idTemporario) {
+          return { ...it, profissionalId: novoProfissionalId };
+        }
+        return it;
+      })
+    );
+  };
+
   const removerItem = (idTemporario) => {
     setItensCarrinho((prev) => prev.filter((it) => it.idTemporario !== idTemporario));
   };
@@ -292,6 +361,14 @@ export function ModalRecebimentoAvulso({
       return;
     }
 
+    // Validação de pagamento misto: a soma precisa bater com o total líquido
+    if (pagamentos.length > 1 && Math.abs(diferencaPagamento) > 0.01) {
+      setErroMsg(
+        `A soma das formas de pagamento (R$ ${totalPagamentosDigitado.toFixed(2)}) não fecha com o total da venda (R$ ${totalLiquido.toFixed(2)}). Ajuste os valores.`
+      );
+      return;
+    }
+
     setIsSaving(true);
     setErroMsg("");
 
@@ -301,14 +378,32 @@ export function ModalRecebimentoAvulso({
       const minStr = String(horaAgora.getMinutes()).padStart(2, "0");
       const dataCompleta = `${dataRecebimento}T${horaStr}:${minStr}:00-03:00`;
 
+      // Preserva profissionalId e comissao_percentual por item
       const itensPayload = itensCarrinho.map((it) => ({
         tipo: "produto",
         produtoId: it.produtoId,
         descricao: it.descricao,
         quantidade: it.quantidade,
         valorUnitario: it.precoUnitario,
+        profissionalId: it.profissionalId || profissionalId,
+        comissao_percentual: it.comissao_percentual,
       }));
 
+      // Monta as parcelas para o backend
+      let pagamentosPayload = [];
+      if (pagamentos.length === 1 && !pagamentos[0].valorTexto) {
+        // Forma única sem valor explicitado: assume o total líquido
+        pagamentosPayload = [{ forma: pagamentos[0].forma, valor: totalLiquido }];
+      } else {
+        pagamentosPayload = pagamentos
+          .map((p) => ({
+            forma: p.forma,
+            valor: parseMoedaParaNumero(p.valorTexto) || 0,
+          }))
+          .filter((p) => p.valor > 0);
+      }
+
+      const formaPrincipal = pagamentosPayload[0]?.forma || formaPagamento || "Pix";
       const transacaoIdAlvo = vendaEditando?.transacao_id || vendaEditando?.id;
 
       if (isEdicao && transacaoIdAlvo) {
@@ -317,24 +412,26 @@ export function ModalRecebimentoAvulso({
           tenantId,
           profissionalId,
           customerId: clienteId || null,
-          formaPagamento,
+          formaPagamento: formaPrincipal,
           statusPagamento: "pago",
           dataTransacao: dataCompleta,
           desconto: descontoNumerico,
           observacoes,
           itensNovos: itensPayload,
+          pagamentos: pagamentosPayload,
         });
       } else {
         await criarVendaAvulsa({
           tenantId,
           profissionalId,
           customerId: clienteId || null,
-          formaPagamento,
+          formaPagamento: formaPrincipal,
           statusPagamento: "pago",
           dataTransacao: dataCompleta,
           desconto: descontoNumerico,
           observacoes,
           itens: itensPayload,
+          pagamentos: pagamentosPayload,
         });
       }
 
@@ -354,12 +451,13 @@ export function ModalRecebimentoAvulso({
     (p) => String(p.id) === String(produtoParaAdicionarId)
   );
 
+  // Overlay não fecha no clique: evita perder a venda em digitação
+  // com um toque acidental na borda (tela pequena). Fecha só por X/Cancelar.
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div
         className="modal-box recebimento-box"
         style={{ maxWidth: "620px" }}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
           <div className="modal-header-titulo-wrapper">
@@ -514,9 +612,33 @@ export function ModalRecebimentoAvulso({
                         <strong style={{ display: "block", color: "#1E293B", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
                           {item.descricao}
                         </strong>
-                        <span style={{ fontSize: "0.75rem", color: "#64748B" }}>
-                          {formatarMoeda(item.precoUnitario)} un.
-                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                            {formatarMoeda(item.precoUnitario)} un.
+                          </span>
+                          {profissionais.length > 1 && (
+                            <select
+                              value={item.profissionalId || profissionalId || ""}
+                              onChange={(e) => alterarProfissionalItem(item.idTemporario, e.target.value)}
+                              disabled={isSaving}
+                              style={{
+                                fontSize: "0.7rem",
+                                padding: "1px 4px",
+                                borderRadius: "4px",
+                                border: "1px solid #CBD5E1",
+                                background: "#F8FAFC",
+                                color: "#475569",
+                              }}
+                              title="Profissional responsável por este item"
+                            >
+                              {profissionais.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.nome}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -627,39 +749,124 @@ export function ModalRecebimentoAvulso({
               </div>
             </div>
 
-            {/* PAGAMENTO + DATA */}
-            <div className="form-linha-dupla">
-              <div className="form-grupo">
-                <label>
+            {/* PAGAMENTOS (PAGAMENTO MISTO) */}
+            <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "10px", padding: "12px", marginTop: "4px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <label style={{ margin: 0, display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", fontWeight: "600", color: "#334155" }}>
                   <CreditCard size={15} />
                   <span>Forma de Pagamento *</span>
                 </label>
-                <select
-                  value={formaPagamento}
-                  onChange={(e) => setFormaPagamento(e.target.value)}
-                  required
+                <button
+                  type="button"
+                  onClick={adicionarFormaPagamento}
                   disabled={isSaving}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--cor-primaria, #7C3AED)",
+                    fontSize: "0.8rem",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    padding: "2px 6px",
+                  }}
                 >
-                  <option value="Pix">Pix</option>
-                  <option value="Dinheiro">Dinheiro</option>
-                  <option value="Cartão de Crédito">Cartão de Crédito</option>
-                  <option value="Cartão de Débito">Cartão de Débito</option>
-                </select>
+                  + Dividir pagamento
+                </button>
               </div>
 
-              <div className="form-grupo">
-                <label>
-                  <Calendar size={15} />
-                  <span>Data da Venda *</span>
-                </label>
-                <input
-                  type="date"
-                  value={dataRecebimento}
-                  onChange={(e) => setDataRecebimento(e.target.value)}
-                  required
-                  disabled={isSaving}
-                />
-              </div>
+              {pagamentos.map((p, idx) => (
+                <div
+                  key={p.id}
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                    alignItems: "center",
+                    marginBottom: idx === pagamentos.length - 1 ? "4px" : "8px",
+                  }}
+                >
+                  <select
+                    value={p.forma}
+                    onChange={(e) => alterarFormaPagamentoItem(p.id, "forma", e.target.value)}
+                    disabled={isSaving}
+                    style={{ flex: 1, padding: "8px 10px", borderRadius: "8px", border: "1px solid #CBD5E1", fontSize: "0.9rem" }}
+                  >
+                    <option value="Pix">Pix</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Cartão de Crédito">Cartão de Crédito</option>
+                    <option value="Cartão de Débito">Cartão de Débito</option>
+                  </select>
+
+                  {pagamentos.length > 1 && (
+                    <>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="R$ 0,00"
+                        value={p.valorTexto}
+                        onChange={(e) => alterarFormaPagamentoItem(p.id, "valorTexto", e.target.value)}
+                        disabled={isSaving}
+                        style={{
+                          width: "120px",
+                          padding: "8px 10px",
+                          borderRadius: "8px",
+                          border: "1px solid #CBD5E1",
+                          fontSize: "0.9rem",
+                          textAlign: "right",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removerFormaPagamento(p.id)}
+                        disabled={isSaving}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#EF4444",
+                          cursor: "pointer",
+                          padding: "4px",
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                        title="Remover forma"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+
+              {pagamentos.length > 1 && (
+                <div
+                  style={{
+                    fontSize: "0.8rem",
+                    marginTop: "6px",
+                    fontWeight: "600",
+                    color: Math.abs(diferencaPagamento) <= 0.01 ? "#16A34A" : "#D97706",
+                  }}
+                >
+                  {Math.abs(diferencaPagamento) <= 0.01
+                    ? `✓ Total conferido: R$ ${totalLiquido.toFixed(2)}`
+                    : diferencaPagamento > 0
+                    ? `Falta R$ ${diferencaPagamento.toFixed(2)} para fechar o total de R$ ${totalLiquido.toFixed(2)}`
+                    : `Soma ultrapassa o total em R$ ${Math.abs(diferencaPagamento).toFixed(2)}`}
+                </div>
+              )}
+            </div>
+
+            {/* DATA DA VENDA */}
+            <div className="form-grupo" style={{ marginTop: "8px" }}>
+              <label>
+                <Calendar size={15} />
+                <span>Data da Venda *</span>
+              </label>
+              <input
+                type="date"
+                value={dataRecebimento}
+                onChange={(e) => setDataRecebimento(e.target.value)}
+                required
+                disabled={isSaving}
+              />
             </div>
 
             {/* DESCONTO E OBSERVAÇÕES */}

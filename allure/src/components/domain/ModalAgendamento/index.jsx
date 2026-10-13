@@ -5,6 +5,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ModalConfirmacaoRetroativo } from "../ModalConfirmacaoRetroativo";
+import { toast } from "../../../lib/toast";
 import "./ModalAgendamento.css";
 
 const agendamentoSchema = z.object({
@@ -552,7 +553,7 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
       onClose();
     } catch (err) {
       console.error("Erro ao salvar agendamento:", err);
-      alert("Erro ao salvar agendamento: " + (err.message || err));
+      toast.error("Não deu para salvar esse horário. Confira os dados e tente de novo.");
       setIsSaving(false);
     }
   };
@@ -769,6 +770,8 @@ export function ModalAgendamento({ isOpen, onClose, agendamento, onSave }) {
                 <label>Telefone</label>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  autoComplete="tel"
                   placeholder="(00) 00000-0000"
                   value={telefoneCliente}
                   onChange={(e) =>
